@@ -1,0 +1,24 @@
+﻿# Python / FastAPI
+HealthApp-back/backend/.env
+HealthApp-back/**/*.env
+HealthApp-back/**/__pycache__/
+HealthApp-back/**/*.pyc
+HealthApp-back/.venv/
+HealthApp-back/venv/
+HealthApp-back/.pytest_cache/
+HealthApp-back/.mypy_cache/
+
+# IDE
+.idea/
+**/.idea/
+*.iml
+
+# Android / Gradle
+HealtApp-front/.gradle/
+HealtApp-front/**/build/
+HealtApp-front/local.properties
+
+# Logs / OS
+*.log
+.DS_Store
+Thumbs.db

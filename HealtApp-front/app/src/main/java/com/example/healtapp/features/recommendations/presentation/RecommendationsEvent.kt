@@ -1,0 +1,3 @@
+package com.example.healtapp.features.recommendations.presentation
+
+sealed interface RecommendationsEvent
