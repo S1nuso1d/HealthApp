@@ -1,6 +1,6 @@
 from datetime import datetime, time
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -8,6 +8,9 @@ from app.db.database import get_db
 from app.models.meal import MealRecord
 from app.models.user import User
 from app.schemas.meal import MealCreate, MealOut
+from app.services.analytics_sync import rebuild_user_analytics
+from app.services.realtime_manager import realtime_manager
+from app.services.smart_trigger_service import generate_smart_triggers_and_reminders
 
 router = APIRouter(prefix="/meal", tags=["Meal"])
 
@@ -15,6 +18,7 @@ router = APIRouter(prefix="/meal", tags=["Meal"])
 @router.post("/", response_model=MealOut)
 def create_meal(
     data: MealCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -42,6 +46,17 @@ def create_meal(
     db.add(meal)
     db.commit()
     db.refresh(meal)
+
+    rebuild_user_analytics(db, current_user.id, days=7)
+    generate_smart_triggers_and_reminders(db, current_user.id, period_days=7)
+
+    background_tasks.add_task(
+        realtime_manager.broadcast_user_update,
+        current_user.id,
+        "meal",
+        "Обновлены данные питания",
+    )
+
     return meal
 
 

@@ -4,9 +4,10 @@ import com.example.healtapp.data.network.api.ProfileApi
 import com.example.healtapp.data.network.dto.profile.ProfileDto
 import com.example.healtapp.data.network.dto.profile.UpdateProfileRequestDto
 import com.example.healtapp.domain.repository.ProfileRepository
+import javax.inject.Inject
 
-class ProfileRepositoryImpl(
-    private val profileApi: ProfileApi
+class ProfileRepositoryImpl @Inject constructor(
+    private val profileApi: ProfileApi,
 ) : ProfileRepository {
 
     override suspend fun getMyProfile(): Result<ProfileDto> {

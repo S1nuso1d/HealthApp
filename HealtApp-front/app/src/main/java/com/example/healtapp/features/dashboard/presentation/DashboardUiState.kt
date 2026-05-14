@@ -16,7 +16,8 @@ data class DashboardUiState(
     val error: String? = null,
 
     val greetingText: String = "Добро пожаловать",
-    val userName: String = "друг",
+
+
 
     val sleepHours: Float = 0f,
     val sleepTargetHours: Float = 8f,

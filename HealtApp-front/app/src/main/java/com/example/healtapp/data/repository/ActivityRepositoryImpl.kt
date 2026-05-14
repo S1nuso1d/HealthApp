@@ -4,9 +4,10 @@ import com.example.healtapp.data.network.api.ActivityApi
 import com.example.healtapp.data.network.dto.activity.ActivityCreateRequestDto
 import com.example.healtapp.data.network.dto.activity.ActivityDto
 import com.example.healtapp.domain.repository.ActivityRepository
+import javax.inject.Inject
 
-class ActivityRepositoryImpl(
-    private val api: ActivityApi
+class ActivityRepositoryImpl @Inject constructor(
+    private val api: ActivityApi,
 ) : ActivityRepository {
 
     override suspend fun getTodayActivity(): Result<ActivityDto?> {

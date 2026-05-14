@@ -1,6 +1,6 @@
 from datetime import datetime, time
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -11,6 +11,9 @@ from app.schemas.hydration import (
     HydrationResponse,
     HydrationSummaryResponse,
 )
+from app.services.analytics_sync import rebuild_user_analytics
+from app.services.realtime_manager import realtime_manager
+from app.services.smart_trigger_service import generate_smart_triggers_and_reminders
 
 try:
     from app.models.hydration import HydrationRecord
@@ -32,6 +35,7 @@ router = APIRouter(prefix="/hydration", tags=["Hydration"])
 )
 def create_hydration_record(
     hydration_data: HydrationCreate,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -47,6 +51,16 @@ def create_hydration_record(
     db.add(new_record)
     db.commit()
     db.refresh(new_record)
+
+    rebuild_user_analytics(db, current_user.id, days=7)
+    generate_smart_triggers_and_reminders(db, current_user.id, period_days=7)
+
+    background_tasks.add_task(
+        realtime_manager.broadcast_user_update,
+        current_user.id,
+        "hydration",
+        "Обновлены данные гидратации",
+    )
 
     return new_record
 
@@ -143,6 +157,7 @@ def get_hydration_record_by_id(
 )
 def delete_hydration_record(
     record_id: int,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -163,5 +178,15 @@ def delete_hydration_record(
 
     db.delete(record)
     db.commit()
+
+    rebuild_user_analytics(db, current_user.id, days=7)
+    generate_smart_triggers_and_reminders(db, current_user.id, period_days=7)
+
+    background_tasks.add_task(
+        realtime_manager.broadcast_user_update,
+        current_user.id,
+        "hydration",
+        "Удалена запись гидратации",
+    )
 
     return {"message": "Запись гидратации успешно удалена"}

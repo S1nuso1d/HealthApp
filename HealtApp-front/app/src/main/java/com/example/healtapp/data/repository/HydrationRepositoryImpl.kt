@@ -5,9 +5,10 @@ import com.example.healtapp.data.network.dto.hydration.CreateHydrationRequestDto
 import com.example.healtapp.data.network.dto.hydration.HydrationDto
 import com.example.healtapp.data.network.dto.hydration.HydrationSummaryDto
 import com.example.healtapp.domain.repository.HydrationRepository
+import javax.inject.Inject
 
-class HydrationRepositoryImpl(
-    private val hydrationApi: HydrationApi
+class HydrationRepositoryImpl @Inject constructor(
+    private val hydrationApi: HydrationApi,
 ) : HydrationRepository {
 
     override suspend fun getHydrationHistory(): Result<List<HydrationDto>> {

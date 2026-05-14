@@ -7,12 +7,12 @@ data class ActivityUiState(
     val isSaving: Boolean = false,
     val error: String? = null,
 
-    val activityType: String = "walk",
+    val activityType: String = "",
     val durationMinutes: String = "",
     val steps: String = "",
     val caloriesBurned: String = "",
     val distanceKm: String = "",
-    val intensity: String = "medium",
+    val intensity: String = "",
 
     val todayActivity: ActivityDto? = null
 )

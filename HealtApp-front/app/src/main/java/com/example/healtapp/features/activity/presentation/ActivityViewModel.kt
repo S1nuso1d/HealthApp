@@ -2,16 +2,20 @@ package com.example.healtapp.features.activity.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.healtapp.core.common.AppRefreshBus
 import com.example.healtapp.data.network.dto.activity.ActivityCreateRequestDto
 import com.example.healtapp.domain.repository.ActivityRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import javax.inject.Inject
 
-class ActivityViewModel(
+@HiltViewModel
+class ActivityViewModel @Inject constructor(
     private val repository: ActivityRepository
 ) : ViewModel() {
 
@@ -117,6 +121,7 @@ class ActivityViewModel(
                         distanceKm = "",
                         error = null
                     )
+                    AppRefreshBus.notifyDataChanged()
                 }
                 .onFailure { throwable ->
                     _uiState.value = _uiState.value.copy(

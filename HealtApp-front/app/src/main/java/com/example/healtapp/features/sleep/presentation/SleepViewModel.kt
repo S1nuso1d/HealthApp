@@ -1,10 +1,12 @@
 package com.example.healtapp.features.sleep.presentation
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.healtapp.core.common.AppRefreshBus
 import com.example.healtapp.data.network.dto.sleep.CreateSleepRequestDto
-import com.example.healtapp.di.AppModule
+import com.example.healtapp.domain.repository.ProfileRepository
+import com.example.healtapp.domain.repository.SleepRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,13 +15,13 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import javax.inject.Inject
 
-class SleepViewModel(
-    context: Context
+@HiltViewModel
+class SleepViewModel @Inject constructor(
+    private val repository: SleepRepository,
+    private val profileRepository: ProfileRepository,
 ) : ViewModel() {
-
-    private val repository = AppModule.provideSleepRepository(context)
-    private val profileRepository = AppModule.provideProfileRepository(context)
 
     private val _uiState = MutableStateFlow(SleepUiState())
     val uiState: StateFlow<SleepUiState> = _uiState.asStateFlow()
@@ -130,6 +132,7 @@ class SleepViewModel(
                         noteInput = ""
                     )
                     load()
+                    AppRefreshBus.notifyDataChanged()
                 }
                 .onFailure { throwable ->
                     _uiState.value = _uiState.value.copy(

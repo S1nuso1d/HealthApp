@@ -1,16 +1,22 @@
 package com.example.healtapp.features.onboarding.presentation
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.healtapp.core.common.AppRefreshBus
+import com.example.healtapp.data.preferences.TokenStorage
 import com.example.healtapp.domain.repository.ProfileRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import retrofit2.HttpException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class OnboardingViewModel(
-    private val profileRepository: ProfileRepository
+@HiltViewModel
+class OnboardingViewModel @Inject constructor(
+    private val profileRepository: ProfileRepository,
+    private val tokenStorage: TokenStorage,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(OnboardingUiState())
@@ -138,6 +144,10 @@ class OnboardingViewModel(
                     isSaved = true
                 )
             }.onFailure { throwable ->
+                if (throwable is HttpException && throwable.code() == 401) {
+                    tokenStorage.clearToken()
+                    AppRefreshBus.notifySessionExpired()
+                }
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = throwable.message ?: "Не удалось сохранить профиль"
@@ -148,16 +158,5 @@ class OnboardingViewModel(
 
     fun consumeSavedState() {
         _uiState.value = _uiState.value.copy(isSaved = false)
-    }
-
-    companion object {
-        fun factory(profileRepository: ProfileRepository): ViewModelProvider.Factory {
-            return object : ViewModelProvider.Factory {
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                    return OnboardingViewModel(profileRepository) as T
-                }
-            }
-        }
     }
 }

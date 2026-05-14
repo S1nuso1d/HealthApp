@@ -3,8 +3,6 @@ package com.example.healtapp.core.common
 object Constants {
     const val APP_NAME = "HealthApp"
 
-    const val BASE_URL = "http://192.168.31.198:8001/"
-
     object Goals {
         const val BETTER_SLEEP = "better_sleep"
         const val LOSE_WEIGHT = "lose_weight"

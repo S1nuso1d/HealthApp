@@ -4,10 +4,11 @@ import com.example.healtapp.data.network.api.AuthApi
 import com.example.healtapp.data.network.dto.auth.RegisterRequestDto
 import com.example.healtapp.data.preferences.TokenStorage
 import com.example.healtapp.domain.repository.AuthRepository
+import javax.inject.Inject
 
-class AuthRepositoryImpl(
+class AuthRepositoryImpl @Inject constructor(
     private val authApi: AuthApi,
-    private val tokenStorage: TokenStorage
+    private val tokenStorage: TokenStorage,
 ) : AuthRepository {
 
     override suspend fun login(email: String, password: String): Result<Unit> {

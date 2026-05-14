@@ -1,9 +1,11 @@
 package com.example.healtapp.features.recommendations.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -11,36 +13,39 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.healtapp.di.AppModule
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.healtapp.core.ui.theme.AppBackgroundBottom
+import com.example.healtapp.core.ui.theme.AppBackgroundTop
 import com.example.healtapp.features.recommendations.presentation.RecommendationsViewModel
 import com.example.healtapp.features.recommendations.ui.components.RecommendationCard
 
 @Composable
 fun RecommendationsScreen() {
-    val context = LocalContext.current
-
-    val viewModel = remember {
-        RecommendationsViewModel(
-            aiRepository = AppModule.provideAiRepository(context)
-        )
-    }
+    val viewModel: RecommendationsViewModel = hiltViewModel()
 
     val uiState by viewModel.uiState.collectAsState()
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(AppBackgroundTop, AppBackgroundBottom)
+                )
+            )
+            .statusBarsPadding()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
+            .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
             text = "AI-рекомендации",
-            style = MaterialTheme.typography.headlineMedium
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold
         )
 
         Text(
@@ -66,7 +71,7 @@ fun RecommendationsScreen() {
 
             uiState.recommendations.isEmpty() -> {
                 Text(
-                    text = "Пока рекомендаций нет",
+                    text = "На сегодня рекомендаций пока нет. Добавь данные о сне, питании, гидратации и активности, чтобы я смог помочь точнее.",
                     style = MaterialTheme.typography.bodyLarge
                 )
             }

@@ -4,9 +4,10 @@ import com.example.healtapp.data.network.api.SleepApi
 import com.example.healtapp.data.network.dto.sleep.CreateSleepRequestDto
 import com.example.healtapp.data.network.dto.sleep.SleepDto
 import com.example.healtapp.domain.repository.SleepRepository
+import javax.inject.Inject
 
-class SleepRepositoryImpl(
-    private val sleepApi: SleepApi
+class SleepRepositoryImpl @Inject constructor(
+    private val sleepApi: SleepApi,
 ) : SleepRepository {
 
     override suspend fun getSleepHistory(): Result<List<SleepDto>> {

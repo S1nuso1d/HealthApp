@@ -14,9 +14,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -25,9 +25,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.healtapp.core.common.Constants
 import com.example.healtapp.core.ui.components.AppButton
 import com.example.healtapp.core.ui.components.AppTextField
@@ -35,7 +34,6 @@ import com.example.healtapp.core.ui.theme.AppBackgroundBottom
 import com.example.healtapp.core.ui.theme.AppBackgroundTop
 import com.example.healtapp.core.ui.theme.CardBlue
 import com.example.healtapp.core.ui.theme.CardMint
-import com.example.healtapp.di.AppModule
 import com.example.healtapp.features.onboarding.presentation.OnboardingEvent
 import com.example.healtapp.features.onboarding.presentation.OnboardingViewModel
 import com.example.healtapp.features.onboarding.ui.components.ActivityLevelSelector
@@ -45,12 +43,7 @@ import com.example.healtapp.features.onboarding.ui.components.GoalSelector
 fun OnboardingScreen(
     onFinish: () -> Unit
 ) {
-    val context = LocalContext.current
-    val repository = AppModule.provideProfileRepository(context)
-
-    val viewModel: OnboardingViewModel = viewModel(
-        factory = OnboardingViewModel.factory(repository)
-    )
+    val viewModel: OnboardingViewModel = hiltViewModel()
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -74,9 +67,7 @@ fun OnboardingScreen(
             .padding(horizontal = 20.dp, vertical = 20.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
                 text = "Настроим профиль",
                 style = MaterialTheme.typography.headlineMedium,
@@ -84,7 +75,7 @@ fun OnboardingScreen(
             )
 
             Text(
-                text = "Заполни базовые данные, чтобы рекомендации стали персональными и точными",
+                text = "Заполни основные данные, чтобы приложение показывало точные рекомендации и ежедневную сводку.",
                 style = MaterialTheme.typography.bodyMedium
             )
         }
@@ -169,12 +160,6 @@ fun OnboardingScreen(
                 )
 
                 AppTextField(
-                    value = uiState.targetSleep,
-                    onValueChange = { viewModel.onEvent(OnboardingEvent.TargetSleepChanged(it)) },
-                    label = "Цель сна (часы)"
-                )
-
-                AppTextField(
                     value = uiState.targetWater,
                     onValueChange = { viewModel.onEvent(OnboardingEvent.TargetWaterChanged(it)) },
                     label = "Цель воды (мл)"
@@ -206,9 +191,7 @@ fun OnboardingScreen(
 
                 AppButton(
                     text = if (uiState.isLoading) "Сохраняем..." else "Продолжить",
-                    onClick = {
-                        viewModel.onEvent(OnboardingEvent.Submit)
-                    },
+                    onClick = { viewModel.onEvent(OnboardingEvent.Submit) },
                     enabled = !uiState.isLoading
                 )
             }

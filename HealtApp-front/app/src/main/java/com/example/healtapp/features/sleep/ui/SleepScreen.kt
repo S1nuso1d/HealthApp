@@ -1,20 +1,21 @@
 package com.example.healtapp.features.sleep.ui
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.example.healtapp.core.ui.components.AppScreen
+import com.example.healtapp.core.ui.components.EmptyStateView
+import com.example.healtapp.core.ui.components.ErrorStateView
+import com.example.healtapp.core.ui.components.ShimmerBox
 import com.example.healtapp.core.ui.components.SectionHeader
 import com.example.healtapp.features.sleep.presentation.SleepViewModel
 import com.example.healtapp.features.sleep.ui.components.SleepFormCard
@@ -24,26 +25,34 @@ import com.example.healtapp.features.sleep.ui.components.SleepSummaryCard
 
 @Composable
 fun SleepScreen() {
-    val context = LocalContext.current
-    val viewModel = remember { SleepViewModel(context) }
+    val viewModel: SleepViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsState()
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+    AppScreen(
+        title = "Сон",
+        subtitle = "Длительность и качество",
+        headerIcon = Icons.Filled.Bedtime,
+        scrollable = true,
     ) {
         Text(
-            text = "Сон",
-            style = MaterialTheme.typography.headlineMedium
+            text = "Следи за продолжительностью сна, качеством и общим режимом отдыха.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
-        Text(
-            text = "Отслеживай продолжительность, качество и режим сна",
-            style = MaterialTheme.typography.bodyLarge
-        )
+        if (uiState.isLoading) {
+            ShimmerBox(modifier = Modifier.fillMaxWidth().height(110.dp))
+            ShimmerBox(modifier = Modifier.fillMaxWidth().height(84.dp))
+            return@AppScreen
+        }
+
+        if (uiState.error != null) {
+            ErrorStateView(
+                message = uiState.error ?: "Не удалось загрузить сон",
+                onRetry = { viewModel.load() }
+            )
+            return@AppScreen
+        }
 
         SleepSummaryCard(
             averageSleepHours = uiState.averageSleepHours,
@@ -69,8 +78,12 @@ fun SleepScreen() {
 
         SectionHeader("История сна")
 
-        uiState.records.forEach { record ->
-            SleepRecordItem(record = record)
+        if (uiState.records.isEmpty()) {
+            EmptyStateView("Пока нет записей. Добавь первую запись о сне, чтобы увидеть историю.")
+        } else {
+            uiState.records.forEach { record ->
+                SleepRecordItem(record = record)
+            }
         }
     }
 }

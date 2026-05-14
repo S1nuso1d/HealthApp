@@ -1,19 +1,20 @@
 package com.example.healtapp.features.hydration.presentation
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.healtapp.di.AppModule
+import com.example.healtapp.core.common.AppRefreshBus
+import com.example.healtapp.domain.repository.HydrationRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class HydrationViewModel(
-    context: Context
+@HiltViewModel
+class HydrationViewModel @Inject constructor(
+    private val repository: HydrationRepository,
 ) : ViewModel() {
-
-    private val repository = AppModule.provideHydrationRepository(context)
 
     private val _uiState = MutableStateFlow(HydrationUiState())
     val uiState: StateFlow<HydrationUiState> = _uiState.asStateFlow()
@@ -57,6 +58,7 @@ class HydrationViewModel(
 
             result.onSuccess {
                 load()
+                AppRefreshBus.notifyDataChanged()
             }.onFailure { throwable ->
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,

@@ -4,9 +4,10 @@ import com.example.healtapp.data.network.api.MealApi
 import com.example.healtapp.data.network.dto.meal.MealCreateRequestDto
 import com.example.healtapp.data.network.dto.meal.MealDto
 import com.example.healtapp.domain.repository.MealRepository
+import javax.inject.Inject
 
-class MealRepositoryImpl(
-    private val api: MealApi
+class MealRepositoryImpl @Inject constructor(
+    private val api: MealApi,
 ) : MealRepository {
 
     override suspend fun getTodayMeal(): Result<MealDto?> {

@@ -17,10 +17,10 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 
 @router.post(
     "/register",
-    response_model=UserResponse,
+    response_model=Token,
     summary="Регистрация пользователя",
-    description="Создает нового пользователя и пустой профиль для него.",
-    response_description="Созданный пользователь"
+    description="Создаёт пользователя, профиль и сразу возвращает JWT — как ожидает мобильный клиент.",
+    response_description="JWT для последующих запросов",
 )
 def register(user_data: UserCreate, db: Session = Depends(get_db)):
     existing_user = db.query(User).filter(User.email == user_data.email).first()
@@ -42,7 +42,11 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
     db.add(profile)
     db.commit()
 
-    return new_user
+    access_token = create_access_token(data={"sub": str(new_user.id)})
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+    }
 
 
 @router.post(

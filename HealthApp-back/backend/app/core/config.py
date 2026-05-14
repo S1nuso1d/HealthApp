@@ -12,6 +12,7 @@ class Settings:
         "sqlite:///./healthapp.db"
     )
 
+    # Не меняйте между перезапусками, если не хотите инвалидировать все JWT в клиентах.
     SECRET_KEY: str = os.getenv("SECRET_KEY", "super-secret-key")
     ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(

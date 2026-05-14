@@ -1,63 +1,58 @@
 package com.example.healtapp.features.dashboard.ui
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.healtapp.core.ui.components.AppScreen
+import com.example.healtapp.core.ui.components.ErrorStateView
 import com.example.healtapp.core.ui.components.SectionHeader
-import com.example.healtapp.di.AppModule
 import com.example.healtapp.features.dashboard.presentation.DashboardViewModel
 import com.example.healtapp.features.dashboard.ui.components.DashboardActivityCard
 import com.example.healtapp.features.dashboard.ui.components.DashboardHeader
 import com.example.healtapp.features.dashboard.ui.components.DashboardNutritionCard
 import com.example.healtapp.features.dashboard.ui.components.DashboardSleepCard
+import com.example.healtapp.features.dashboard.ui.components.DashboardSkeleton
 import com.example.healtapp.features.dashboard.ui.components.DashboardWaterCard
-import com.example.healtapp.features.dashboard.ui.components.QuickActionCard
-import com.example.healtapp.features.dashboard.ui.components.RecommendationPreviewCard
+import com.example.healtapp.features.recommendations.presentation.RecommendationsViewModel
+import com.example.healtapp.features.recommendations.ui.components.RecommendationCard
 
 @Composable
 fun DashboardScreen() {
-    val context = LocalContext.current
+    val dashboardViewModel: DashboardViewModel = hiltViewModel()
+    val recommendationsViewModel: RecommendationsViewModel = hiltViewModel()
 
-    val viewModel = remember {
-        DashboardViewModel(
-            profileRepository = AppModule.provideProfileRepository(context),
-            sleepRepository = AppModule.provideSleepRepository(context),
-            hydrationRepository = AppModule.provideHydrationRepository(context),
-            activityRepository = AppModule.provideActivityRepository(context),
-            mealRepository = AppModule.provideMealRepository(context)
-        )
-    }
+    val uiState by dashboardViewModel.uiState.collectAsState()
+    val recommendationsState by recommendationsViewModel.uiState.collectAsState()
 
-    val uiState by viewModel.uiState.collectAsState()
-
-    LaunchedEffect(Unit) {
-        viewModel.loadDashboard()
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
+    AppScreen(scrollable = true) {
         DashboardHeader(
-            greeting = uiState.greetingText,
-            userName = uiState.userName
+            greeting = "Привет!",
+            userName = "",
         )
 
-        SectionHeader("Сводка за сегодня")
+        SectionHeader(
+            title = "Сводка за сегодня",
+            subtitle = "Ключевые метрики по четырём направлениям здоровья",
+        )
+
+        if (uiState.isLoading) {
+            DashboardSkeleton()
+            return@AppScreen
+        }
+
+        if (uiState.error != null) {
+            ErrorStateView(
+                message = uiState.error ?: "Не удалось загрузить сводку",
+                onRetry = {
+                    dashboardViewModel.loadDashboard()
+                    recommendationsViewModel.loadRecommendations()
+                }
+            )
+            return@AppScreen
+        }
 
         DashboardSleepCard(
             sleepHours = uiState.sleepHours,
@@ -82,23 +77,39 @@ fun DashboardScreen() {
             caloriesBurnedToday = uiState.caloriesBurnedToday
         )
 
-        SectionHeader("Быстрые действия")
+        SectionHeader(
+            title = "Рекомендации дня",
+            subtitle = "Персональные подсказки на основе твоих данных",
+        )
 
-        uiState.quickActions.forEach { action ->
-            QuickActionCard(
-                title = action.title,
-                subtitle = action.subtitle
-            )
-        }
+        when {
+            recommendationsState.isLoading -> {
+                Text(
+                    text = "Обновляем рекомендации...",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
 
-        SectionHeader("Рекомендации дня")
+            recommendationsState.error != null -> {
+                Text(
+                    text = recommendationsState.error ?: "Не удалось загрузить рекомендации",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
 
-        uiState.recommendations.forEach { recommendation ->
-            RecommendationPreviewCard(
-                title = recommendation.title,
-                description = recommendation.description,
-                priority = recommendation.priority
-            )
+            recommendationsState.recommendations.isEmpty() -> {
+                Text(
+                    text = "На сегодня рекомендаций пока нет. Добавь данные о сне, питании, гидратации и активности, чтобы я смог помочь точнее.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+
+            else -> {
+                recommendationsState.recommendations.take(3).forEach { recommendation ->
+                    RecommendationCard(item = recommendation)
+                }
+            }
         }
     }
 }

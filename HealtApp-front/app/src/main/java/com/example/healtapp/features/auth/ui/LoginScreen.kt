@@ -35,8 +35,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.healtapp.di.AppModule
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.healtapp.features.auth.presentation.AuthEvent
 import com.example.healtapp.features.auth.presentation.AuthViewModel
 import com.example.healtapp.features.auth.ui.components.AuthAccent
@@ -51,12 +50,7 @@ fun LoginScreen(
     onLoginSuccess: () -> Unit,
     onRegisterClick: () -> Unit
 ) {
-    val context = LocalContext.current
-    val repository = AppModule.provideAuthRepository(context)
-
-    val viewModel: AuthViewModel = viewModel(
-        factory = AuthViewModel.factory(repository)
-    )
+    val viewModel: AuthViewModel = hiltViewModel()
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -84,6 +78,7 @@ fun LoginScreen(
             ) {
                 AuthHeader(
                     title = "Добро пожаловать",
+
                     subtitle = "Войди в HealthApp и продолжай следить за своим здоровьем"
                 )
 

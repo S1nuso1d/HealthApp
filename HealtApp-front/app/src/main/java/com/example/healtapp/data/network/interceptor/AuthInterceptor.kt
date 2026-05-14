@@ -1,16 +1,15 @@
 package com.example.healtapp.data.network.interceptor
 
-import com.example.healtapp.data.preferences.TokenStorage
-import kotlinx.coroutines.runBlocking
+import com.example.healtapp.data.network.auth.TokenProvider
 import okhttp3.Interceptor
 import okhttp3.Response
 
 class AuthInterceptor(
-    private val tokenStorage: TokenStorage
+    private val tokenProvider: TokenProvider
 ) : Interceptor {
 
     override fun intercept(chain: Interceptor.Chain): Response {
-        val token = runBlocking { tokenStorage.getToken() }
+        val token = tokenProvider.getToken()
 
         val request = chain.request().newBuilder().apply {
             if (!token.isNullOrBlank()) {

@@ -7,7 +7,7 @@ data class MealUiState(
     val isSaving: Boolean = false,
     val error: String? = null,
 
-    val mealType: String = "breakfast",
+    val mealType: String = "",
     val mealName: String = "",
     val calories: String = "",
     val protein: String = "",

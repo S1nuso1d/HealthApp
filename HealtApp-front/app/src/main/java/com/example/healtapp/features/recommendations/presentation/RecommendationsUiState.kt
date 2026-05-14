@@ -5,8 +5,11 @@ data class RecommendationUiItem(
     val title: String,
     val description: String,
     val priority: String,
+    val status: String = "active",
     val confidence: Float? = null,
-    val action: String? = null
+    val action: String? = null,
+    val personalizedTip: String? = null,
+    val progressLabel: String? = null
 )
 
 data class RecommendationsUiState(

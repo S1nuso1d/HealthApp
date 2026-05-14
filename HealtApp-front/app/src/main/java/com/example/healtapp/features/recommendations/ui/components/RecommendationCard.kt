@@ -38,10 +38,24 @@ fun RecommendationCard(
                 style = MaterialTheme.typography.bodySmall
             )
 
+            Text(
+                text = "Статус: ${item.status}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.secondary
+            )
+
             item.confidence?.let { confidence ->
                 Text(
                     text = "Уверенность: ${(confidence * 100).toInt()}%",
                     style = MaterialTheme.typography.bodySmall
+                )
+            }
+
+            item.progressLabel?.let { progress ->
+                Text(
+                    text = progress,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
 
@@ -54,6 +68,14 @@ fun RecommendationCard(
                 Text(
                     text = "Что сделать: $actionText",
                     style = MaterialTheme.typography.bodyMedium
+                )
+            }
+
+            item.personalizedTip?.let { tip ->
+                Text(
+                    text = "AI-совет: $tip",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

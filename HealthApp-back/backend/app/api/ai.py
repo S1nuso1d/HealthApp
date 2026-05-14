@@ -10,8 +10,11 @@ from app.llm.health_chat_service import HealthChatService
 from app.llm.llm_client import LLMClientError
 from app.models.daily_health_summary import DailyHealthSummary
 from app.models.insight import Insight
+from app.models.profile import UserProfile
+from app.models.saved_recommendation import SavedRecommendation
 from app.models.user import User
 from app.models.user_state import UserState
+from app.llm.llm_client import LLMClient
 from app.recommendations.recommendation_engine import RecommendationEngine
 from app.schemas.ai import (
     AIBriefResponse,
@@ -201,6 +204,212 @@ def build_analytics_context(
     )
 
 
+def _format_int(value: float | int | None) -> int:
+    if value is None:
+        return 0
+    return int(round(float(value)))
+
+
+def _build_personalized_tip_with_llm(
+    recommendation: AIRecommendationItem,
+    metrics_context: dict[str, int],
+) -> str | None:
+    prompt = f"""
+Сформируй короткий персональный совет на русском языке (1-2 предложения, без диагнозов).
+
+Рекомендация:
+- category: {recommendation.category}
+- title: {recommendation.title}
+- description: {recommendation.description}
+- action: {recommendation.action or "нет"}
+
+Контекст пользователя:
+- health_score: {metrics_context["health_score"]}
+- hydration_score: {metrics_context["hydration_score"]}
+- sleep_score: {metrics_context["sleep_score"]}
+- activity_score: {metrics_context["activity_score"]}
+- nutrition_score: {metrics_context["nutrition_score"]}
+- state_score: {metrics_context["state_score"]}
+
+Ответ только текстом совета, без списков и markdown.
+    """.strip()
+
+    try:
+        return LLMClient().generate(prompt=prompt, temperature=0.25)
+    except LLMClientError:
+        return None
+
+
+def _build_dynamic_ai_recommendations(
+    db: Session,
+    user_id: int,
+    analytics: AnalyticsResponse,
+    include_resolved: bool = False,
+) -> list[AIRecommendationItem]:
+    profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
+    latest_summary = (
+        db.query(DailyHealthSummary)
+        .filter(DailyHealthSummary.user_id == user_id)
+        .order_by(DailyHealthSummary.summary_date.desc())
+        .first()
+    )
+
+    target_water_ml = _format_int(profile.target_water_ml if profile else None) or 2500
+    target_sleep_hours = float(profile.target_sleep_hours if profile and profile.target_sleep_hours else 8.0)
+    latest_water_ml = _format_int(latest_summary.total_water_ml if latest_summary else None)
+    latest_sleep_hours = float(latest_summary.total_sleep_hours if latest_summary and latest_summary.total_sleep_hours else 0.0)
+    latest_steps = _format_int(latest_summary.total_steps if latest_summary else None)
+
+    metrics_context = {
+        "health_score": analytics.summary.health_score,
+        "hydration_score": analytics.summary.hydration_score,
+        "sleep_score": analytics.summary.sleep_score,
+        "activity_score": analytics.summary.activity_score,
+        "nutrition_score": analytics.summary.nutrition_score,
+        "state_score": analytics.summary.state_score,
+    }
+
+    existing_items = (
+        db.query(SavedRecommendation)
+        .filter(SavedRecommendation.user_id == user_id)
+        .all()
+    )
+    saved_by_key = {(entry.category, entry.title): entry for entry in existing_items}
+    now_utc = datetime.now(timezone.utc)
+    cooldown_duration = timedelta(hours=12)
+
+    items: list[AIRecommendationItem] = []
+    for item in analytics.recommendations:
+        rec_key = (item.category, item.title)
+        saved = saved_by_key.get(rec_key)
+
+        rec = AIRecommendationItem(
+            category=item.category,
+            title=item.title,
+            description=item.description,
+            priority=item.priority,
+            status="active",
+            confidence=item.confidence,
+            action=item.action,
+            related_insight_title=item.related_insight_title,
+            related_insight_type=item.related_insight_type,
+        )
+
+        resolved_reason: str | None = None
+
+        # Auto-resolve hydration recommendations when user's latest daily target is reached.
+        if rec.category == "hydration":
+            if latest_water_ml >= target_water_ml:
+                rec.status = "resolved"
+                resolved_reason = "Цель по воде на день достигнута."
+
+            remaining_ml = max(target_water_ml - latest_water_ml, 0)
+            rec.progress_label = f"Сегодня: {latest_water_ml}/{target_water_ml} мл"
+            if rec.status == "active":
+                rec.action = (
+                    f"До дневной цели осталось около {remaining_ml} мл. "
+                    "Добавь 1-2 приёма воды в ближайшие часы."
+                )
+
+        # Auto-resolve sleep recommendation when last day meets personal sleep target.
+        if rec.category == "sleep":
+            if latest_sleep_hours >= target_sleep_hours:
+                rec.status = "resolved"
+                resolved_reason = "Последний сон соответствует персональной цели."
+
+            remaining_sleep = max(target_sleep_hours - latest_sleep_hours, 0.0)
+            rec.progress_label = f"Последний сон: {latest_sleep_hours:.1f}/{target_sleep_hours:.1f} ч"
+            if rec.status == "active":
+                rec.action = (
+                    f"До персональной цели сна не хватает ~{remaining_sleep:.1f} ч. "
+                    "Смести отбой на 30-60 минут раньше."
+                )
+
+        # Auto-resolve activity recommendation for days with near-goal step count.
+        if rec.category == "activity":
+            if latest_steps >= 9000:
+                rec.status = "resolved"
+                resolved_reason = "Дневной ориентир по шагам достигнут."
+
+            remaining_steps = max(9000 - latest_steps, 0)
+            rec.progress_label = f"Сегодня: {latest_steps}/9000 шагов"
+            if rec.status == "active":
+                rec.action = (
+                    f"Осталось примерно {remaining_steps} шагов до дневного ориентира. "
+                    "Добавь 1-2 короткие прогулки."
+                )
+
+        # Cooldown logic: do not immediately return resolved recommendation back to active list.
+        if rec.status == "active" and saved and saved.status == "resolved":
+            if saved.created_at:
+                saved_created_at = saved.created_at
+                if saved_created_at.tzinfo is None:
+                    saved_created_at = saved_created_at.replace(tzinfo=timezone.utc)
+                if now_utc < (saved_created_at + cooldown_duration):
+                    rec.status = "cooldown"
+                    rec.progress_label = rec.progress_label or "Рекомендация временно скрыта после выполнения."
+
+        if rec.status in {"resolved", "cooldown"}:
+            if saved is None:
+                saved = SavedRecommendation(
+                    user_id=user_id,
+                    analysis_run_id=None,
+                    category=rec.category,
+                    title=rec.title,
+                    description=rec.description,
+                    priority=rec.priority,
+                    confidence=rec.confidence,
+                    action=resolved_reason,
+                    related_insight_type=rec.related_insight_type,
+                    related_insight_title=rec.related_insight_title,
+                    status="resolved" if rec.status == "resolved" else "cooldown",
+                )
+                db.add(saved)
+            else:
+                saved.status = "resolved" if rec.status == "resolved" else "cooldown"
+                saved.action = resolved_reason or saved.action
+                saved.description = rec.description
+                saved.priority = rec.priority
+                saved.confidence = rec.confidence
+
+            if include_resolved:
+                rec.personalized_tip = "Отличная работа! Эта рекомендация уже выполнена."
+                items.append(rec)
+            continue
+
+        if saved:
+            saved.status = "active"
+            saved.description = rec.description
+            saved.priority = rec.priority
+            saved.confidence = rec.confidence
+            saved.action = rec.action
+        else:
+            saved = SavedRecommendation(
+                user_id=user_id,
+                analysis_run_id=None,
+                category=rec.category,
+                title=rec.title,
+                description=rec.description,
+                priority=rec.priority,
+                confidence=rec.confidence,
+                action=rec.action,
+                related_insight_type=rec.related_insight_type,
+                related_insight_title=rec.related_insight_title,
+                status="active",
+            )
+            db.add(saved)
+
+        rec.personalized_tip = _build_personalized_tip_with_llm(
+            recommendation=rec,
+            metrics_context=metrics_context,
+        )
+        items.append(rec)
+
+    db.commit()
+
+    return items
+
+
 @router.post(
     "/chat",
     response_model=AIResponse,
@@ -334,6 +543,10 @@ def explain_insight(
 )
 def get_ai_recommendations(
     days: int = Query(default=7, ge=1, le=30, description="Период анализа"),
+    include_resolved: bool = Query(
+        default=False,
+        description="Включать выполненные и cooldown-рекомендации в ответ",
+    ),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -343,21 +556,16 @@ def get_ai_recommendations(
         days=days,
     )
 
+    recommendations = _build_dynamic_ai_recommendations(
+        db=db,
+        user_id=current_user.id,
+        analytics=analytics,
+        include_resolved=include_resolved,
+    )
+
     return AIRecommendationsResponse(
         generated_at=datetime.now(timezone.utc),
         period_days=days,
         health_score=analytics.summary.health_score,
-        recommendations=[
-            AIRecommendationItem(
-                category=item.category,
-                title=item.title,
-                description=item.description,
-                priority=item.priority,
-                confidence=item.confidence,
-                action=item.action,
-                related_insight_title=item.related_insight_title,
-                related_insight_type=item.related_insight_type,
-            )
-            for item in analytics.recommendations
-        ],
+        recommendations=recommendations,
     )

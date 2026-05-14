@@ -33,8 +33,11 @@ class AIRecommendationItem(BaseModel):
     title: str
     description: str
     priority: str
+    status: str = "active"
     confidence: Optional[float] = None
     action: Optional[str] = None
+    personalized_tip: Optional[str] = None
+    progress_label: Optional[str] = None
     related_insight_title: Optional[str] = None
     related_insight_type: Optional[str] = None
 

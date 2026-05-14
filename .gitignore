@@ -22,3 +22,6 @@ HealtApp-front/local.properties
 *.log
 .DS_Store
 Thumbs.db
+
+# Local full-tree archives (duplicate of tracked sources)
+*.zip
