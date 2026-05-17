@@ -19,8 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.healtapp.core.ui.theme.MintPrimary
-import com.example.healtapp.core.ui.theme.SkyPrimary
+import com.example.healtapp.core.ui.theme.brandingGradient
 
 @Composable
 fun SectionHeader(
@@ -39,11 +38,7 @@ fun SectionHeader(
                 .width(4.dp)
                 .height(28.dp)
                 .clip(RoundedCornerShape(2.dp))
-                .background(
-                    Brush.verticalGradient(
-                        listOf(MintPrimary, SkyPrimary),
-                    ),
-                ),
+                .background(Brush.verticalGradient(brandingGradient())),
         )
         Column(modifier = Modifier.weight(1f)) {
             Text(

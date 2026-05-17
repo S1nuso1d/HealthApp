@@ -9,6 +9,8 @@ data class ActivityCreateRequestDto(
     val distance_km: Float? = null,
     val calories_burned: Float? = null,
     val avg_heart_rate: Int? = null,
+    val avg_power_w: Float? = null,
+    val avg_speed_m_s: Float? = null,
     val intensity: String? = null,
     val activity_category: String? = null,
     val perceived_exertion: Int? = null,

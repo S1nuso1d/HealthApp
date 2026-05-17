@@ -29,4 +29,20 @@ class ActivityRepositoryImpl @Inject constructor(
             api.createActivity(request)
         }
     }
+
+    override suspend fun updateActivity(
+        id: Int,
+        request: ActivityCreateRequestDto
+    ): Result<ActivityDto> {
+        return runCatching {
+            api.updateActivity(id, request)
+        }
+    }
+
+    override suspend fun deleteActivity(id: Int): Result<Unit> {
+        return runCatching {
+            api.deleteActivity(id)
+            Unit
+        }
+    }
 }

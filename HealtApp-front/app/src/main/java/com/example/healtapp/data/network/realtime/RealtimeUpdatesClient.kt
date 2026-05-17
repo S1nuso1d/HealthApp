@@ -25,9 +25,12 @@ class RealtimeUpdatesClient @Inject constructor(
     private var websocket: WebSocket? = null
     private var connectJob: Job? = null
     private var manuallyStopped = false
+    /** Не переподключаться с тем же JWT после 401/403 (истёкший/неверный токен). */
+    private var pauseReconnectForAuth = false
 
     fun start() {
         manuallyStopped = false
+        pauseReconnectForAuth = false
         connectJob?.cancel()
         connectJob = applicationScope.launch {
             connectInternal()
@@ -42,6 +45,7 @@ class RealtimeUpdatesClient @Inject constructor(
     }
 
     private suspend fun connectInternal() {
+        if (pauseReconnectForAuth) return
         val token = tokenStorage.getToken()
         if (token.isNullOrBlank()) return
 
@@ -67,11 +71,19 @@ class RealtimeUpdatesClient @Inject constructor(
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                     websocket = null
-                    if (!manuallyStopped) {
+                    if (manuallyStopped) return
+                    val code = response?.code
+                    if (code == 401 || code == 403) {
+                        pauseReconnectForAuth = true
                         applicationScope.launch {
-                            delay(5_000)
-                            connectInternal()
+                            tokenStorage.clearToken()
+                            AppRefreshBus.notifySessionExpired()
                         }
+                        return
+                    }
+                    applicationScope.launch {
+                        delay(5_000)
+                        connectInternal()
                     }
                 }
             }

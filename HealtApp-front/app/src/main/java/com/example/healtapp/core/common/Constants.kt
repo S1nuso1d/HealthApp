@@ -20,4 +20,7 @@ object Constants {
         const val MALE = "male"
         const val FEMALE = "female"
     }
+
+    /** Максимальный размер файла аватара при отправке на сервер (синхронно с бэкендом). */
+    const val AVATAR_MAX_BYTES = 5 * 1024 * 1024
 }

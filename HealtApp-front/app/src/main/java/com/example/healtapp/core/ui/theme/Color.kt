@@ -11,28 +11,29 @@ val AppBackgroundTop = Color(0xFFEFFFFA)
 val AppBackgroundBottom = Color(0xFFEAF6FF)
 val AppBackground = Color(0xFFF7FBFF)
 
-val AppBackgroundTopDark = Color(0xFF0B1220)
-val AppBackgroundBottomDark = Color(0xFF0C1A2C)
-val AppBackgroundDark = Color(0xFF0B1220)
+/** Тёмная брутальная тема: чёрный → серый → белый. */
+val AppBackgroundTopDark = Color(0xFF0A0A0A)
+val AppBackgroundBottomDark = Color(0xFF141414)
+val AppBackgroundDark = Color(0xFF0A0A0A)
 
 val AppSurface = Color(0xFFFFFFFF)
 val AppSurfaceSoft = Color(0xFFFDFEFE)
 
-val AppSurfaceDark = Color(0xFF121B2E)
-val AppSurfaceSoftDark = Color(0xFF0F172A)
+val AppSurfaceDark = Color(0xFF1A1A1A)
+val AppSurfaceSoftDark = Color(0xFF242424)
 
 val TextPrimary = Color(0xFF16324F)
 val TextSecondary = Color(0xFF6B7A90)
 val TextHint = Color(0xFF9AA8BA)
 
-val TextPrimaryDark = Color(0xFFE6ECF5)
-val TextSecondaryDark = Color(0xFF9AA8BA)
+val TextPrimaryDark = Color(0xFFF5F5F5)
+val TextSecondaryDark = Color(0xFF9CA3AF)
 
 val BorderSoft = Color(0x1F16324F)
 val DividerSoft = Color(0x14000000)
 
-val BorderSoftDark = Color(0x26E6ECF5)
-val DividerSoftDark = Color(0x1FE6ECF5)
+val BorderSoftDark = Color(0xFF404040)
+val DividerSoftDark = Color(0xFF333333)
 
 val ErrorColor = Color(0xFFE85D75)
 val SuccessColor = Color(0xFF3DBE7A)

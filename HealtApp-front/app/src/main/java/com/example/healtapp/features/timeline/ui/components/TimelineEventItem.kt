@@ -8,40 +8,27 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.ui.components.AppCard
 import com.example.healtapp.features.timeline.presentation.TimelineEventUi
 
 @Composable
-fun TimelineEventItem(
-    event: TimelineEventUi
-) {
+fun TimelineEventItem(event: TimelineEventUi) {
     AppCard {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text(
-                    text = event.title,
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    text = event.time,
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                Text(event.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(event.timeLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             }
-
+            Text(event.subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
-                text = event.description,
-                style = MaterialTheme.typography.bodyLarge
-            )
-
-            Text(
-                text = "Тип: ${event.type}",
-                style = MaterialTheme.typography.bodySmall
+                text = event.category,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
             )
         }
     }

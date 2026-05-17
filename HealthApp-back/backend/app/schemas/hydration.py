@@ -21,6 +21,15 @@ class HydrationCreate(BaseModel):
     )
 
 
+class HydrationUpdate(BaseModel):
+    amount_ml: int = Field(..., gt=0)
+    record_time: datetime | None = Field(
+        default=None,
+        description="Новое время записи; если не задано — оставить прежнее на сервере",
+    )
+    source: str | None = Field(default="manual")
+
+
 class HydrationResponse(BaseModel):
     id: int = Field(description="ID записи гидратации")
     user_id: int = Field(description="ID пользователя")

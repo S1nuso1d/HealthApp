@@ -30,10 +30,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.healtapp.core.common.Constants
 import com.example.healtapp.core.ui.components.AppButton
 import com.example.healtapp.core.ui.components.AppTextField
-import com.example.healtapp.core.ui.theme.AppBackgroundBottom
-import com.example.healtapp.core.ui.theme.AppBackgroundTop
-import com.example.healtapp.core.ui.theme.CardBlue
-import com.example.healtapp.core.ui.theme.CardMint
+import com.example.healtapp.core.ui.theme.screenBackgroundGradient
+import com.example.healtapp.core.ui.theme.chipSelectedColor
+import com.example.healtapp.core.ui.theme.themedCardBlue
+import com.example.healtapp.core.ui.theme.themedCardMint
 import com.example.healtapp.features.onboarding.presentation.OnboardingEvent
 import com.example.healtapp.features.onboarding.presentation.OnboardingViewModel
 import com.example.healtapp.features.onboarding.ui.components.ActivityLevelSelector
@@ -57,11 +57,7 @@ fun OnboardingScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(AppBackgroundTop, AppBackgroundBottom)
-                )
-            )
+            .background(brush = Brush.verticalGradient(screenBackgroundGradient()))
             .statusBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 20.dp),
@@ -135,7 +131,7 @@ fun OnboardingScreen(
                         },
                         label = { Text("Мужской") },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = CardBlue
+                            selectedContainerColor = chipSelectedColor(themedCardBlue())
                         )
                     )
 
@@ -146,7 +142,7 @@ fun OnboardingScreen(
                         },
                         label = { Text("Женский") },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = CardMint
+                            selectedContainerColor = chipSelectedColor(themedCardMint())
                         )
                     )
                 }

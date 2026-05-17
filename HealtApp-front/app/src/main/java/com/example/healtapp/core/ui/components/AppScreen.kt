@@ -14,29 +14,21 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
-import com.example.healtapp.core.ui.theme.AppBackgroundBottom
-import com.example.healtapp.core.ui.theme.AppBackgroundBottomDark
-import com.example.healtapp.core.ui.theme.AppBackgroundTop
-import com.example.healtapp.core.ui.theme.AppBackgroundTopDark
+import com.example.healtapp.core.ui.theme.screenBackgroundGradient
 
 @Composable
 fun AppScreen(
     title: String? = null,
     subtitle: String? = null,
     headerIcon: ImageVector? = null,
+    onNavigateBack: (() -> Unit)? = null,
     scrollable: Boolean = true,
     contentPadding: PaddingValues = PaddingValues(20.dp),
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val colors = if (isDark) {
-        listOf(AppBackgroundTopDark, AppBackgroundBottomDark)
-    } else {
-        listOf(AppBackgroundTop, AppBackgroundBottom)
-    }
+    val colors = screenBackgroundGradient()
 
     Column(
         modifier = Modifier
@@ -52,6 +44,7 @@ fun AppScreen(
                 title = title,
                 subtitle = subtitle,
                 icon = headerIcon,
+                onBackClick = onNavigateBack,
             )
         }
         content()

@@ -13,6 +13,15 @@ interface ProfileRepository {
         goal: String?,
         activityLevel: String?,
         targetSleepHours: Float?,
-        targetWaterMl: Float?
+        targetWaterMl: Float?,
+        targetDailyCalories: Int? = null,
+        targetProteinG: Float? = null,
+        targetFatG: Float? = null,
+        targetCarbsG: Float? = null,
+        targetSteps: Int? = null,
     ): Result<ProfileDto>
+
+    suspend fun uploadAvatar(imageBytes: ByteArray, mimeType: String): Result<ProfileDto>
+
+    suspend fun deleteAvatar(): Result<ProfileDto>
 }

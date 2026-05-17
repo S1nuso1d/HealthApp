@@ -12,28 +12,25 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.dp
-import com.example.healtapp.core.ui.theme.MintPrimary
-import com.example.healtapp.core.ui.theme.SkyPrimary
+import com.example.healtapp.core.ui.theme.brandingGradient
+import com.example.healtapp.core.ui.theme.isAppDarkTheme
 
 @Composable
 fun AppButton(
     text: String,
     onClick: () -> Unit,
     enabled: Boolean = true,
-    isSecondary: Boolean = false
+    isSecondary: Boolean = false,
+    modifier: Modifier = Modifier.fillMaxWidth(),
 ) {
     if (isSecondary) {
         OutlinedButton(
             onClick = onClick,
             enabled = enabled,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(54.dp),
-            shape = RoundedCornerShape(18.dp),
+            modifier = modifier.height(54.dp),
+            shape = RoundedCornerShape(if (isAppDarkTheme()) 4.dp else 18.dp),
             border = ButtonDefaults.outlinedButtonBorder.copy(
-                brush = Brush.horizontalGradient(
-                    listOf(MintPrimary, SkyPrimary)
-                )
+                brush = Brush.horizontalGradient(brandingGradient()),
             )
         ) {
             Text(
@@ -46,9 +43,7 @@ fun AppButton(
         Button(
             onClick = onClick,
             enabled = enabled,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(54.dp),
+            modifier = modifier.height(54.dp),
             shape = RoundedCornerShape(18.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary,

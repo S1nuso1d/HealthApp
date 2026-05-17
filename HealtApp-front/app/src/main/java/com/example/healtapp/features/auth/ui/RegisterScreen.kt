@@ -1,56 +1,35 @@
 package com.example.healtapp.features.auth.ui
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.MarkEmailRead
 import androidx.compose.material.icons.outlined.PersonAddAlt1
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.healtapp.core.ui.components.AppButton
+import com.example.healtapp.core.ui.components.AppTextField
 import com.example.healtapp.features.auth.presentation.AuthEvent
 import com.example.healtapp.features.auth.presentation.AuthViewModel
-import com.example.healtapp.features.auth.ui.components.AuthAccent
-import com.example.healtapp.features.auth.ui.components.AuthAccentBlue
-import com.example.healtapp.features.auth.ui.components.AuthBorderColor
-import com.example.healtapp.features.auth.ui.components.AuthCardColor
-import com.example.healtapp.features.auth.ui.components.AuthHeader
-import com.example.healtapp.features.auth.ui.components.AuthScreenContainer
+import com.example.healtapp.features.auth.ui.components.AuthFormCard
+import com.example.healtapp.features.auth.ui.components.AuthHeroBanner
+import com.example.healtapp.features.auth.ui.components.AuthMessageBanner
+import com.example.healtapp.features.auth.ui.components.AuthMessageType
+import com.example.healtapp.features.auth.ui.components.AuthScaffold
 
 @Composable
 fun RegisterScreen(
     onRegisterSuccess: () -> Unit,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
 ) {
     val viewModel: AuthViewModel = hiltViewModel()
-
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val passwordsMatch = uiState.password == uiState.repeatPassword || uiState.repeatPassword.isBlank()
 
@@ -61,155 +40,109 @@ fun RegisterScreen(
         }
     }
 
-    AuthScreenContainer {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp),
-            shape = RoundedCornerShape(28.dp),
-            colors = CardDefaults.cardColors(containerColor = AuthCardColor),
-            elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+    val awaiting = uiState.awaitingEmailVerification
+
+    AuthScaffold(onBack = onBackClick) {
+        AuthHeroBanner(
+            title = if (awaiting) "Подтверждение почты" else "Регистрация",
+            subtitle = if (awaiting) {
+                "Введите 6-значный код из письма"
+            } else {
+                "Создайте аккаунт и получайте персональные рекомендации"
+            },
+        )
+
+        AuthFormCard(
+            sectionTitle = if (awaiting) "Код подтверждения" else "Данные аккаунта",
+            sectionSubtitle = if (awaiting) {
+                "Письмо отправлено на ${uiState.email}"
+            } else {
+                "Минимум 6 символов в пароле"
+            },
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 22.dp, vertical = 26.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                AuthHeader(
-                    title = "Создание аккаунта",
-                    subtitle = "Начни пользоваться HealthApp и получай персональные рекомендации"
-                )
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                OutlinedTextField(
+            if (!awaiting) {
+                AppTextField(
                     value = uiState.email,
                     onValueChange = { viewModel.onEvent(AuthEvent.EmailChanged(it)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Email") },
-                    singleLine = true,
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Outlined.Email,
-                            contentDescription = null,
-                            tint = AuthAccentBlue
-                        )
-                    },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedIndicatorColor = AuthAccentBlue,
-                        unfocusedIndicatorColor = AuthBorderColor,
-                        focusedLabelColor = AuthAccentBlue
-                    )
+                    label = "Email",
+                    leadingIcon = Icons.Outlined.Email,
+                    keyboardType = KeyboardType.Email,
                 )
-
-                OutlinedTextField(
+                AppTextField(
                     value = uiState.password,
                     onValueChange = { viewModel.onEvent(AuthEvent.PasswordChanged(it)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Пароль") },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Outlined.Lock,
-                            contentDescription = null,
-                            tint = AuthAccent
-                        )
-                    },
-                    shape = RoundedCornerShape(18.dp),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedIndicatorColor = AuthAccent,
-                        unfocusedIndicatorColor = AuthBorderColor,
-                        focusedLabelColor = AuthAccent
-                    )
+                    label = "Пароль",
+                    isPassword = true,
+                    leadingIcon = Icons.Outlined.Lock,
                 )
-
-                OutlinedTextField(
+                AppTextField(
                     value = uiState.repeatPassword,
                     onValueChange = { viewModel.onEvent(AuthEvent.RepeatPasswordChanged(it)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Повторите пароль") },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Outlined.PersonAddAlt1,
-                            contentDescription = null,
-                            tint = AuthAccent
-                        )
-                    },
-                    shape = RoundedCornerShape(18.dp),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedIndicatorColor = AuthAccent,
-                        unfocusedIndicatorColor = AuthBorderColor,
-                        focusedLabelColor = AuthAccent
-                    )
+                    label = "Повторите пароль",
+                    isPassword = true,
+                    leadingIcon = Icons.Outlined.PersonAddAlt1,
                 )
-
                 if (!passwordsMatch) {
-                    Text(
+                    AuthMessageBanner(
                         text = "Пароли не совпадают",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium
+                        type = AuthMessageType.Error,
                     )
                 }
-
-                uiState.error?.let {
-                    Text(
-                        text = it,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+            } else {
+                AppTextField(
+                    value = uiState.email,
+                    onValueChange = {},
+                    label = "Email",
+                    leadingIcon = Icons.Outlined.Email,
+                    readOnly = true,
+                    enabled = false,
+                )
+                uiState.infoMessage?.let { msg ->
+                    AuthMessageBanner(text = msg, type = AuthMessageType.Info)
                 }
+                AppTextField(
+                    value = uiState.verificationCode,
+                    onValueChange = { viewModel.onEvent(AuthEvent.VerificationCodeChanged(it)) },
+                    label = "Код из письма",
+                    leadingIcon = Icons.Outlined.MarkEmailRead,
+                    keyboardType = KeyboardType.Number,
+                    placeholder = "000000",
+                )
+                Text(
+                    text = "Нет письма? Проверьте папку «Спам» или запросите код повторно.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
-                Spacer(modifier = Modifier.height(4.dp))
+            uiState.error?.let { err ->
+                AuthMessageBanner(text = err, type = AuthMessageType.Error)
+            }
 
-                Button(
-                    onClick = { viewModel.onEvent(AuthEvent.SubmitRegister) },
+            if (!awaiting) {
+                AppButton(
+                    text = if (uiState.isLoading) "Отправляем код…" else "Получить код на почту",
+                    onClick = { viewModel.onEvent(AuthEvent.SubmitRegisterSendCode) },
                     enabled = passwordsMatch && !uiState.isLoading,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = AuthAccent,
-                        contentColor = Color.White
-                    )
-                ) {
-                    Text(
-                        text = if (uiState.isLoading) "Создание..." else "Зарегистрироваться",
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                OutlinedButton(
-                    onClick = onBackClick,
+                )
+            } else {
+                AppButton(
+                    text = if (uiState.isLoading) "Регистрируем…" else "Подтвердить и войти",
+                    onClick = { viewModel.onEvent(AuthEvent.SubmitRegisterConfirm) },
+                    enabled = uiState.verificationCode.length == 6 && !uiState.isLoading,
+                )
+                AppButton(
+                    text = "Отправить код ещё раз",
+                    onClick = { viewModel.onEvent(AuthEvent.SubmitRegisterSendCode) },
                     enabled = !uiState.isLoading,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
-                    shape = RoundedCornerShape(18.dp),
-                    border = ButtonDefaults.outlinedButtonBorder.copy(
-                        brush = Brush.horizontalGradient(
-                            listOf(AuthAccentBlue, AuthAccent)
-                        )
-                    )
-                ) {
-                    Text(
-                        text = "Назад ко входу",
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
+                    isSecondary = true,
+                )
+                AppButton(
+                    text = "Изменить email или пароль",
+                    onClick = { viewModel.onEvent(AuthEvent.RegisterEditCredentials) },
+                    enabled = !uiState.isLoading,
+                    isSecondary = true,
+                )
             }
         }
     }

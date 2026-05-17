@@ -12,10 +12,6 @@ import androidx.compose.material.icons.filled.MonitorHeart
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarDefaults
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,17 +19,16 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.activity.ComponentActivity
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.common.AppRefreshBus
-import com.example.healtapp.core.ui.theme.AppBackgroundBottom
-import com.example.healtapp.core.ui.theme.AppBackgroundBottomDark
-import com.example.healtapp.core.ui.theme.AppBackgroundTop
-import com.example.healtapp.core.ui.theme.AppBackgroundTopDark
+import com.example.healtapp.core.ui.theme.screenBackgroundGradient
 import kotlinx.coroutines.flow.collectLatest
-import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -41,21 +36,46 @@ import androidx.navigation.compose.rememberNavController
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.healtapp.features.actionplan.ui.ActionPlanScreen
+import com.example.healtapp.features.aicoach.ui.AiAssistantScreen
 import com.example.healtapp.features.activity.ui.ActivityScreen
+import com.example.healtapp.features.auth.ui.ForgotPasswordScreen
 import com.example.healtapp.features.auth.ui.LoginScreen
 import com.example.healtapp.features.auth.ui.RegisterScreen
 import com.example.healtapp.features.dashboard.ui.DashboardScreen
+import com.example.healtapp.features.health.ui.HealthVitalsScreen
 import com.example.healtapp.features.hydration.ui.HydrationScreen
 import com.example.healtapp.features.meal.ui.MealScreen
 import com.example.healtapp.features.onboarding.ui.OnboardingScreen
 import com.example.healtapp.features.profile.ui.ProfileScreen
 import com.example.healtapp.features.recommendations.ui.RecommendationsScreen
+import com.example.healtapp.features.settings.ui.DataImportScreen
+import com.example.healtapp.features.settings.ui.DataPrivacyScreen
+import com.example.healtapp.features.settings.ui.IntegrationsScreen
+import com.example.healtapp.features.settings.ui.NotificationsScreen
+import com.example.healtapp.notifications.HealthNotificationHelper
 import com.example.healtapp.features.sleep.ui.SleepScreen
 import com.example.healtapp.features.timeline.ui.TimelineScreen
+import com.example.healtapp.core.ui.components.AppBottomNavigation
 
 @Composable
 fun AppNavGraph() {
     val navController = rememberNavController()
+
+    val activity = LocalContext.current as ComponentActivity
+    LaunchedEffect(activity.intent) {
+        val route = activity.intent.getStringExtra(HealthNotificationHelper.EXTRA_NAV_ROUTE) ?: return@LaunchedEffect
+        activity.intent.removeExtra(HealthNotificationHelper.EXTRA_NAV_ROUTE)
+        val dest = when (route) {
+            NavRoutes.Hydration.route,
+            NavRoutes.Nutrition.route,
+            NavRoutes.Recommendations.route,
+            NavRoutes.Notifications.route -> route
+            else -> null
+        }
+        if (dest != null && navController.currentDestination?.route != dest) {
+            navController.navigate(dest) { launchSingleTop = true }
+        }
+    }
 
     LaunchedEffect(navController) {
         AppRefreshBus.sessionExpired.collectLatest {
@@ -78,50 +98,17 @@ fun AppNavGraph() {
     Scaffold(
         bottomBar = {
             if (currentRoute in bottomBarRoutes) {
-                NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
-                    tonalElevation = NavigationBarDefaults.Elevation,
-                ) {
-                    AppDestinations.bottomNavItems.forEach { item ->
-                        val selected = navBackStackEntry?.destination?.hierarchy?.any {
-                            it.route == item.route
-                        } == true
-
-                        NavigationBarItem(
-                            selected = selected,
-                            onClick = {
-                                navController.navigate(item.route) {
-                                    popUpTo(NavRoutes.Dashboard.route)
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                            icon = {
-                                Icon(
-                                    imageVector = item.icon,
-                                    contentDescription = item.title,
-                                )
-                            },
-                            label = {
-                                Text(
-                                    text = item.title,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    maxLines = 1,
-                                )
-                            },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.primary,
-                                selectedTextColor = MaterialTheme.colorScheme.primary,
-                                indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(
-                                    alpha = 0.65f,
-                                ),
-                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            ),
-                            alwaysShowLabel = true,
-                        )
-                    }
-                }
+                AppBottomNavigation(
+                    items = AppDestinations.bottomNavItems,
+                    currentRoute = currentRoute,
+                    onItemClick = { item ->
+                        navController.navigate(item.route) {
+                            popUpTo(NavRoutes.Dashboard.route)
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                )
             }
         }
     ) { innerPadding ->
@@ -141,11 +128,7 @@ fun AppNavGraph() {
                     }
                 }
 
-                val splashGradient = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) {
-                    listOf(AppBackgroundTopDark, AppBackgroundBottomDark)
-                } else {
-                    listOf(AppBackgroundTop, AppBackgroundBottom)
-                }
+                val splashGradient = screenBackgroundGradient()
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -192,23 +175,51 @@ fun AppNavGraph() {
                             launchSingleTop = true
                         }
                     },
+                    onGuestDemo = {
+                        navController.navigate(NavRoutes.Splash.route) {
+                            popUpTo(navController.graph.id) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
                     onRegisterClick = {
                         navController.navigate(NavRoutes.Register.route)
-                    }
+                    },
+                    onForgotPassword = {
+                        navController.navigate(NavRoutes.ForgotPassword.route)
+                    },
+                )
+            }
+
+            composable(NavRoutes.ForgotPassword.route) {
+                ForgotPasswordScreen(
+                    onBack = { navController.popBackStack() },
                 )
             }
 
             composable(NavRoutes.Register.route) {
                 RegisterScreen(
                     onRegisterSuccess = {
-                        navController.navigate(NavRoutes.Splash.route) {
-                            popUpTo(navController.graph.id) { inclusive = true }
+                        navController.navigate(NavRoutes.RegisterSetup.route) {
+                            popUpTo(NavRoutes.Register.route) { inclusive = true }
                             launchSingleTop = true
                         }
                     },
                     onBackClick = {
                         navController.popBackStack()
                     }
+                )
+            }
+
+            composable(NavRoutes.RegisterSetup.route) {
+                IntegrationsScreen(
+                    onBack = { navController.popBackStack() },
+                    registrationMode = true,
+                    onContinueToApp = {
+                        navController.navigate(NavRoutes.Onboarding.route) {
+                            popUpTo(navController.graph.id) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
                 )
             }
 
@@ -222,17 +233,126 @@ fun AppNavGraph() {
                 )
             }
 
-            composable(NavRoutes.Dashboard.route) { DashboardScreen() }
-            composable(NavRoutes.Profile.route) { ProfileScreen() }
-            composable(NavRoutes.Sleep.route) { SleepScreen() }
-            composable(NavRoutes.Nutrition.route) { MealScreen() }
-            composable(NavRoutes.Activity.route) { ActivityScreen() }
+            composable(NavRoutes.Dashboard.route) {
+                DashboardScreen(
+                    onOpenSleep = {
+                        navController.navigate(NavRoutes.Sleep.route) { launchSingleTop = true }
+                    },
+                    onOpenHydration = {
+                        navController.navigate(NavRoutes.Hydration.route) { launchSingleTop = true }
+                    },
+                    onOpenNutrition = {
+                        navController.navigate(NavRoutes.Nutrition.route) { launchSingleTop = true }
+                    },
+                    onOpenActivity = {
+                        navController.navigate(NavRoutes.Activity.route) { launchSingleTop = true }
+                    },
+                    onOpenRecommendations = {
+                        navController.navigate(NavRoutes.Recommendations.route) { launchSingleTop = true }
+                    },
+                    onOpenActionPlan = {
+                        navController.navigate(NavRoutes.ActionPlan.route) { launchSingleTop = true }
+                    },
+                    onOpenTimeline = {
+                        navController.navigate(NavRoutes.Timeline.route) { launchSingleTop = true }
+                    },
+                    onOpenAiAssistant = {
+                        navController.navigate(NavRoutes.AiAssistant.route) { launchSingleTop = true }
+                    },
+                )
+            }
+            composable(NavRoutes.Profile.route) {
+                ProfileScreen(
+                    onOpenDataPrivacy = { navController.navigate(NavRoutes.DataPrivacy.route) },
+                    onOpenImport = { navController.navigate(NavRoutes.DataImport.route) },
+                    onOpenIntegrations = { navController.navigate(NavRoutes.Integrations.route) },
+                    onOpenHealthVitals = { navController.navigate(NavRoutes.HealthVitals.route) },
+                    onOpenNotifications = { navController.navigate(NavRoutes.Notifications.route) },
+                    onOpenAiAssistant = {
+                        navController.navigate(NavRoutes.AiAssistant.route) { launchSingleTop = true }
+                    },
+                    onOpenTimeline = {
+                        navController.navigate(NavRoutes.Timeline.route) { launchSingleTop = true }
+                    },
+                    onOpenActionPlan = {
+                        navController.navigate(NavRoutes.ActionPlan.route) { launchSingleTop = true }
+                    },
+                    onLogout = { AppRefreshBus.notifyLogout() },
+                )
+            }
+            composable(NavRoutes.DataPrivacy.route) {
+                DataPrivacyScreen(
+                    onBack = { navController.popBackStack() },
+                    onAccountDeleted = {
+                        navController.navigate(NavRoutes.Login.route) {
+                            popUpTo(navController.graph.id) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
+                )
+            }
+            composable(NavRoutes.DataImport.route) {
+                DataImportScreen(onBack = { navController.popBackStack() })
+            }
+            composable(NavRoutes.Integrations.route) {
+                IntegrationsScreen(onBack = { navController.popBackStack() })
+            }
+            composable(NavRoutes.HealthVitals.route) {
+                HealthVitalsScreen(onBack = { navController.popBackStack() })
+            }
+            composable(NavRoutes.Notifications.route) {
+                NotificationsScreen(onBack = { navController.popBackStack() })
+            }
+            composable(NavRoutes.Sleep.route) {
+                SleepScreen(
+                    onOpenIntegrations = { navController.navigate(NavRoutes.Integrations.route) },
+                    onOpenProfile = {
+                        navController.navigate(NavRoutes.Profile.route) {
+                            launchSingleTop = true
+                        }
+                    },
+                )
+            }
+            composable(NavRoutes.Nutrition.route) {
+                MealScreen(
+                    onOpenHydration = { navController.navigate(NavRoutes.Hydration.route) },
+                    onOpenHealthVitals = { navController.navigate(NavRoutes.HealthVitals.route) },
+                )
+            }
+            composable(NavRoutes.Activity.route) {
+                ActivityScreen(
+                    onOpenProfile = {
+                        navController.navigate(NavRoutes.Profile.route) {
+                            launchSingleTop = true
+                        }
+                    },
+                )
+            }
 
             // оставляем вне нижней панели
             composable(NavRoutes.Hydration.route) { HydrationScreen() }
             composable(NavRoutes.Recommendations.route) { RecommendationsScreen() }
-            composable(NavRoutes.Timeline.route) { TimelineScreen() }
-            composable(NavRoutes.ActionPlan.route) { ActionPlanScreen() }
+            composable(
+                route = NavRoutes.Timeline.route,
+                enterTransition = { fadeIn() },
+                exitTransition = { fadeOut() },
+            ) {
+                TimelineScreen(onBack = { navController.popBackStack() })
+            }
+            composable(
+                route = NavRoutes.ActionPlan.route,
+                enterTransition = { fadeIn() },
+                exitTransition = { fadeOut() },
+            ) {
+                ActionPlanScreen(onBack = { navController.popBackStack() })
+            }
+            composable(
+                route = NavRoutes.AiAssistant.route,
+                enterTransition = { fadeIn() },
+                exitTransition = { fadeOut() },
+            ) {
+                AiAssistantScreen(onBack = { navController.popBackStack() })
+            }
         }
     }
 }

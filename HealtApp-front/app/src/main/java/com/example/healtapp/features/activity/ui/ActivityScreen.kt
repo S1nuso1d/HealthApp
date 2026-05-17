@@ -1,229 +1,234 @@
 package com.example.healtapp.features.activity.ui
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
-import androidx.compose.material.icons.outlined.KeyboardArrowDown
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.Button
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.healtapp.core.ui.components.AppButton
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.healtapp.core.ui.components.AppScreen
 import com.example.healtapp.core.ui.components.AppTextField
+import com.example.healtapp.core.ui.components.SectionHeader
+import com.example.healtapp.data.network.dto.activity.ActivityDto
 import com.example.healtapp.features.activity.presentation.ActivityViewModel
+import com.example.healtapp.features.activity.presentation.activityTitleFromApi
+import com.example.healtapp.features.activity.presentation.trainingActivityTypes
+import com.example.healtapp.features.activity.ui.components.ActivityStepsHeroCard
+import com.example.healtapp.features.activity.ui.components.ActivityStepsSkeleton
+import com.example.healtapp.features.activity.ui.components.ActivityTrainingFormCard
+import com.example.healtapp.features.activity.ui.components.ActivityTrainingHistoryRow
+import com.example.healtapp.features.activity.ui.components.WeeklyStepsBarChart
 
 @Composable
-fun ActivityScreen() {
+fun ActivityScreen(
+    onOpenProfile: () -> Unit = {},
+) {
     val viewModel: ActivityViewModel = hiltViewModel()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    val uiState by viewModel.uiState.collectAsState()
+    val intensityTypes = listOf("Низкая", "Средняя", "Высокая")
 
-    val activityTypes = listOf(
-        "Бег",
-        "Прогулка",
-        "Ходьба",
-        "Велосипед",
-        "Силовая тренировка",
-        "Йога",
-        "Растяжка",
-        "Плавание"
-    )
+    var activityToDelete by remember { mutableStateOf<ActivityDto?>(null) }
+    var activityToEdit by remember { mutableStateOf<ActivityDto?>(null) }
+    var editDuration by remember { mutableStateOf("") }
+    var editCal by remember { mutableStateOf("") }
+    var editDist by remember { mutableStateOf("") }
+    var editIntensity by remember { mutableStateOf("") }
+    var editType by remember { mutableStateOf("") }
 
-    val intensityTypes = listOf(
-        "Низкая",
-        "Средняя",
-        "Высокая"
-    )
+    LaunchedEffect(uiState.snackMessage) {
+        uiState.snackMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearSnackMessage()
+        }
+    }
 
-    var activityExpanded by remember { mutableStateOf(false) }
-    var intensityExpanded by remember { mutableStateOf(false) }
-
-    AppScreen(
-        title = "Активность",
-        subtitle = "Шаги и тренировки",
-        headerIcon = Icons.AutoMirrored.Filled.DirectionsWalk,
-        scrollable = true,
-    ) {
-        Text(
-            text = "Добавляй тренировки и отслеживай ежедневную активность.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(28.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = Color.Transparent,
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
         ) {
-            Column(
-                modifier = Modifier.padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+            AppScreen(
+                title = "Активность",
+                subtitle = "Шаги, неделя и тренировки",
+                headerIcon = Icons.AutoMirrored.Filled.DirectionsWalk,
+                scrollable = true,
             ) {
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    OutlinedTextField(
-                        value = uiState.activityType,
-                        onValueChange = {},
-                        modifier = Modifier.fillMaxWidth(),
-                        readOnly = true,
-                        label = { Text("Тип активности") },
-                        placeholder = { Text("Выбери активность") },
-                        trailingIcon = {
-                            Icon(
-                                imageVector = Icons.Outlined.KeyboardArrowDown,
-                                contentDescription = "Открыть список"
-                            )
-                        },
-                        shape = RoundedCornerShape(18.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White
-                        )
+                if (uiState.isLoading) {
+                    ActivityStepsSkeleton()
+                    Spacer(Modifier.height(12.dp))
+                    ActivityStepsSkeleton()
+                } else {
+                    ActivityStepsHeroCard(
+                        stepsToday = uiState.stepsToday,
+                        stepsGoal = uiState.stepsGoal,
+                        trainingMinutesToday = uiState.trainingMinutesToday,
+                        trainingCaloriesToday = uiState.trainingCaloriesToday,
+                        healthConnectSteps = uiState.healthConnectStepsToday,
+                        isSaving = uiState.isSaving,
+                        onSyncHealthConnect = viewModel::syncStepsFromHealthConnect,
+                        onEditGoalInProfile = onOpenProfile,
                     )
 
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .clickable(
-                                indication = null,
-                                interactionSource = remember { MutableInteractionSource() }
-                            ) {
-                                activityExpanded = true
-                            }
+                    SectionHeader(
+                        title = "Неделя",
+                        subtitle = "Сравнение с дневной целью",
+                    )
+                    WeeklyStepsBarChart(
+                        days = uiState.weeklySteps,
+                        goal = uiState.stepsGoal,
                     )
                 }
 
-                DropdownMenu(
-                    expanded = activityExpanded,
-                    onDismissRequest = { activityExpanded = false }
-                ) {
-                    activityTypes.forEach { type ->
-                        DropdownMenuItem(
-                            text = { Text(type) },
-                            onClick = {
-                                viewModel.updateActivityType(type)
-                                activityExpanded = false
-                            }
-                        )
-                    }
-                }
-
-                AppTextField(
-                    value = uiState.durationMinutes,
-                    onValueChange = viewModel::updateDuration,
-                    label = "Длительность (мин)"
+                SectionHeader(
+                    title = "Тренировки",
+                    subtitle = "Ходьба и шаги — отдельно, в блоке выше",
                 )
 
-                AppTextField(
-                    value = uiState.steps,
-                    onValueChange = viewModel::updateSteps,
-                    label = "Шаги"
-                )
-
-                AppTextField(
-                    value = uiState.distanceKm,
-                    onValueChange = viewModel::updateDistance,
-                    label = "Дистанция (км)"
-                )
-
-                AppTextField(
-                    value = uiState.caloriesBurned,
-                    onValueChange = viewModel::updateCalories,
-                    label = "Сожжено калорий"
-                )
-
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    OutlinedTextField(
-                        value = uiState.intensity,
-                        onValueChange = {},
-                        modifier = Modifier.fillMaxWidth(),
-                        readOnly = true,
-                        label = { Text("Интенсивность") },
-                        placeholder = { Text("Выбери интенсивность") },
-                        trailingIcon = {
-                            Icon(
-                                imageVector = Icons.Outlined.KeyboardArrowDown,
-                                contentDescription = "Открыть список"
-                            )
-                        },
-                        shape = RoundedCornerShape(18.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White
-                        )
-                    )
-
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .clickable(
-                                indication = null,
-                                interactionSource = remember { MutableInteractionSource() }
-                            ) {
-                                intensityExpanded = true
-                            }
-                    )
-                }
-
-                DropdownMenu(
-                    expanded = intensityExpanded,
-                    onDismissRequest = { intensityExpanded = false }
-                ) {
-                    intensityTypes.forEach { type ->
-                        DropdownMenuItem(
-                            text = { Text(type) },
-                            onClick = {
-                                viewModel.updateIntensity(type)
-                                intensityExpanded = false
-                            }
-                        )
-                    }
-                }
-
-                AppButton(
-                    text = if (uiState.isSaving) "Сохраняем..." else "Сохранить активность",
-                    onClick = { viewModel.saveActivity() },
-                    enabled = !uiState.isSaving
+                ActivityTrainingFormCard(
+                    activityType = uiState.activityType,
+                    activityTypes = trainingActivityTypes,
+                    onActivityTypeSelected = viewModel::updateActivityType,
+                    durationMinutes = uiState.durationMinutes,
+                    onDurationChange = viewModel::updateDuration,
+                    calories = uiState.caloriesBurned,
+                    onCaloriesChange = viewModel::updateCalories,
+                    distanceKm = uiState.distanceKm,
+                    onDistanceChange = viewModel::updateDistance,
+                    intensity = uiState.intensity,
+                    intensityOptions = intensityTypes,
+                    onIntensitySelected = viewModel::updateIntensity,
+                    isSaving = uiState.isSaving,
+                    onSave = viewModel::saveTraining,
                 )
 
                 uiState.error?.let {
                     Text(
                         text = it,
-                        color = MaterialTheme.colorScheme.error
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium,
                     )
                 }
 
-                uiState.todayActivity?.let { activity ->
+                SectionHeader(
+                    title = "История",
+                    subtitle = if (uiState.trainingHistory.isEmpty()) {
+                        "Пока нет тренировок"
+                    } else {
+                        "${uiState.trainingHistory.size} записей"
+                    },
+                )
+
+                if (uiState.trainingHistory.isEmpty() && !uiState.isLoading) {
                     Text(
-                        text = "Сегодня: ${activity.activity_type}, ${activity.duration_minutes} мин",
-                        style = MaterialTheme.typography.bodyLarge
+                        text = "Добавьте тренировку — она появится здесь с датой и деталями.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        uiState.trainingHistory.forEach { activity ->
+                            ActivityTrainingHistoryRow(
+                                activity = activity,
+                                onEdit = {
+                                    activityToEdit = activity
+                                    editDuration = activity.duration_minutes.toString()
+                                    editCal = activity.calories_burned?.toString().orEmpty()
+                                    editDist = activity.distance_km?.toString().orEmpty()
+                                    editIntensity = activity.intensity.orEmpty()
+                                    editType = activityTitleFromApi(activity.activity_type)
+                                },
+                                onDelete = { activityToDelete = activity },
+                            )
+                        }
+                    }
                 }
+
+                Spacer(Modifier.height(72.dp))
+            }
+
+            activityToDelete?.let { act ->
+                AlertDialog(
+                    onDismissRequest = { activityToDelete = null },
+                    title = { Text("Удалить тренировку?") },
+                    text = {
+                        Text("${activityTitleFromApi(act.activity_type)}, ${act.duration_minutes} мин")
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                viewModel.deleteActivity(act.id)
+                                activityToDelete = null
+                            },
+                        ) { Text("Удалить", color = MaterialTheme.colorScheme.error) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { activityToDelete = null }) { Text("Отмена") }
+                    },
+                )
+            }
+
+            activityToEdit?.let { act ->
+                AlertDialog(
+                    onDismissRequest = { activityToEdit = null },
+                    title = { Text("Редактировать") },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            AppTextField(editType, { editType = it }, label = "Тип")
+                            AppTextField(editDuration, { editDuration = it }, label = "Минуты")
+                            AppTextField(editCal, { editCal = it }, label = "Ккал")
+                            AppTextField(editDist, { editDist = it }, label = "Км")
+                            AppTextField(editIntensity, { editIntensity = it }, label = "Интенсивность")
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                val duration = editDuration.toIntOrNull()?.takeIf { it > 0 }
+                                if (duration != null) {
+                                    viewModel.updateTrainingRecord(
+                                        activity = act,
+                                        durationMinutes = duration,
+                                        calories = editCal,
+                                        distanceKm = editDist,
+                                        intensity = editIntensity,
+                                        activityType = editType,
+                                    )
+                                }
+                                activityToEdit = null
+                            },
+                        ) { Text("Сохранить") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { activityToEdit = null }) { Text("Отмена") }
+                    },
+                )
             }
         }
     }

@@ -32,6 +32,14 @@ class SplashViewModel @Inject constructor(
 
     private fun resolve() {
         viewModelScope.launch {
+            if (tokenStorage.isGuestMode()) {
+                _uiState.value = SplashUiState(
+                    isResolving = false,
+                    nextRoute = NavRoutes.Dashboard.route,
+                )
+                return@launch
+            }
+
             val token = tokenStorage.getToken()
             if (token.isNullOrBlank()) {
                 _uiState.value = SplashUiState(isResolving = false, nextRoute = NavRoutes.Login.route)
@@ -50,23 +58,28 @@ class SplashViewModel @Inject constructor(
                     )
                     return@launch
                 }
+                // Сеть/сервер недоступен или профиль не загрузился — всё равно в приложение,
+                // а не на онбординг (заполнение профиля можно сделать позже из раздела «Профиль»).
                 _uiState.value = SplashUiState(
                     isResolving = false,
-                    nextRoute = NavRoutes.Onboarding.route,
+                    nextRoute = NavRoutes.Dashboard.route,
                 )
                 return@launch
             }
 
             val profile = profileResult.getOrNull()
-
-            val profileCompleted = profile != null &&
-                profile.age != null &&
-                profile.height_cm != null &&
-                profile.weight_kg != null
+            val needsOnboarding = profile == null ||
+                profile.age == null ||
+                profile.height_cm == null ||
+                profile.weight_kg == null
 
             _uiState.value = SplashUiState(
                 isResolving = false,
-                nextRoute = if (profileCompleted) NavRoutes.Dashboard.route else NavRoutes.Onboarding.route,
+                nextRoute = if (needsOnboarding) {
+                    NavRoutes.Onboarding.route
+                } else {
+                    NavRoutes.Dashboard.route
+                },
             )
         }
     }

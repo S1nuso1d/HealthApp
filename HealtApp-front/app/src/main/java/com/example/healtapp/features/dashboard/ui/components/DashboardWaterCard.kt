@@ -21,17 +21,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.ui.components.AppCard
 import com.example.healtapp.core.ui.components.ProgressRing
-import com.example.healtapp.core.ui.theme.CardBlue
-import com.example.healtapp.core.ui.theme.SkyPrimary
+import com.example.healtapp.core.ui.theme.cardHeaderGradient
+import com.example.healtapp.core.ui.theme.themedCardBlue
 
 @Composable
 fun DashboardWaterCard(
     waterMl: Int,
-    waterTargetMl: Int
+    waterTargetMl: Int,
+    onClick: (() -> Unit)? = null,
 ) {
     val progress = (waterMl.toFloat() / waterTargetMl.toFloat()).coerceIn(0f, 1f)
 
-    AppCard {
+    AppCard(onClick = onClick) {
         Column(
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
@@ -44,12 +45,7 @@ fun DashboardWaterCard(
                         .size(52.dp)
                         .clip(RoundedCornerShape(18.dp))
                         .background(
-                            Brush.linearGradient(
-                                listOf(
-                                    CardBlue.copy(alpha = 0.95f),
-                                    SkyPrimary.copy(alpha = 0.35f),
-                                ),
-                            ),
+                            Brush.linearGradient(cardHeaderGradient(themedCardBlue(), 0.35f)),
                         ),
                     contentAlignment = Alignment.Center,
                 ) {

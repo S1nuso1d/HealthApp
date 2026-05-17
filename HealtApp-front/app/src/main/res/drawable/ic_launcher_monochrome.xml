@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Упрощённый силуэт для themed icon (Android 13+); основной вид — bitmap в foreground -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M54,34 L54,74 M34,54 L74,54"
+        android:fillColor="#00000000"
+        android:strokeWidth="8"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M54,50 C56,44 62,40 70,44 C78,38 88,46 86,58 C84,68 70,76 54,88 C38,76 24,68 22,58 C20,46 30,38 38,44 C46,40 52,44 54,50 Z"
+        android:fillColor="#FFFFFFFF" />
+</vector>

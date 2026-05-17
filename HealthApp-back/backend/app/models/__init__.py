@@ -2,8 +2,10 @@ from app.models.user import User
 from app.models.profile import UserProfile
 from app.models.sleep import SleepRecord
 from app.models.meal import MealRecord
+from app.models.saved_dish import SavedDish
 from app.models.hydration import HydrationRecord
 from app.models.activity import ActivityRecord
+from app.models.health_sample import HealthSample
 from app.models.user_state import UserState
 from app.models.analysis_run import AnalysisRun
 from app.models.saved_recommendation import SavedRecommendation
@@ -12,3 +14,5 @@ from app.models.smart_trigger import SmartTrigger
 from app.models.smart_reminder import SmartReminder
 from app.models.daily_health_summary import DailyHealthSummary
 from app.models.insight import Insight
+from app.models.integration_credential import IntegrationCredential
+from app.models.pending_registration import PendingRegistration

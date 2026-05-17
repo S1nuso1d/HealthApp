@@ -32,4 +32,28 @@ class HydrationRepositoryImpl @Inject constructor(
             )
         }
     }
+
+    override suspend fun updateHydration(
+        id: Int,
+        amountMl: Int,
+        recordTimeIso: String?,
+    ): Result<HydrationDto> {
+        return runCatching {
+            hydrationApi.updateHydration(
+                id,
+                CreateHydrationRequestDto(
+                    amount_ml = amountMl,
+                    record_time = recordTimeIso,
+                    source = "manual",
+                ),
+            )
+        }
+    }
+
+    override suspend fun deleteHydration(id: Int): Result<Unit> {
+        return runCatching {
+            hydrationApi.deleteHydration(id)
+            Unit
+        }
+    }
 }

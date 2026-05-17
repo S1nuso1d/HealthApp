@@ -158,6 +158,83 @@ def get_sleep_record_by_id(
     return record
 
 
+@router.put(
+    "/{sleep_id}",
+    response_model=SleepResponse,
+    summary="Обновить запись сна",
+    description="Полностью заменяет поля записи сна (как при создании).",
+)
+def update_sleep_record(
+    sleep_id: int,
+    sleep_data: SleepCreate,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    record = (
+        db.query(SleepRecord)
+        .filter(
+            SleepRecord.id == sleep_id,
+            SleepRecord.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Запись сна не найдена"
+        )
+
+    duration_hours = round(
+        (sleep_data.sleep_end - sleep_data.sleep_start).total_seconds() / 3600,
+        2
+    )
+
+    if duration_hours <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Время окончания сна должно быть позже времени начала сна"
+        )
+
+    sleep_efficiency = None
+    if sleep_data.time_in_bed_minutes and sleep_data.awake_time_minutes is not None:
+        asleep_minutes = sleep_data.time_in_bed_minutes - sleep_data.awake_time_minutes
+        if sleep_data.time_in_bed_minutes > 0:
+            sleep_efficiency = round((asleep_minutes / sleep_data.time_in_bed_minutes) * 100, 2)
+
+    record.sleep_start = sleep_data.sleep_start
+    record.sleep_end = sleep_data.sleep_end
+    record.duration_hours = duration_hours
+    record.quality_score = sleep_data.quality_score
+    record.deep_sleep_minutes = sleep_data.deep_sleep_minutes
+    record.rem_sleep_minutes = sleep_data.rem_sleep_minutes
+    record.awakenings_count = sleep_data.awakenings_count
+    record.sleep_latency_minutes = sleep_data.sleep_latency_minutes
+    record.awake_time_minutes = sleep_data.awake_time_minutes
+    record.time_in_bed_minutes = sleep_data.time_in_bed_minutes
+    record.sleep_efficiency = sleep_efficiency
+    record.day_type = sleep_data.day_type
+    record.notes = sleep_data.notes
+    record.source = sleep_data.source or "manual"
+
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+
+    rebuild_user_analytics(db, current_user.id, days=7)
+    generate_smart_triggers_and_reminders(db, current_user.id, period_days=7)
+
+    background_tasks.add_task(
+        realtime_manager.broadcast_user_update,
+        current_user.id,
+        "sleep",
+        "Обновлены данные сна",
+    )
+
+    return record
+
+
 @router.delete(
     "/{sleep_id}",
     summary="Удалить запись сна",

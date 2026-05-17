@@ -1,7 +1,23 @@
 import os
+from pathlib import Path
+
 from dotenv import load_dotenv
 
-load_dotenv()
+# Корень пакета backend (каталог, где лежит папка `app/`) — сюда же клади `.env`
+_BACKEND_ROOT = Path(__file__).resolve().parent.parent.parent
+
+# Явные пути (не зависят от cwd). Сначала родитель, потом backend — значения из `backend/.env` важнее.
+# override=True: пустая SMTP_HOST в системных переменных IDE не «перебивает» файл .env
+load_dotenv(_BACKEND_ROOT.parent / ".env", override=True)
+load_dotenv(_BACKEND_ROOT / ".env", override=True)
+
+
+def _env_strip(name: str, default: str = "") -> str:
+    """Убирает пробелы и BOM — частая причина «ключи в .env есть, а os.getenv пустой»."""
+    raw = os.getenv(name, default)
+    if raw is None:
+        return ""
+    return str(raw).strip().strip("\ufeff")
 
 
 class Settings:
@@ -36,6 +52,28 @@ class Settings:
         "true"
     ).lower() == "true"
     AI_MAX_PROMPT_CHARS: int = int(os.getenv("AI_MAX_PROMPT_CHARS", "12000"))
+
+    # FatSecret Platform (OAuth 1.0) — ключи приложения с https://platform.fatsecret.com/api/
+    # Публичные методы (foods.search и т.д.) подписываются только consumer key/secret.
+    FATSECRET_CONSUMER_KEY: str = _env_strip("FATSECRET_CONSUMER_KEY")
+    FATSECRET_CONSUMER_SECRET: str = _env_strip("FATSECRET_CONSUMER_SECRET")
+
+    # Подтверждение email при регистрации (если SMTP_HOST пустой — код только в логах сервера)
+    SMTP_HOST: str = os.getenv("SMTP_HOST", "")
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
+    SMTP_USER: str = os.getenv("SMTP_USER", "")
+    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
+    SMTP_FROM: str = os.getenv("SMTP_FROM", "noreply@healthapp.local")
+    SMTP_USE_TLS: bool = os.getenv("SMTP_USE_TLS", "true").lower() == "true"
+    # True = smtplib.SMTP_SSL (порт 465 у Mail.ru). Для 587 оставь false.
+    SMTP_USE_SSL: bool = os.getenv("SMTP_USE_SSL", "false").lower() == "true"
+    REGISTRATION_CODE_TTL_MINUTES: int = int(os.getenv("REGISTRATION_CODE_TTL_MINUTES", "15"))
+
+    # Аватары: файлы на диске, раздача только авторизованным GET /profile/me/avatar
+    AVATAR_DIR_PATH: Path = Path(
+        os.getenv("AVATAR_DIR", str(_BACKEND_ROOT / "uploads" / "avatars"))
+    )
+    AVATAR_MAX_BYTES: int = int(os.getenv("AVATAR_MAX_BYTES", str(5 * 1024 * 1024)))
 
 
 settings = Settings()

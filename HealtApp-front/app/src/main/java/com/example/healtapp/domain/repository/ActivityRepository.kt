@@ -7,4 +7,6 @@ interface ActivityRepository {
     suspend fun getTodayActivity(): Result<ActivityDto?>
     suspend fun getActivityHistory(): Result<List<ActivityDto>>
     suspend fun createActivity(request: ActivityCreateRequestDto): Result<ActivityDto>
+    suspend fun updateActivity(id: Int, request: ActivityCreateRequestDto): Result<ActivityDto>
+    suspend fun deleteActivity(id: Int): Result<Unit>
 }

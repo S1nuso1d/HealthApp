@@ -10,4 +10,8 @@ interface HydrationRepository {
     suspend fun getTodayHydrationSummary(): Result<HydrationSummaryDto>
 
     suspend fun addHydration(amountMl: Int): Result<HydrationDto>
+
+    suspend fun updateHydration(id: Int, amountMl: Int, recordTimeIso: String?): Result<HydrationDto>
+
+    suspend fun deleteHydration(id: Int): Result<Unit>
 }

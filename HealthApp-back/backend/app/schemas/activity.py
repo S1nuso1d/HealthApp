@@ -14,6 +14,8 @@ class ActivityCreate(BaseModel):
     distance_km: float | None = None
     calories_burned: float | None = None
     avg_heart_rate: int | None = None
+    avg_power_w: float | None = None
+    avg_speed_m_s: float | None = None
 
     intensity: str | None = None
     activity_category: str | None = None
@@ -40,6 +42,8 @@ class ActivityOut(BaseModel):
     distance_km: float | None = None
     calories_burned: float | None = None
     avg_heart_rate: int | None = None
+    avg_power_w: float | None = None
+    avg_speed_m_s: float | None = None
 
     intensity: str | None = None
     activity_category: str | None = None

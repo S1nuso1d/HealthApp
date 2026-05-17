@@ -36,6 +36,7 @@ class HydrationViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     waterToday = summary.total_ml,
+                    todayRecords = summary.records,
                     target = 2500
                 )
             }.onFailure { throwable ->
@@ -65,6 +66,40 @@ class HydrationViewModel @Inject constructor(
                     error = throwable.message ?: "Не удалось добавить воду"
                 )
             }
+        }
+    }
+
+    fun updateRecord(id: Int, amountMl: Int, recordTimeIso: String?) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            repository.updateHydration(id, amountMl, recordTimeIso)
+                .onSuccess {
+                    load()
+                    AppRefreshBus.notifyDataChanged()
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = e.message ?: "Не удалось обновить запись",
+                    )
+                }
+        }
+    }
+
+    fun deleteRecord(id: Int) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            repository.deleteHydration(id)
+                .onSuccess {
+                    load()
+                    AppRefreshBus.notifyDataChanged()
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = e.message ?: "Не удалось удалить запись",
+                    )
+                }
         }
     }
 }

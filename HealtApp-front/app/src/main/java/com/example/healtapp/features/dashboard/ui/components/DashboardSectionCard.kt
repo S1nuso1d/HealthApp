@@ -20,8 +20,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.ui.components.AppCard
-import com.example.healtapp.core.ui.theme.MintPrimary
-import com.example.healtapp.core.ui.theme.SkyPrimary
+import com.example.healtapp.core.ui.theme.subtleTintGradient
 
 @Composable
 fun DashboardSectionCard(
@@ -29,12 +28,11 @@ fun DashboardSectionCard(
     value: String,
     subtitle: String,
     icon: ImageVector,
-    iconBackground: List<Color> = listOf(
-        MintPrimary.copy(alpha = 0.22f),
-        SkyPrimary.copy(alpha = 0.22f),
-    ),
+    iconBackground: List<Color>? = null,
+    onClick: (() -> Unit)? = null,
 ) {
-    AppCard {
+    val iconBg = iconBackground ?: subtleTintGradient()
+    AppCard(onClick = onClick) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -43,7 +41,7 @@ fun DashboardSectionCard(
                 modifier = Modifier
                     .size(52.dp)
                     .clip(RoundedCornerShape(18.dp))
-                    .background(Brush.linearGradient(iconBackground)),
+                    .background(Brush.linearGradient(iconBg)),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(

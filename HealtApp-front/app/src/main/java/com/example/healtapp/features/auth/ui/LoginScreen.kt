@@ -1,57 +1,40 @@
 package com.example.healtapp.features.auth.ui
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.healtapp.core.ui.components.AppButton
+import com.example.healtapp.core.ui.components.AppTextField
 import com.example.healtapp.features.auth.presentation.AuthEvent
 import com.example.healtapp.features.auth.presentation.AuthViewModel
-import com.example.healtapp.features.auth.ui.components.AuthAccent
-import com.example.healtapp.features.auth.ui.components.AuthAccentBlue
-import com.example.healtapp.features.auth.ui.components.AuthBorderColor
-import com.example.healtapp.features.auth.ui.components.AuthCardColor
-import com.example.healtapp.features.auth.ui.components.AuthHeader
-import com.example.healtapp.features.auth.ui.components.AuthScreenContainer
+import com.example.healtapp.features.auth.ui.components.AuthFormCard
+import com.example.healtapp.features.auth.ui.components.AuthHeroBanner
+import com.example.healtapp.features.auth.ui.components.AuthMessageBanner
+import com.example.healtapp.features.auth.ui.components.AuthMessageType
+import com.example.healtapp.features.auth.ui.components.AuthScaffold
 
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
-    onRegisterClick: () -> Unit
+    onGuestDemo: () -> Unit = {},
+    onRegisterClick: () -> Unit,
+    onForgotPassword: () -> Unit = {},
 ) {
     val viewModel: AuthViewModel = hiltViewModel()
-
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(uiState.isAuthorized) {
@@ -61,135 +44,75 @@ fun LoginScreen(
         }
     }
 
-    AuthScreenContainer {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp),
-            shape = RoundedCornerShape(28.dp),
-            colors = CardDefaults.cardColors(containerColor = AuthCardColor),
-            elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+    AuthScaffold {
+        AuthHeroBanner(
+            title = "Добро пожаловать",
+            subtitle = "Войдите в аккаунт и продолжайте следить за сном, питанием и активностью",
+        )
+
+        AuthFormCard(
+            sectionTitle = "Вход",
+            sectionSubtitle = "Email и пароль от вашего аккаунта",
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 22.dp, vertical = 26.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+            AppTextField(
+                value = uiState.email,
+                onValueChange = { viewModel.onEvent(AuthEvent.EmailChanged(it)) },
+                label = "Email",
+                leadingIcon = Icons.Outlined.Email,
+                keyboardType = KeyboardType.Email,
+            )
+            AppTextField(
+                value = uiState.password,
+                onValueChange = { viewModel.onEvent(AuthEvent.PasswordChanged(it)) },
+                label = "Пароль",
+                isPassword = true,
+                leadingIcon = Icons.Outlined.Lock,
+            )
+
+            uiState.error?.let { err ->
+                AuthMessageBanner(text = err, type = AuthMessageType.Error)
+            }
+
+            AppButton(
+                text = if (uiState.isLoading) "Входим…" else "Войти",
+                onClick = { viewModel.onEvent(AuthEvent.SubmitLogin) },
+                enabled = !uiState.isLoading,
+            )
+
+            AppButton(
+                text = "Создать аккаунт",
+                onClick = onRegisterClick,
+                enabled = !uiState.isLoading,
+                isSecondary = true,
+            )
+
+            AppButton(
+                text = "Попробовать демо",
+                onClick = { viewModel.enterGuestMode(onGuestDemo) },
+                enabled = !uiState.isLoading,
+                isSecondary = true,
+            )
+
+            TextButton(
+                onClick = onForgotPassword,
+                enabled = !uiState.isLoading,
+                modifier = Modifier.fillMaxWidth(),
             ) {
-                AuthHeader(
-                    title = "Добро пожаловать",
-
-                    subtitle = "Войди в HealthApp и продолжай следить за своим здоровьем"
-                )
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                OutlinedTextField(
-                    value = uiState.email,
-                    onValueChange = { viewModel.onEvent(AuthEvent.EmailChanged(it)) },
+                Text(
+                    text = "Забыли пароль?",
+                    color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Email") },
-                    singleLine = true,
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Outlined.Email,
-                            contentDescription = null,
-                            tint = AuthAccentBlue
-                        )
-                    },
-                    shape = RoundedCornerShape(18.dp),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedIndicatorColor = AuthAccentBlue,
-                        unfocusedIndicatorColor = AuthBorderColor,
-                        focusedLabelColor = AuthAccentBlue
-                    )
+                    textAlign = TextAlign.Center,
                 )
-
-                OutlinedTextField(
-                    value = uiState.password,
-                    onValueChange = { viewModel.onEvent(AuthEvent.PasswordChanged(it)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Пароль") },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Outlined.Lock,
-                            contentDescription = null,
-                            tint = AuthAccent
-                        )
-                    },
-                    shape = RoundedCornerShape(18.dp),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White,
-                        focusedIndicatorColor = AuthAccent,
-                        unfocusedIndicatorColor = AuthBorderColor,
-                        focusedLabelColor = AuthAccent
-                    )
-                )
-
-                uiState.error?.let {
-                    Text(
-                        text = it,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Button(
-                    onClick = { viewModel.onEvent(AuthEvent.SubmitLogin) },
-                    enabled = !uiState.isLoading,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = AuthAccentBlue,
-                        contentColor = Color.White
-                    )
-                ) {
-                    Text(
-                        text = if (uiState.isLoading) "Вход..." else "Войти",
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                OutlinedButton(
-                    onClick = onRegisterClick,
-                    enabled = !uiState.isLoading,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
-                    shape = RoundedCornerShape(18.dp),
-                    border = ButtonDefaults.outlinedButtonBorder.copy(
-                        brush = Brush.horizontalGradient(
-                            listOf(AuthAccent, AuthAccentBlue)
-                        )
-                    )
-                ) {
-                    Text(
-                        text = "Создать аккаунт",
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-
-                TextButton(
-                    onClick = {},
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                ) {
-                    Text(
-                        text = "Забыл пароль?",
-                        color = AuthAccentBlue
-                    )
-                }
             }
         }
+
+        Text(
+            text = "Данные синхронизируются с сервером после входа",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center,
+        )
     }
 }

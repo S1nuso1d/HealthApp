@@ -12,7 +12,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.common.Constants
-import com.example.healtapp.core.ui.theme.CardMint
+import com.example.healtapp.core.ui.theme.chipSelectedColor
+import com.example.healtapp.core.ui.theme.themedCardMint
 
 private data class LevelOption(val id: String, val label: String)
 
@@ -42,7 +43,7 @@ fun ActivityLevelSelector(
                     onClick = { onSelected(option.id) },
                     label = { Text(option.label) },
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = CardMint,
+                        selectedContainerColor = chipSelectedColor(themedCardMint()),
                     ),
                 )
             }

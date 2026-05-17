@@ -21,4 +21,16 @@ class SleepRepositoryImpl @Inject constructor(
             sleepApi.addSleep(request)
         }
     }
+
+    override suspend fun updateSleep(id: Int, request: CreateSleepRequestDto): Result<SleepDto> {
+        return runCatching {
+            sleepApi.updateSleep(id, request)
+        }
+    }
+
+    override suspend fun deleteSleep(id: Int): Result<Unit> {
+        return runCatching {
+            sleepApi.deleteSleep(id)
+        }
+    }
 }

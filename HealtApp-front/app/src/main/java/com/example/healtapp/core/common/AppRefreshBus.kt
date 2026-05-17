@@ -29,4 +29,9 @@ object AppRefreshBus {
     fun notifySessionExpired() {
         _sessionExpired.tryEmit(Unit)
     }
+
+    /** Явный выход из аккаунта — та же навигация, что при истёкшей сессии. */
+    fun notifyLogout() {
+        _sessionExpired.tryEmit(Unit)
+    }
 }

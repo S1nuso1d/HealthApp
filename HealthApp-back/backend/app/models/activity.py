@@ -22,6 +22,8 @@ class ActivityRecord(Base):
     distance_km = Column(Float, nullable=True)
     calories_burned = Column(Float, nullable=True)
     avg_heart_rate = Column(Integer, nullable=True)
+    avg_power_w = Column(Float, nullable=True)
+    avg_speed_m_s = Column(Float, nullable=True)
 
     intensity = Column(String, nullable=True)  # low, medium, high
 

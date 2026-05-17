@@ -50,6 +50,23 @@ class ProfileCreate(BaseModel):
         description="Целевая норма воды в мл",
         examples=[2500]
     )
+    target_daily_calories: Optional[int] = Field(
+        None,
+        ge=800,
+        le=8000,
+        description="Целевая калорийность дня, ккал",
+        examples=[2200],
+    )
+    target_protein_g: Optional[float] = Field(None, ge=0, le=500, description="Цель белка, г/день")
+    target_fat_g: Optional[float] = Field(None, ge=0, le=300, description="Цель жиров, г/день")
+    target_carbs_g: Optional[float] = Field(None, ge=0, le=800, description="Цель углеводов, г/день")
+    target_steps: Optional[int] = Field(
+        None,
+        ge=1000,
+        le=100_000,
+        description="Цель шагов в день",
+        examples=[10_000],
+    )
 
 
 class ProfileResponse(BaseModel):
@@ -63,6 +80,12 @@ class ProfileResponse(BaseModel):
     activity_level: Optional[str] = None
     target_sleep_hours: Optional[float] = None
     target_water_ml: Optional[float] = None
+    target_daily_calories: Optional[int] = None
+    target_protein_g: Optional[float] = None
+    target_fat_g: Optional[float] = None
+    target_carbs_g: Optional[float] = None
+    target_steps: Optional[int] = None
+    has_avatar: bool = Field(False, description="Есть загруженное фото профиля")
 
     class Config:
         from_attributes = True

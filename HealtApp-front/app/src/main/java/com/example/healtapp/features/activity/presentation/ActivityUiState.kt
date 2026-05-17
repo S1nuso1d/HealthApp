@@ -6,13 +6,21 @@ data class ActivityUiState(
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val error: String? = null,
+    val snackMessage: String? = null,
 
-    val activityType: String = "",
+    val stepsToday: Int = 0,
+    val stepsGoal: Int = 10_000,
+    val weeklySteps: List<DaySteps> = emptyList(),
+    val trainingMinutesToday: Int = 0,
+    val trainingCaloriesToday: Int = 0,
+    val healthConnectStepsToday: Int? = null,
+
+    val activityType: String = "Бег",
     val durationMinutes: String = "",
-    val steps: String = "",
     val caloriesBurned: String = "",
     val distanceKm: String = "",
-    val intensity: String = "",
+    val intensity: String = "Средняя",
 
-    val todayActivity: ActivityDto? = null
+    val trainingHistory: List<ActivityDto> = emptyList(),
+    val todayWalkRecordId: Int? = null,
 )

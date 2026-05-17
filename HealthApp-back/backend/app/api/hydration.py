@@ -10,6 +10,7 @@ from app.schemas.hydration import (
     HydrationCreate,
     HydrationResponse,
     HydrationSummaryResponse,
+    HydrationUpdate,
 )
 from app.services.analytics_sync import rebuild_user_analytics
 from app.services.realtime_manager import realtime_manager
@@ -145,6 +146,57 @@ def get_hydration_record_by_id(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Запись гидратации не найдена"
         )
+
+    return record
+
+
+@router.put(
+    "/{record_id}",
+    response_model=HydrationResponse,
+    summary="Обновить запись воды",
+    description="Изменяет объём и при необходимости время записи.",
+)
+def update_hydration_record(
+    record_id: int,
+    data: HydrationUpdate,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    record = (
+        db.query(HydrationRecord)
+        .filter(
+            HydrationRecord.id == record_id,
+            HydrationRecord.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Запись гидратации не найдена"
+        )
+
+    record.amount_ml = float(data.amount_ml)
+    if data.record_time is not None:
+        record.record_time = data.record_time
+    if data.source is not None:
+        record.source = data.source
+
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+
+    rebuild_user_analytics(db, current_user.id, days=7)
+    generate_smart_triggers_and_reminders(db, current_user.id, period_days=7)
+
+    background_tasks.add_task(
+        realtime_manager.broadcast_user_update,
+        current_user.id,
+        "hydration",
+        "Обновлена запись гидратации",
+    )
 
     return record
 

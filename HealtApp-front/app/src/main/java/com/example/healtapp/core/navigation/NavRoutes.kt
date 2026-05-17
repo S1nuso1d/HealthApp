@@ -4,6 +4,8 @@ sealed class NavRoute(val route: String) {
     data object Splash : NavRoute("splash")
     data object Login : NavRoute("login")
     data object Register : NavRoute("register")
+    data object ForgotPassword : NavRoute("forgot_password")
+    data object RegisterSetup : NavRoute("register_setup")
     data object Onboarding : NavRoute("onboarding")
     data object Dashboard : NavRoute("dashboard")
     data object Profile : NavRoute("profile")
@@ -14,12 +16,20 @@ sealed class NavRoute(val route: String) {
     data object Recommendations : NavRoute("recommendations")
     data object Timeline : NavRoute("timeline")
     data object ActionPlan : NavRoute("action_plan")
+    data object DataPrivacy : NavRoute("data_privacy")
+    data object DataImport : NavRoute("data_import")
+    data object Integrations : NavRoute("integrations")
+    data object HealthVitals : NavRoute("health_vitals")
+    data object Notifications : NavRoute("notifications")
+    data object AiAssistant : NavRoute("ai_assistant")
 }
 
 object NavRoutes {
     val Splash = NavRoute.Splash
     val Login = NavRoute.Login
     val Register = NavRoute.Register
+    val ForgotPassword = NavRoute.ForgotPassword
+    val RegisterSetup = NavRoute.RegisterSetup
     val Onboarding = NavRoute.Onboarding
     val Dashboard = NavRoute.Dashboard
     val Profile = NavRoute.Profile
@@ -30,4 +40,10 @@ object NavRoutes {
     val Recommendations = NavRoute.Recommendations
     val Timeline = NavRoute.Timeline
     val ActionPlan = NavRoute.ActionPlan
+    val DataPrivacy = NavRoute.DataPrivacy
+    val DataImport = NavRoute.DataImport
+    val Integrations = NavRoute.Integrations
+    val HealthVitals = NavRoute.HealthVitals
+    val Notifications = NavRoute.Notifications
+    val AiAssistant = NavRoute.AiAssistant
 }

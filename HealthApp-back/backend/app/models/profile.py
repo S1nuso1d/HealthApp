@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Float, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.db.database import Base
@@ -18,5 +18,13 @@ class UserProfile(Base):
     activity_level = Column(String, nullable=True)
     target_sleep_hours = Column(Float, nullable=True)
     target_water_ml = Column(Float, nullable=True)
+
+    target_daily_calories = Column(Integer, nullable=True)
+    target_protein_g = Column(Float, nullable=True)
+    target_fat_g = Column(Float, nullable=True)
+    target_carbs_g = Column(Float, nullable=True)
+    target_steps = Column(Integer, nullable=True)
+
+    has_avatar = Column(Boolean, nullable=False, default=False)
 
     user = relationship("User", back_populates="profile")

@@ -27,14 +27,16 @@ private val LightColors = lightColorScheme(
 )
 
 private val DarkColors = darkColorScheme(
-    primary = SkyPrimary,
-    onPrimary = Color(0xFF06101B),
-    primaryContainer = Color(0xFF1A3550),
-    onPrimaryContainer = TextPrimaryDark,
-    secondary = MintPrimary,
-    onSecondary = Color(0xFF06101B),
-    secondaryContainer = Color(0xFF15352A),
-    onSecondaryContainer = TextPrimaryDark,
+    primary = BrutalWhite,
+    onPrimary = BrutalBlack,
+    primaryContainer = Color(0xFF2E2E2E),
+    onPrimaryContainer = BrutalWhite,
+    secondary = BrutalAccent,
+    onSecondary = BrutalBlack,
+    secondaryContainer = Color(0xFF333333),
+    onSecondaryContainer = Color(0xFFE5E5E5),
+    tertiary = Color(0xFF737373),
+    onTertiary = BrutalWhite,
     background = AppBackgroundDark,
     onBackground = TextPrimaryDark,
     surface = AppSurfaceDark,
@@ -42,7 +44,9 @@ private val DarkColors = darkColorScheme(
     surfaceVariant = AppSurfaceSoftDark,
     onSurfaceVariant = TextSecondaryDark,
     outline = BorderSoftDark,
-    error = ErrorColor,
+    outlineVariant = Color(0xFF2A2A2A),
+    error = Color(0xFFFF6B6B),
+    onError = BrutalBlack,
 )
 
 @Composable

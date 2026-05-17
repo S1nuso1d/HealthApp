@@ -14,7 +14,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.common.Constants
-import com.example.healtapp.core.ui.theme.CardBlue
+import com.example.healtapp.core.ui.theme.chipSelectedColor
+import com.example.healtapp.core.ui.theme.themedCardBlue
 
 private data class GoalOption(val id: String, val label: String)
 
@@ -47,7 +48,7 @@ fun GoalSelector(
                     onClick = { onGoalSelected(option.id) },
                     label = { Text(option.label) },
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = CardBlue,
+                        selectedContainerColor = chipSelectedColor(themedCardBlue()),
                     ),
                 )
             }

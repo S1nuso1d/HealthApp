@@ -240,11 +240,26 @@ def _build_personalized_tip_with_llm(
         return None
 
 
+def _build_personalized_tip_fast(recommendation: AIRecommendationItem) -> str | None:
+    """Быстрый совет без LLM — для мобильного списка (избегаем timeout)."""
+    if recommendation.action:
+        return recommendation.action
+    category_tips = {
+        "hydration": "Держи воду под рукой и пей небольшими порциями в течение дня.",
+        "sleep": "За 30–60 минут до сна приглуши свет и экраны — так проще уснуть вовремя.",
+        "activity": "Короткая прогулка 15–20 минут заметно приближает к цели по шагам.",
+        "nutrition": "Добавь белок и овощи в следующий приём пищи — энергия держится ровнее.",
+        "health": "Отметь самочувствие в приложении — так советы станут точнее.",
+    }
+    return category_tips.get(recommendation.category) or recommendation.description
+
+
 def _build_dynamic_ai_recommendations(
     db: Session,
     user_id: int,
     analytics: AnalyticsResponse,
     include_resolved: bool = False,
+    use_llm_tips: bool = False,
 ) -> list[AIRecommendationItem]:
     profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
     latest_summary = (
@@ -399,9 +414,13 @@ def _build_dynamic_ai_recommendations(
             )
             db.add(saved)
 
-        rec.personalized_tip = _build_personalized_tip_with_llm(
-            recommendation=rec,
-            metrics_context=metrics_context,
+        rec.personalized_tip = (
+            _build_personalized_tip_with_llm(
+                recommendation=rec,
+                metrics_context=metrics_context,
+            )
+            if use_llm_tips
+            else _build_personalized_tip_fast(rec)
         )
         items.append(rec)
 
@@ -547,6 +566,10 @@ def get_ai_recommendations(
         default=False,
         description="Включать выполненные и cooldown-рекомендации в ответ",
     ),
+    use_llm_tips: bool = Query(
+        default=False,
+        description="Генерировать personalized_tip через LLM (медленно; для мобильного — false)",
+    ),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -561,6 +584,7 @@ def get_ai_recommendations(
         user_id=current_user.id,
         analytics=analytics,
         include_resolved=include_resolved,
+        use_llm_tips=use_llm_tips,
     )
 
     return AIRecommendationsResponse(
