@@ -62,23 +62,59 @@ Recommendations:
 """.strip()
 
     @staticmethod
-    def build_chat_prompt(analytics: AnalyticsResponse, user_question: str) -> str:
+    def build_today_block(today: dict | None) -> str:
+        if not today:
+            return ""
+        return f"""
+Сегодня (факт / цель):
+- Сон: {today.get('sleep_hours', 0):.1f} ч из {today.get('sleep_target', 8):.1f} ч
+- Вода: {today.get('water_ml', 0)} мл из {today.get('water_target', 2500)} мл
+- Шаги: {today.get('steps', 0)} из {today.get('steps_target', 10000)}
+- Калории (еда): {today.get('calories', 0)} из {today.get('calories_target', 2200)} ккал
+- Сожжено: {today.get('burned', 0)} из {today.get('burn_target', 500)} ккал
+- Записей настроения сегодня: {'да' if today.get('state_logged') else 'нет'}
+""".strip()
+
+    @staticmethod
+    def build_personal_hints_block(hints: list[dict] | None) -> str:
+        if not hints:
+            return ""
+        lines = [
+            f"- {h.get('title', '')}: {h.get('description', '')}"
+            + (f" Действие: {h['action']}" if h.get("action") else "")
+            for h in hints[:4]
+        ]
+        return "Персональные наблюдения из дневника:\n" + "\n".join(lines)
+
+    @staticmethod
+    def build_chat_prompt(
+        analytics: AnalyticsResponse,
+        user_question: str,
+        today: dict | None = None,
+        personal_hints: list[dict] | None = None,
+    ) -> str:
         context = PromptBuilder.build_context_block(analytics)
+        today_block = PromptBuilder.build_today_block(today)
+        hints_block = PromptBuilder.build_personal_hints_block(personal_hints)
+
+        extra = "\n\n".join(x for x in (today_block, hints_block) if x)
 
         return f"""
 Ниже аналитический контекст пользователя.
 
 {context}
+{extra}
 
 Вопрос пользователя:
 {user_question}
 
 Ответь:
-1. Понятно и дружелюбно
-2. Без медицинских диагнозов
-3. С опорой только на эти данные
-4. В 2-5 абзацах
-5. В конце дай 1-3 конкретных шага
+1. Понятно и по-русски, на «вы» или «ты» как в вопросе
+2. Без медицинских диагнозов и назначения лечения
+3. Сначала ответь на вопрос; опирайся на блок «Сегодня» для советов на текущий день
+4. Если данных мало — скажи честно, что записать (сон, вода, еда, шаги)
+5. 2–4 коротких абзаца, без воды
+6. В конце — нумерованный список из 1–3 конкретных шагов на сегодня или завтра
 """.strip()
 
     @staticmethod

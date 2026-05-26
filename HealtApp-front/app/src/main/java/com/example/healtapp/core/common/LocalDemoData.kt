@@ -4,7 +4,8 @@ import com.example.healtapp.features.dashboard.presentation.ActionPlanItemUi
 import com.example.healtapp.features.dashboard.presentation.DailyBriefUi
 import com.example.healtapp.features.dashboard.presentation.DashboardUiState
 import com.example.healtapp.features.dashboard.presentation.ScoreBreakdownUi
-import com.example.healtapp.features.dashboard.presentation.SmartReminderUi
+import com.example.healtapp.features.dashboard.presentation.WeeklyMetricUi
+import com.example.healtapp.features.dashboard.presentation.WeeklySummaryUi
 import com.example.healtapp.features.recommendations.presentation.RecommendationUiItem
 
 /** Статические данные для режима «без сервера» (демо). */
@@ -28,6 +29,7 @@ object LocalDemoData {
             stepsGoal = 10_000,
         activityMinutesToday = 48,
         caloriesBurnedToday = 320,
+        caloriesBurnGoal = 500,
         scores = ScoreBreakdownUi(
             healthScore = 72,
             sleepScore = 78,
@@ -45,8 +47,14 @@ object LocalDemoData {
             ActionPlanItemUi(1, "Выпить воды", "Добавьте 500 мл до обеда", "hydration", "pending", "high"),
             ActionPlanItemUi(2, "Прогулка 15 мин", "После обеда для шагов", "activity", "pending", "medium"),
         ),
-        smartReminders = listOf(
-            SmartReminderUi(1, "Вода", "Вы давно не отмечали воду", "hydration", "new"),
+        weeklySummary = WeeklySummaryUi(
+            periodLabel = "12 — 18 мая",
+            metrics = listOf(
+                WeeklyMetricUi("sleep", "Сон", "7,4 ч / ночь", 3, 5, "Среднее за 3 дня с данными"),
+                WeeklyMetricUi("water", "Вода", "1 800 мл / день", 4, 5, "Среднее за 4 дня с данными"),
+                WeeklyMetricUi("steps", "Шаги", "8 200 / день", 5, 5, "Среднее за 5 дней с данными"),
+                WeeklyMetricUi("calories", "Калории", "2 100 ккал / день", 3, 5, "Среднее за 3 дня с данными"),
+            ),
         ),
         waterStreakDays = 2,
         stepsStreakDays = 3,

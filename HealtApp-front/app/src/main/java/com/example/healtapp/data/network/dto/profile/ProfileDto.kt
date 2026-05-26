@@ -18,6 +18,10 @@ data class ProfileDto(
     val target_fat_g: Float? = null,
     val target_carbs_g: Float? = null,
     val target_steps: Int? = null,
+    val is_vegetarian: Boolean? = null,
+    val has_allergies: Boolean? = null,
+    val allergies_text: String? = null,
+    val onboarding_completed: Boolean = false,
     @SerializedName("has_avatar")
     val hasAvatar: Boolean = false,
 )

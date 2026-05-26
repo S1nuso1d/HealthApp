@@ -23,6 +23,8 @@ fun AppScreen(
     title: String? = null,
     subtitle: String? = null,
     headerIcon: ImageVector? = null,
+    headerLeading: (@Composable () -> Unit)? = null,
+    onHeaderLeadingClick: (() -> Unit)? = null,
     onNavigateBack: (() -> Unit)? = null,
     scrollable: Boolean = true,
     contentPadding: PaddingValues = PaddingValues(20.dp),
@@ -43,7 +45,9 @@ fun AppScreen(
             ScreenHeader(
                 title = title,
                 subtitle = subtitle,
-                icon = headerIcon,
+                icon = if (headerLeading == null) headerIcon else null,
+                leadingContent = headerLeading,
+                onLeadingClick = onHeaderLeadingClick,
                 onBackClick = onNavigateBack,
             )
         }

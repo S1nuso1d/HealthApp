@@ -2,11 +2,14 @@ package com.example.healtapp.core.navigation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MonitorHeart
 import androidx.compose.material3.CircularProgressIndicator
@@ -44,22 +47,35 @@ import com.example.healtapp.features.auth.ui.RegisterScreen
 import com.example.healtapp.features.dashboard.ui.DashboardScreen
 import com.example.healtapp.features.health.ui.HealthVitalsScreen
 import com.example.healtapp.features.hydration.ui.HydrationScreen
-import com.example.healtapp.features.meal.ui.MealScreen
 import com.example.healtapp.features.onboarding.ui.OnboardingScreen
 import com.example.healtapp.features.profile.ui.ProfileScreen
 import com.example.healtapp.features.recommendations.ui.RecommendationsScreen
 import com.example.healtapp.features.settings.ui.DataImportScreen
 import com.example.healtapp.features.settings.ui.DataPrivacyScreen
 import com.example.healtapp.features.settings.ui.IntegrationsScreen
+import com.example.healtapp.features.settings.ui.ServerConnectionScreen
+import com.example.healtapp.features.miband.ui.MiBandConnectionScreen
 import com.example.healtapp.features.settings.ui.NotificationsScreen
 import com.example.healtapp.notifications.HealthNotificationHelper
 import com.example.healtapp.features.sleep.ui.SleepScreen
 import com.example.healtapp.features.timeline.ui.TimelineScreen
+import com.example.healtapp.features.achievements.ui.AchievementUnlockOverlay
+import com.example.healtapp.features.achievements.ui.AchievementsScreen
+import com.example.healtapp.features.social.ui.FriendsScreen
+import com.example.healtapp.features.social.ui.FriendProfileScreen
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import com.example.healtapp.core.ui.components.AppBottomNavigation
+import com.example.healtapp.core.ui.components.GlobalPendingSyncBanner
+import com.example.healtapp.features.meal.ui.components.MealDiaryGuidePrefs
+import com.example.healtapp.features.sync.GlobalPendingSyncViewModel
 
 @Composable
 fun AppNavGraph() {
     val navController = rememberNavController()
+    val syncViewModel: GlobalPendingSyncViewModel = hiltViewModel()
+    val pendingSyncCount by syncViewModel.pendingCount.collectAsStateWithLifecycle()
+    val isSyncFlushing by syncViewModel.isFlushing.collectAsStateWithLifecycle()
 
     val activity = LocalContext.current as ComponentActivity
     LaunchedEffect(activity.intent) {
@@ -95,6 +111,7 @@ fun AppNavGraph() {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
+    Box(modifier = Modifier.fillMaxSize()) {
     Scaffold(
         bottomBar = {
             if (currentRoute in bottomBarRoutes) {
@@ -170,7 +187,7 @@ fun AppNavGraph() {
             composable(NavRoutes.Login.route) {
                 LoginScreen(
                     onLoginSuccess = {
-                        navController.navigate(NavRoutes.Splash.route) {
+                        navController.navigate(NavRoutes.Dashboard.route) {
                             popUpTo(navController.graph.id) { inclusive = true }
                             launchSingleTop = true
                         }
@@ -199,7 +216,7 @@ fun AppNavGraph() {
             composable(NavRoutes.Register.route) {
                 RegisterScreen(
                     onRegisterSuccess = {
-                        navController.navigate(NavRoutes.RegisterSetup.route) {
+                        navController.navigate(NavRoutes.Onboarding.route) {
                             popUpTo(NavRoutes.Register.route) { inclusive = true }
                             launchSingleTop = true
                         }
@@ -259,26 +276,30 @@ fun AppNavGraph() {
                     onOpenAiAssistant = {
                         navController.navigate(NavRoutes.AiAssistant.route) { launchSingleTop = true }
                     },
+                    onOpenHealthVitals = {
+                        navController.navigate(NavRoutes.HealthVitals.route) { launchSingleTop = true }
+                    },
                 )
             }
             composable(NavRoutes.Profile.route) {
                 ProfileScreen(
                     onOpenDataPrivacy = { navController.navigate(NavRoutes.DataPrivacy.route) },
-                    onOpenImport = { navController.navigate(NavRoutes.DataImport.route) },
                     onOpenIntegrations = { navController.navigate(NavRoutes.Integrations.route) },
-                    onOpenHealthVitals = { navController.navigate(NavRoutes.HealthVitals.route) },
+                    onOpenMiBandBle = { navController.navigate(NavRoutes.MiBandBle.route) },
                     onOpenNotifications = { navController.navigate(NavRoutes.Notifications.route) },
-                    onOpenAiAssistant = {
-                        navController.navigate(NavRoutes.AiAssistant.route) { launchSingleTop = true }
-                    },
-                    onOpenTimeline = {
-                        navController.navigate(NavRoutes.Timeline.route) { launchSingleTop = true }
-                    },
-                    onOpenActionPlan = {
-                        navController.navigate(NavRoutes.ActionPlan.route) { launchSingleTop = true }
+                    onOpenAchievements = { navController.navigate(NavRoutes.Achievements.route) },
+                    onOpenFriends = { navController.navigate(NavRoutes.Friends.route) },
+                    onOpenNutritionGuide = {
+                        MealDiaryGuidePrefs.requestShowAgain(activity)
+                        navController.navigate(NavRoutes.Nutrition.route) {
+                            launchSingleTop = true
+                        }
                     },
                     onLogout = { AppRefreshBus.notifyLogout() },
                 )
+            }
+            composable(NavRoutes.ServerConnection.route) {
+                ServerConnectionScreen(onBack = { navController.popBackStack() })
             }
             composable(NavRoutes.DataPrivacy.route) {
                 DataPrivacyScreen(
@@ -295,7 +316,13 @@ fun AppNavGraph() {
                 DataImportScreen(onBack = { navController.popBackStack() })
             }
             composable(NavRoutes.Integrations.route) {
-                IntegrationsScreen(onBack = { navController.popBackStack() })
+                IntegrationsScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenMiBandBle = { navController.navigate(NavRoutes.MiBandBle.route) },
+                )
+            }
+            composable(NavRoutes.MiBandBle.route) {
+                MiBandConnectionScreen(onBack = { navController.popBackStack() })
             }
             composable(NavRoutes.HealthVitals.route) {
                 HealthVitalsScreen(onBack = { navController.popBackStack() })
@@ -305,7 +332,6 @@ fun AppNavGraph() {
             }
             composable(NavRoutes.Sleep.route) {
                 SleepScreen(
-                    onOpenIntegrations = { navController.navigate(NavRoutes.Integrations.route) },
                     onOpenProfile = {
                         navController.navigate(NavRoutes.Profile.route) {
                             launchSingleTop = true
@@ -314,10 +340,7 @@ fun AppNavGraph() {
                 )
             }
             composable(NavRoutes.Nutrition.route) {
-                MealScreen(
-                    onOpenHydration = { navController.navigate(NavRoutes.Hydration.route) },
-                    onOpenHealthVitals = { navController.navigate(NavRoutes.HealthVitals.route) },
-                )
+                com.example.healtapp.features.nutrition.ui.NutritionHubScreen(initialTab = 0)
             }
             composable(NavRoutes.Activity.route) {
                 ActivityScreen(
@@ -330,7 +353,9 @@ fun AppNavGraph() {
             }
 
             // оставляем вне нижней панели
-            composable(NavRoutes.Hydration.route) { HydrationScreen() }
+            composable(NavRoutes.Hydration.route) {
+                com.example.healtapp.features.nutrition.ui.NutritionHubScreen(initialTab = 2)
+            }
             composable(NavRoutes.Recommendations.route) { RecommendationsScreen() }
             composable(
                 route = NavRoutes.Timeline.route,
@@ -353,6 +378,48 @@ fun AppNavGraph() {
             ) {
                 AiAssistantScreen(onBack = { navController.popBackStack() })
             }
+            composable(NavRoutes.Achievements.route) {
+                AchievementsScreen(onBack = { navController.popBackStack() })
+            }
+            composable(NavRoutes.Friends.route) {
+                FriendsScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenFriend = { id ->
+                        navController.navigate(NavRoutes.FriendProfile.route(id))
+                    },
+                )
+            }
+            composable(
+                route = NavRoutes.FriendProfile.route,
+                arguments = listOf(navArgument("userId") { type = NavType.IntType }),
+            ) {
+                FriendProfileScreen(onBack = { navController.popBackStack() })
+            }
         }
+    }
+
+        if (
+            currentRoute !in setOf(
+                NavRoutes.Splash.route,
+                NavRoutes.Login.route,
+                NavRoutes.Register.route,
+                NavRoutes.ForgotPassword.route,
+                NavRoutes.Onboarding.route,
+                NavRoutes.RegisterSetup.route,
+            )
+        ) {
+            GlobalPendingSyncBanner(
+                count = pendingSyncCount,
+                isFlushing = isSyncFlushing,
+                onTap = { syncViewModel.flushNow() },
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    .fillMaxWidth(),
+            )
+        }
+
+        AchievementUnlockOverlay(currentRoute = currentRoute)
     }
 }

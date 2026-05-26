@@ -1,10 +1,35 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
+    id("com.google.protobuf")
 }
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:3.25.5"
+    }
+    generateProtoTasks {
+        all().forEach { task ->
+            task.builtins {
+                create("java") {
+                    option("lite")
+                }
+            }
+        }
+    }
+}
+
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+val apiBaseUrl = localProperties.getProperty("API_BASE_URL", "http://192.168.31.183:8001/")
+    .let { if (it.endsWith("/")) it else "$it/" }
 
 android {
     namespace = "com.example.healtapp"
@@ -19,7 +44,7 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField("String", "BASE_URL", "\"http://192.168.31.198:8001/\"")
+        buildConfigField("String", "BASE_URL", "\"$apiBaseUrl\"")
 
         vectorDrawables {
             useSupportLibrary = true
@@ -53,6 +78,8 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            // bcprov-jdk18on vs jspecify — одинаковый OSGI MANIFEST
+            excludes += "/META-INF/versions/**"
         }
     }
 }
@@ -74,6 +101,7 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
@@ -106,6 +134,9 @@ dependencies {
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 
     implementation("androidx.health.connect:connect-client:1.1.0")
+
+    implementation("com.google.protobuf:protobuf-javalite:3.25.5")
+    implementation("org.bouncycastle:bcprov-jdk18on:1.78.1")
 
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
     val cam = "1.3.4"

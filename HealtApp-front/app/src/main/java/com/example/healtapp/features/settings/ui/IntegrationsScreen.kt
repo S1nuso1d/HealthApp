@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Watch
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,15 +31,18 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.healtapp.core.ui.components.AppButton
 import com.example.healtapp.core.ui.components.AppCard
+import com.example.healtapp.core.ui.components.AppMessageBanner
+import com.example.healtapp.core.ui.components.AppMessageType
 import com.example.healtapp.core.ui.components.AppScreen
 import com.example.healtapp.core.ui.components.AppTextField
-import com.example.healtapp.core.ui.components.SectionHeader
+import com.example.healtapp.core.ui.components.CollapsibleAppCard
 import com.example.healtapp.data.healthconnect.HealthConnectReader
 import com.example.healtapp.features.settings.presentation.IntegrationsViewModel
 
 @Composable
 fun IntegrationsScreen(
     onBack: () -> Unit = {},
+    onOpenMiBandBle: () -> Unit = {},
     registrationMode: Boolean = false,
     onContinueToApp: (() -> Unit)? = null,
 ) {
@@ -76,11 +80,7 @@ fun IntegrationsScreen(
         scrollable = true,
     ) {
         uiState.error?.let {
-            Text(
-                text = it,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            AppMessageBanner(text = it, type = AppMessageType.Error)
         }
         uiState.message?.let {
             Text(
@@ -90,15 +90,15 @@ fun IntegrationsScreen(
             )
         }
 
-        SectionHeader(
+        CollapsibleAppCard(
             title = "Health Connect",
             subtitle = if (registrationMode) {
-                "Сон, шаги, тренировки и показатели здоровья — если они есть в Health Connect"
+                "Сон, шаги, тренировки"
             } else {
-                "Сон, шаги, тренировки, пульс, давление, SpO₂, глюкоза, вес, рост, % жира, BMR, VO₂ max, калории, расстояние, мощность и скорость — при наличии данных и разрешений. Пока приложение открыто, импорт из Health Connect идёт сам: при возврате на экран и примерно раз в 10 минут."
+                "Сон, шаги, пульс, SpO₂ и др."
             },
-        )
-
+            initiallyExpanded = registrationMode,
+        ) {
         if (!uiState.healthConnectSupported) {
             Text(
                 text = "Health Connect сейчас недоступен: для Android 13 и ниже установи приложение Health Connect из Play Маркет; на Android 14+ модуль встроен в систему.",
@@ -106,7 +106,6 @@ fun IntegrationsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {
-            AppCard {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (uiState.healthConnectNeedsProviderUpdate) {
                         Text(
@@ -139,7 +138,7 @@ fun IntegrationsScreen(
                         )
                         if (uiState.healthConnectPermissionsGranted) {
                             Text(
-                                text = "Mi Band / Mi Fitness: если сон не попадает в Health Connect, HealthApp не читает браслет по BLE — у Xiaomi закрытый протокол, официального API Mi Fitness для сна обычно нет. Реалистичные пути: чтобы другой сервис записал сон в Health Connect, отдельный мост/экспорт, либо ручной импорт.",
+                                text = "Для Mi Band 8 без Health Connect используйте раздел «Mi Band 8 — прямой BLE» ниже.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -167,19 +166,35 @@ fun IntegrationsScreen(
                         }
                     }
                 }
-            }
+        }
         }
 
-        SectionHeader(
+        CollapsibleAppCard(
+            title = "Mi Band 8 — прямой BLE",
+            subtitle = "Шаги и пульс без Health Connect",
+            initiallyExpanded = false,
+        ) {
+            Text(
+                text = "Mi Band 8 использует закрытый протокол fe95. HealthApp подключается напрямую по BLE, как Gadgetbridge — с ключом, полученным после привязки в Mi Fitness.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            AppButton(
+                text = "Настроить Mi Band BLE",
+                enabled = !uiState.isBusy,
+                onClick = onOpenMiBandBle,
+            )
+        }
+
+        CollapsibleAppCard(
             title = "FatSecret",
             subtitle = if (registrationMode) {
-                "Поиск продуктов идёт через ваш сервер: consumer key/secret задаются в .env (FATSECRET_*), вводить их в приложении не нужно"
+                "Поиск через сервер (.env)"
             } else {
-                "Поиск и штрихкод — через сервер с ключами из .env. OAuth-токены — только если нужен доступ к дневнику FatSecret"
+                "Поиск, штрихкод, OAuth"
             },
-        )
-
-        AppCard {
+            initiallyExpanded = registrationMode,
+        ) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 AppTextField(
                     value = uiState.fatSecretSearchQuery,

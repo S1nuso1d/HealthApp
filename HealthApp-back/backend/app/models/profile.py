@@ -25,6 +25,11 @@ class UserProfile(Base):
     target_carbs_g = Column(Float, nullable=True)
     target_steps = Column(Integer, nullable=True)
 
+    is_vegetarian = Column(Boolean, nullable=True)
+    has_allergies = Column(Boolean, nullable=True)
+    allergies_text = Column(String, nullable=True)
+    onboarding_completed = Column(Boolean, nullable=False, default=False)
+
     has_avatar = Column(Boolean, nullable=False, default=False)
 
     user = relationship("User", back_populates="profile")

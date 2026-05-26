@@ -18,6 +18,7 @@ data class SleepUiState(
     val sleepDebtHours: Float = 0f,
     val consistencyPercent: Int = 0,
     val sleepQualityAverage: Int = 0,
+    val todaySleepHours: Float = 0f,
     val lastNightHours: Float = 0f,
     val weeklySleep: List<DaySleep> = emptyList(),
 

@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.ui.components.AppCard
 import com.example.healtapp.core.ui.theme.brandingGradient
+import com.example.healtapp.core.ui.theme.contentPrimaryColor
 import com.example.healtapp.core.ui.theme.recommendationPriorityColorHigh
 import com.example.healtapp.core.ui.theme.recommendationPriorityColorLow
 import com.example.healtapp.core.ui.theme.recommendationPriorityColorMedium
@@ -60,7 +61,7 @@ fun DashboardRecommendationCard(
                     text = "Главный совет дня",
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = contentPrimaryColor(),
                 )
             }
         }
@@ -97,7 +98,7 @@ fun DashboardRecommendationCard(
                         Text(
                             text = RecommendationFormatting.categoryLabelRu(item.category),
                             style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = contentPrimaryColor(),
                         )
                     }
                     Box(
@@ -127,7 +128,7 @@ fun DashboardRecommendationCard(
                     Text(
                         text = progress,
                         style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = contentPrimaryColor(),
                     )
                 }
 

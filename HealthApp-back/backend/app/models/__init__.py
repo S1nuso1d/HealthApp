@@ -16,3 +16,5 @@ from app.models.daily_health_summary import DailyHealthSummary
 from app.models.insight import Insight
 from app.models.integration_credential import IntegrationCredential
 from app.models.pending_registration import PendingRegistration
+from app.models.gamification import UserAchievement
+from app.models.social import Friendship, FeedPost, UserPrivacySettings

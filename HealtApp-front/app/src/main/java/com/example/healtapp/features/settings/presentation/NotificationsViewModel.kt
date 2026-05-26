@@ -57,6 +57,38 @@ class NotificationsViewModel @Inject constructor(
         }
     }
 
+    fun setMissedMealChecks(enabled: Boolean) {
+        viewModelScope.launch {
+            notificationPrefs.setMissedMealChecks(enabled)
+            ReminderScheduler.rescheduleMissedMealChecks(context, enabled)
+            _uiState.update {
+                it.copy(
+                    message = if (enabled) {
+                        "Проверка записей еды включена"
+                    } else {
+                        "Напоминания о пропущенных приёмах пищи выключены"
+                    },
+                )
+            }
+        }
+    }
+
+    fun setGoalAchievementNotifications(enabled: Boolean) {
+        viewModelScope.launch {
+            notificationPrefs.setGoalAchievementNotifications(enabled)
+            ReminderScheduler.rescheduleGoalChecks(context, enabled)
+            _uiState.update {
+                it.copy(
+                    message = if (enabled) {
+                        "Уведомления о целях включены"
+                    } else {
+                        "Уведомления о достижении целей выключены"
+                    },
+                )
+            }
+        }
+    }
+
     fun setRecommendationReminders(enabled: Boolean) {
         viewModelScope.launch {
             notificationPrefs.setRecommendationReminders(enabled)

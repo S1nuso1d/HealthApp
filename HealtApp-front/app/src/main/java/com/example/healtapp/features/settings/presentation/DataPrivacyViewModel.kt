@@ -2,6 +2,7 @@ package com.example.healtapp.features.settings.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.healtapp.core.common.UserFacingMessages
 import com.example.healtapp.data.preferences.TokenStorage
 import com.example.healtapp.domain.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -39,7 +40,9 @@ class DataPrivacyViewModel @Inject constructor(
     fun deleteAccount() {
         val pwd = _uiState.value.deletePassword
         if (pwd.isBlank()) {
-            _uiState.update { it.copy(deleteError = "Введи пароль для подтверждения") }
+            _uiState.update {
+                it.copy(deleteError = UserFacingMessages.PASSWORD_REQUIRED_TO_DELETE)
+            }
             return
         }
         viewModelScope.launch {
@@ -66,7 +69,10 @@ class DataPrivacyViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             isDeleting = false,
-                            deleteError = e.message ?: "Не удалось удалить аккаунт",
+                            deleteError = UserFacingMessages.fromThrowable(
+                                e,
+                                "Не удалось удалить аккаунт",
+                            ),
                         )
                     }
                 }

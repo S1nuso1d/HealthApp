@@ -122,7 +122,8 @@ class HealthConnectForegroundSync @Inject constructor(
     private companion object {
         private const val TAG = "HealthConnectFgSync"
         private const val DEFAULT_IMPORT_DAYS = 14
-        private const val INITIAL_DELAY_MS = 900L
-        private const val PERIODIC_INTERVAL_MS = 10L * 60L * 1000L
+        /** Не конкурировать с первой загрузкой дашборда после входа. */
+        private const val INITIAL_DELAY_MS = 12_000L
+        private const val PERIODIC_INTERVAL_MS = 5L * 60L * 1000L
     }
 }

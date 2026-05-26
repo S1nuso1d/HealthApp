@@ -104,10 +104,35 @@ data class AnalyticsEvidenceDto(
     val note: String? = null,
 )
 
+data class RecommendationItemDto(
+    val category: String,
+    val title: String,
+    val description: String,
+    val priority: String,
+    val confidence: Float,
+    val action: String? = null,
+    @SerializedName("related_insight_title") val relatedInsightTitle: String? = null,
+    @SerializedName("related_insight_type") val relatedInsightType: String? = null,
+)
+
+data class AnalyticsTrendsDto(
+    @SerializedName("avg_sleep_hours") val avgSleepHours: Float? = null,
+    @SerializedName("avg_water_ml") val avgWaterMl: Float? = null,
+    @SerializedName("avg_steps") val avgSteps: Float? = null,
+    @SerializedName("avg_calories") val avgCalories: Float? = null,
+    @SerializedName("sleep_delta_vs_prev") val sleepDeltaVsPrev: Float? = null,
+    @SerializedName("water_delta_vs_prev") val waterDeltaVsPrev: Float? = null,
+    @SerializedName("steps_delta_vs_prev") val stepsDeltaVsPrev: Float? = null,
+    @SerializedName("goals_met_days") val goalsMetDays: Int = 0,
+    @SerializedName("days_with_data") val daysWithData: Int = 0,
+)
+
 data class AnalyticsResponseDto(
     val meta: AnalyticsMetaDto,
     val summary: AnalyticsSummaryDto,
     val insights: List<InsightItemDto> = emptyList(),
+    val recommendations: List<RecommendationItemDto> = emptyList(),
+    val trends: AnalyticsTrendsDto? = null,
 )
 
 data class SmartTriggerGenerateResponseDto(

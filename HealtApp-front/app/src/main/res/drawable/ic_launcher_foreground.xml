@@ -2,7 +2,7 @@
 <!-- Логотип из @drawable/logo_healthapp; отступы — safe zone adaptive icon -->
 <inset xmlns:android="http://schemas.android.com/apk/res/android"
     android:drawable="@drawable/logo_healthapp"
-    android:insetLeft="18%"
-    android:insetTop="18%"
-    android:insetRight="18%"
-    android:insetBottom="18%" />
+    android:insetLeft="10%"
+    android:insetTop="10%"
+    android:insetRight="10%"
+    android:insetBottom="10%" />

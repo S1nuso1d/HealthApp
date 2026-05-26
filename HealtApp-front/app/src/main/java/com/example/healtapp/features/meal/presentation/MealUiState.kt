@@ -8,6 +8,7 @@ import com.example.healtapp.features.meal.util.FatSecretServingOption
 data class MealUiState(
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
+    val isSavingTargets: Boolean = false,
     val error: String? = null,
     val snackMessage: String? = null,
 
@@ -31,6 +32,10 @@ data class MealUiState(
     val targetProteinG: Float? = null,
     val targetFatG: Float? = null,
     val targetCarbsG: Float? = null,
+    /** Подсказка в блоке «Сводка»: откуда взяты ориентиры КБЖУ. */
+    val nutritionTargetsHint: String? = null,
+    val progressCelebrateToken: Int = 0,
+    val pendingSyncCount: Int = 0,
 
     val dayCaloriesTotal: Int = 0,
     val dayProteinTotal: Float = 0f,

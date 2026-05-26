@@ -35,5 +35,9 @@ class DataStoreTokenProvider @Inject constructor(
         if (!cached.isNullOrBlank()) return cached
         return runBlocking(Dispatchers.IO) { tokenStorage.getToken() }
     }
+
+    override fun clearCachedToken() {
+        token = null
+    }
 }
 

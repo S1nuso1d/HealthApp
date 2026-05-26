@@ -2,6 +2,7 @@ package com.example.healtapp.features.auth.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.healtapp.core.common.UserFacingMessages
 import com.example.healtapp.domain.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,7 +51,7 @@ class ForgotPasswordViewModel @Inject constructor(
                 .onFailure { t ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = t.message ?: "Не удалось отправить запрос",
+                        error = UserFacingMessages.fromThrowable(t, "Не удалось отправить запрос"),
                     )
                 }
         }

@@ -30,14 +30,12 @@ fun ProfileGoalsEditSheet(
     targetSleep: String,
     targetWater: String,
     targetSteps: String,
-    targetCalories: String,
     isSaving: Boolean,
     guestMode: Boolean,
     onDismiss: () -> Unit,
     onSleepChange: (String) -> Unit,
     onWaterChange: (String) -> Unit,
     onStepsChange: (String) -> Unit,
-    onCaloriesChange: (String) -> Unit,
     onSave: () -> Unit,
 ) {
     if (!visible) return
@@ -119,22 +117,6 @@ fun ProfileGoalsEditSheet(
                 }
             }
             AppTextField(targetWater, onWaterChange, label = "Цель воды (мл)")
-
-            Text(
-                text = "Питание",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(1_800, 2_200, 2_500).forEach { kcal ->
-                    FilterChip(
-                        selected = targetCalories.toIntOrNull() == kcal,
-                        onClick = { onCaloriesChange(kcal.toString()) },
-                        label = { Text("$kcal") },
-                    )
-                }
-            }
-            AppTextField(targetCalories, onCaloriesChange, label = "Цель калорий (ккал)")
 
             AppButton(
                 text = when {

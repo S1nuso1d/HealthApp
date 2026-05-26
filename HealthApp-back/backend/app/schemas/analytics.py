@@ -64,6 +64,27 @@ class RecommendationItem(BaseModel):
     )
 
 
+class AnalyticsTrends(BaseModel):
+    avg_sleep_hours: float | None = Field(default=None, description="Средний сон за период, ч")
+    avg_water_ml: float | None = Field(default=None, description="Средняя вода за период, мл")
+    avg_steps: float | None = Field(default=None, description="Средние шаги за период")
+    avg_calories: float | None = Field(default=None, description="Средние калории за период")
+    sleep_delta_vs_prev: float | None = Field(
+        default=None,
+        description="Изменение сна (вторая половина периода минус первая), ч",
+    )
+    water_delta_vs_prev: float | None = Field(
+        default=None,
+        description="Изменение воды (вторая половина минус первая), мл",
+    )
+    steps_delta_vs_prev: float | None = Field(
+        default=None,
+        description="Изменение шагов (вторая половина минус первая)",
+    )
+    goals_met_days: int = Field(default=0, description="Дней с выполненными целями")
+    days_with_data: int = Field(default=0, description="Дней с записями в периоде")
+
+
 class AnalyticsSummary(BaseModel):
     period_days: int = Field(ge=1, description="Период анализа в днях")
     health_score: int = Field(ge=0, le=100, description="Общий health score от 0 до 100")
@@ -79,3 +100,7 @@ class AnalyticsResponse(BaseModel):
     summary: AnalyticsSummary
     insights: List[InsightItem]
     recommendations: List[RecommendationItem]
+    trends: AnalyticsTrends | None = Field(
+        default=None,
+        description="Расширенные тренды по дневным сводкам",
+    )

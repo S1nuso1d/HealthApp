@@ -24,6 +24,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.healtapp.core.ui.components.AppCard
+import com.example.healtapp.core.ui.components.AppMessageBanner
+import com.example.healtapp.core.ui.components.AppMessageType
 import com.example.healtapp.core.ui.components.AppScreen
 import com.example.healtapp.core.ui.components.SectionHeader
 import com.example.healtapp.core.ui.theme.brandingGradient
@@ -75,7 +77,7 @@ fun TimelineScreen(
             }
 
             uiState.error?.let {
-                Text(it, color = MaterialTheme.colorScheme.error)
+                AppMessageBanner(text = it, type = AppMessageType.Error)
             }
         }
     }

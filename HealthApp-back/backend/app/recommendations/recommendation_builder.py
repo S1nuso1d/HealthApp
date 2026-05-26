@@ -10,6 +10,23 @@ class RecommendationBuilder:
         Возвращает None, если для инсайта пока нет шаблона рекомендации.
         """
 
+        if insight.insight_type.startswith("personal_"):
+            full = insight.description or ""
+            if "\n\nРекомендация: " in full:
+                body, action = full.split("\n\nРекомендация: ", 1)
+            else:
+                body, action = full, None
+            return RecommendationItem(
+                category=insight.category or "meals",
+                title=insight.title,
+                description=body.strip(),
+                priority=priority,
+                confidence=insight.confidence,
+                action=action.strip() if action else None,
+                related_insight_title=insight.title,
+                related_insight_type=insight.insight_type,
+            )
+
         if insight.insight_type == "low_sleep_duration":
             return RecommendationItem(
                 category="sleep",

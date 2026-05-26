@@ -16,8 +16,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.healtapp.core.ui.components.AppButton
+import com.example.healtapp.core.ui.components.AppMessageBanner
+import com.example.healtapp.core.ui.components.AppMessageType
 import com.example.healtapp.core.ui.components.AppCard
 import com.example.healtapp.core.ui.components.AppScreen
+import com.example.healtapp.core.ui.components.CollapsibleAppCard
 import com.example.healtapp.core.ui.components.SectionHeader
 import com.example.healtapp.features.dashboard.ui.components.DashboardHealthScoreBanner
 import com.example.healtapp.features.dashboard.ui.components.DashboardSkeleton
@@ -31,7 +34,7 @@ fun RecommendationsScreen() {
 
     AppScreen(
         title = "Рекомендации",
-        subtitle = "Советы на основе сна, питания, воды и активности",
+        subtitle = "Персональные предупреждения по вашему дневнику",
         headerIcon = Icons.Filled.Lightbulb,
         scrollable = true,
     ) {
@@ -43,10 +46,10 @@ fun RecommendationsScreen() {
             uiState.error != null -> {
                 AppCard {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(
+                        AppMessageBanner(
                             text = uiState.error ?: "Ошибка загрузки",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodyMedium,
+                            type = AppMessageType.Error,
+                            title = "Не удалось загрузить",
                         )
                         AppButton(
                             text = "Повторить",
@@ -94,21 +97,21 @@ fun RecommendationsScreen() {
                     )
                 }
 
-                SectionHeader(
+                CollapsibleAppCard(
                     title = "Список советов",
-                    subtitle = "Период анализа: ${uiState.periodDays} дн.",
-                )
-
-                uiState.recommendations.forEach { recommendation ->
-                    RecommendationCard(item = recommendation)
+                    subtitle = "Период: ${uiState.periodDays} дн. · ${uiState.recommendations.size} советов",
+                    initiallyExpanded = true,
+                ) {
+                    uiState.recommendations.forEach { recommendation ->
+                        RecommendationCard(item = recommendation)
+                    }
+                    AppButton(
+                        text = "Обновить рекомендации",
+                        onClick = { viewModel.refresh() },
+                        modifier = Modifier.fillMaxWidth(),
+                        isSecondary = true,
+                    )
                 }
-
-                AppButton(
-                    text = "Обновить рекомендации",
-                    onClick = { viewModel.refresh() },
-                    modifier = Modifier.fillMaxWidth(),
-                    isSecondary = true,
-                )
             }
         }
 

@@ -35,6 +35,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.ui.components.AppCard
+import com.example.healtapp.core.ui.components.AppMessageBanner
+import com.example.healtapp.core.ui.components.AppMessageType
 import com.example.healtapp.core.ui.theme.heroBlockGradient
 import com.example.healtapp.core.ui.theme.heroContentColor
 import com.example.healtapp.core.ui.theme.heroIconBackdrop
@@ -181,24 +183,15 @@ fun AuthMessageBanner(
     type: AuthMessageType = AuthMessageType.Info,
     modifier: Modifier = Modifier,
 ) {
-    val (container, content) = when (type) {
-        AuthMessageType.Error -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
-        AuthMessageType.Success -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
-        AuthMessageType.Info ->
-            MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = container,
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            style = MaterialTheme.typography.bodyMedium,
-            color = content,
-        )
-    }
+    AppMessageBanner(
+        text = text,
+        modifier = modifier,
+        type = when (type) {
+            AuthMessageType.Error -> AppMessageType.Error
+            AuthMessageType.Success -> AppMessageType.Success
+            AuthMessageType.Info -> AppMessageType.Info
+        },
+    )
 }
 
 @Composable

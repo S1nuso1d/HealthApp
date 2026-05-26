@@ -21,6 +21,13 @@ object HealthNotificationHelper {
     const val ID_MEAL_LUNCH = 2002
     const val ID_MEAL_DINNER = 2003
     const val ID_RECOMMENDATION = 3001
+    const val ID_MISSED_MEAL = 4001
+    const val ID_STEPS_GOAL = 5001
+    const val ID_WATER_GOAL = 5002
+    const val ID_WATER_LOW = 5003
+    const val ID_STEPS_BEHIND = 5004
+    const val ID_SLEEP_EVENING = 1002
+    const val ID_WEIGHT_UPDATE = 1003
 
     fun canPost(context: Context): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
@@ -92,6 +99,76 @@ object HealthNotificationHelper {
             title = "Новые рекомендации",
             body = "Откройте советы HealthApp — они обновляются по вашим данным.",
             navRoute = "recommendations",
+        )
+    }
+
+    fun missedMealReminder(context: Context, mealLabel: String) {
+        show(
+            context = context,
+            notificationId = ID_MISSED_MEAL + mealLabel.hashCode() % 10,
+            title = "Нет записи: $mealLabel",
+            body = "Сегодня $mealLabel ещё не добавлен в дневник. Запишите приём пищи, чтобы видеть калории и БЖУ.",
+            navRoute = "nutrition",
+        )
+    }
+
+    fun stepsGoalReached(context: Context, steps: Int, goal: Int) {
+        show(
+            context = context,
+            notificationId = ID_STEPS_GOAL,
+            title = "Цель по шагам достигнута",
+            body = "Сегодня $steps шагов — вы выполнили цель ($goal). Отличная работа!",
+            navRoute = "activity",
+        )
+    }
+
+    fun waterGoalReached(context: Context, ml: Int, target: Int) {
+        show(
+            context = context,
+            notificationId = ID_WATER_GOAL,
+            title = "Норма воды выполнена",
+            body = "Сегодня $ml мл из $target мл. Гидратация на сегодня в норме.",
+            navRoute = "hydration",
+        )
+    }
+
+    fun stepsBehindPace(context: Context, current: Int, goal: Int, remaining: Int) {
+        show(
+            context = context,
+            notificationId = ID_STEPS_BEHIND,
+            title = "Шаги отстают от цели",
+            body = "Сейчас $current из $goal. До цели осталось около $remaining шагов — прогулка поможет наверстать.",
+            navRoute = "activity",
+        )
+    }
+
+    fun waterLowReminder(context: Context, current: Int, target: Int) {
+        show(
+            context = context,
+            notificationId = ID_WATER_LOW,
+            title = "Мало воды за день",
+            body = "Сейчас $current мл из $target мл. Добавьте стакан воды в дневник.",
+            navRoute = "hydration",
+        )
+    }
+
+    fun sleepEveningReminder(context: Context) {
+        show(
+            context = context,
+            notificationId = ID_SLEEP_EVENING,
+            title = "Время отдыха",
+            body = "Запишите сон сегодня — так проще видеть восстановление и качество отдыха.",
+            navRoute = "sleep",
+        )
+    }
+
+    fun weightUpdateReminder(context: Context) {
+        show(
+            context = context,
+            notificationId = ID_WEIGHT_UPDATE,
+            title = "Обновите вес",
+            body = "Раз в неделю полезно зафиксировать вес в профиле — так точнее КБЖУ и динамика.",
+            navRoute = "profile",
         )
     }
 }

@@ -24,6 +24,8 @@ from app.api.ws import router as ws_router
 from app.api.data_import import router as data_import_router
 from app.api.integrations import router as integrations_router
 from app.api.health import router as health_router
+from app.api.gamification import router as gamification_router
+from app.api.social import router as social_router
 
 
 @asynccontextmanager
@@ -62,6 +64,8 @@ app.include_router(ws_router)
 app.include_router(data_import_router)
 app.include_router(integrations_router)
 app.include_router(health_router)
+app.include_router(gamification_router)
+app.include_router(social_router)
 
 
 @app.get("/")

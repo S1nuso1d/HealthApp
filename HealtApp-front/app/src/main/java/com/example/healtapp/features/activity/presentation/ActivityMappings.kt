@@ -37,3 +37,56 @@ fun isWalkLikeApi(apiType: String): Boolean =
 
 fun isWalkLikeDisplay(displayRu: String): Boolean =
     displayRu == "Ходьба" || displayRu == "Прогулка"
+
+data class TrainingFormFields(
+    val showDistance: Boolean,
+    val showNotes: Boolean,
+    val showExertion: Boolean,
+    val distanceLabel: String = "Дистанция (км)",
+    val notesLabel: String = "Заметки",
+    val notesPlaceholder: String = "",
+)
+
+fun trainingFormFieldsFor(displayRu: String): TrainingFormFields = when (displayRu) {
+    "Силовая тренировка" -> TrainingFormFields(
+        showDistance = false,
+        showNotes = true,
+        showExertion = true,
+        notesLabel = "Упражнения и подходы",
+        notesPlaceholder = "Например: жим 3×8, присед 4×10",
+    )
+    "Йога" -> TrainingFormFields(
+        showDistance = false,
+        showNotes = true,
+        showExertion = true,
+        notesLabel = "Практика",
+        notesPlaceholder = "Стиль, ключевые асаны, самочувствие",
+    )
+    "Растяжка" -> TrainingFormFields(
+        showDistance = false,
+        showNotes = true,
+        showExertion = true,
+        notesLabel = "Фокус тренировки",
+        notesPlaceholder = "Зоны тела, длительность удержаний",
+    )
+    "Плавание" -> TrainingFormFields(
+        showDistance = true,
+        showNotes = true,
+        showExertion = false,
+        distanceLabel = "Дистанция (м)",
+        notesLabel = "Заметки",
+    )
+    "Велосипед" -> TrainingFormFields(
+        showDistance = true,
+        showNotes = true,
+        showExertion = false,
+        distanceLabel = "Дистанция (км)",
+    )
+    else -> TrainingFormFields(
+        showDistance = true,
+        showNotes = true,
+        showExertion = false,
+        distanceLabel = "Дистанция (км)",
+        notesLabel = "Заметки",
+    )
+}

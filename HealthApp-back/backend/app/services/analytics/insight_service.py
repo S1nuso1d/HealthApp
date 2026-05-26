@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 from app.models.daily_health_summary import DailyHealthSummary
 from app.models.insight import Insight
 from app.services.correlation_analyzer import CorrelationAnalyzer
+from app.services.analytics.user_trends_service import build_trend_insight_candidates, compute_user_trends
+from app.services.personalized_advisor import PersonalizedAdvisor
 
 
 def build_evidence(metric: str, value: float, unit: str | None = None, note: str | None = None) -> dict:
@@ -236,6 +238,46 @@ class InsightService:
                 severity=item.get("severity", "medium"),
                 impact=item.get("impact", "neutral"),
                 evidence_json=item.get("evidence_json"),
+                window_days=item.get("window_days", window_days),
+            )
+            db.add(insight)
+            created_insights.append(insight)
+
+        trends = compute_user_trends(db, user_id, days=window_days)
+        existing_titles = {i.title for i in created_insights}
+        for item in build_trend_insight_candidates(trends):
+            if item["title"] in existing_titles:
+                continue
+            existing_titles.add(item["title"])
+            insight = Insight(
+                user_id=user_id,
+                insight_type=item["insight_type"],
+                category=item.get("category", "correlation"),
+                title=item["title"],
+                description=item["description"],
+                confidence=item.get("confidence", 0.7),
+                severity=item.get("severity", "medium"),
+                impact=item.get("impact", "neutral"),
+                evidence_json=None,
+                window_days=window_days,
+            )
+            db.add(insight)
+            created_insights.append(insight)
+
+        for item in PersonalizedAdvisor.generate_insights(db, user_id, window_days):
+            if item["title"] in existing_titles:
+                continue
+            existing_titles.add(item["title"])
+            insight = Insight(
+                user_id=user_id,
+                insight_type=item["insight_type"],
+                category=item.get("category", "meals"),
+                title=item["title"],
+                description=item["description"],
+                confidence=item.get("confidence", 0.8),
+                severity=item.get("severity", "high"),
+                impact=item.get("impact", "negative"),
+                evidence_json=None,
                 window_days=item.get("window_days", window_days),
             )
             db.add(insight)

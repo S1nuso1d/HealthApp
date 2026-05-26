@@ -126,12 +126,16 @@ class SleepViewModel @Inject constructor(
                     )
                 }.sortedByDescending { it.sleepEndIso }
 
-                val weekly = SleepHelper.weeklySleep(records)
                 val averageSleep = SleepHelper.averageHoursLast7(records)
+                val todaySleepHours = SleepHelper.todaySleepHours(records)
                 val lastNightHours = SleepHelper.lastNightHours(records)
+                val weekly = SleepHelper.weeklySleep(records)
 
-                val qualities = sleepList.mapNotNull { it.quality_score?.toInt() }
-                val averageQuality = if (qualities.isNotEmpty()) qualities.average().toInt() else 0
+                val todayKey = LocalDate.now().toString()
+                val todayQualities = records
+                    .filter { SleepHelper.wakeDateKey(it.sleepEndIso) == todayKey && it.qualityScore > 0 }
+                    .map { it.qualityScore }
+                val averageQuality = todayQualities.average().toInt().takeIf { todayQualities.isNotEmpty() } ?: 0
 
                 _uiState.update {
                     it.copy(
@@ -143,6 +147,7 @@ class SleepViewModel @Inject constructor(
                         targetSleepHours = targetSleep,
                         sleepDebtHours = (targetSleep - averageSleep).coerceAtLeast(0f),
                         sleepQualityAverage = averageQuality,
+                        todaySleepHours = todaySleepHours,
                         lastNightHours = lastNightHours,
                         consistencyPercent = SleepHelper.consistencyPercent(records, targetSleep),
                         insightText = SleepHelper.buildInsight(

@@ -11,6 +11,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.ui.components.AppButton
+import com.example.healtapp.core.ui.components.AppMessageBanner
+import com.example.healtapp.core.ui.components.AppMessageType
 import com.example.healtapp.core.ui.components.AppTextField
 
 @Composable
@@ -30,11 +32,7 @@ fun ChangePasswordForm(
     hint: String = "После сброса по письму укажите код из email как текущий пароль.",
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Text(
-            text = hint,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        AppMessageBanner(text = hint, type = AppMessageType.Info)
         AppTextField(
             value = currentPassword,
             onValueChange = onCurrentChange,

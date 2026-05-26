@@ -3,6 +3,7 @@ package com.example.healtapp.features.auth.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.healtapp.data.preferences.TokenStorage
+import com.example.healtapp.core.common.UserFacingMessages
 import com.example.healtapp.domain.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -98,7 +99,7 @@ class AuthViewModel @Inject constructor(
             }.onFailure { throwable ->
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = throwable.message ?: "Ошибка входа",
+                    error = UserFacingMessages.fromThrowable(throwable, "Ошибка входа"),
                 )
             }
         }
@@ -138,7 +139,7 @@ class AuthViewModel @Inject constructor(
                 .onFailure { throwable ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = throwable.message ?: "Не удалось отправить код",
+                        error = UserFacingMessages.fromThrowable(throwable, "Не удалось отправить код"),
                     )
                 }
         }
@@ -170,7 +171,10 @@ class AuthViewModel @Inject constructor(
                 .onFailure { throwable ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = throwable.message ?: "Неверный код или ошибка сервера",
+                        error = UserFacingMessages.fromThrowable(
+                            throwable,
+                            "Неверный код или ошибка сервера",
+                        ),
                     )
                 }
         }

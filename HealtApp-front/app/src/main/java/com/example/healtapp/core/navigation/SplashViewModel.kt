@@ -2,14 +2,16 @@ package com.example.healtapp.core.navigation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.healtapp.data.preferences.ProfileCache
 import com.example.healtapp.data.preferences.TokenStorage
 import com.example.healtapp.domain.repository.ProfileRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import retrofit2.HttpException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import retrofit2.HttpException
 import javax.inject.Inject
 
 data class SplashUiState(
@@ -21,6 +23,7 @@ data class SplashUiState(
 class SplashViewModel @Inject constructor(
     private val tokenStorage: TokenStorage,
     private val profileRepository: ProfileRepository,
+    private val profileCache: ProfileCache,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SplashUiState())
@@ -46,42 +49,55 @@ class SplashViewModel @Inject constructor(
                 return@launch
             }
 
-            val profileResult = profileRepository.getMyProfile()
+            val cachedProfile = profileCache.load()
+            if (cachedProfile != null) {
+                _uiState.value = SplashUiState(
+                    isResolving = false,
+                    nextRoute = routeForProfile(cachedProfile),
+                )
+            }
+
+            val profileResult = withTimeoutOrNull(SPLASH_PROFILE_TIMEOUT_MS) {
+                profileRepository.getMyProfile()
+            } ?: cachedProfile?.let { Result.success(it) }
+                ?: Result.failure(java.util.concurrent.TimeoutException("profile timeout"))
 
             if (profileResult.isFailure) {
                 val err = profileResult.exceptionOrNull()
                 if (err is HttpException && err.code() == 401) {
                     tokenStorage.clearToken()
+                    profileCache.clear()
                     _uiState.value = SplashUiState(
                         isResolving = false,
                         nextRoute = NavRoutes.Login.route,
                     )
                     return@launch
                 }
-                // Сеть/сервер недоступен или профиль не загрузился — всё равно в приложение,
-                // а не на онбординг (заполнение профиля можно сделать позже из раздела «Профиль»).
-                _uiState.value = SplashUiState(
-                    isResolving = false,
-                    nextRoute = NavRoutes.Dashboard.route,
-                )
+                if (cachedProfile == null) {
+                    _uiState.value = SplashUiState(
+                        isResolving = false,
+                        nextRoute = NavRoutes.Dashboard.route,
+                    )
+                }
                 return@launch
             }
 
             val profile = profileResult.getOrNull()
-            val needsOnboarding = profile == null ||
-                profile.age == null ||
-                profile.height_cm == null ||
-                profile.weight_kg == null
-
             _uiState.value = SplashUiState(
                 isResolving = false,
-                nextRoute = if (needsOnboarding) {
-                    NavRoutes.Onboarding.route
-                } else {
-                    NavRoutes.Dashboard.route
-                },
+                nextRoute = routeForProfile(profile),
             )
         }
     }
-}
 
+    private fun routeForProfile(profile: com.example.healtapp.data.network.dto.profile.ProfileDto?) =
+        if (profileCache.needsOnboarding(profile)) {
+            NavRoutes.Onboarding.route
+        } else {
+            NavRoutes.Dashboard.route
+        }
+
+    private companion object {
+        const val SPLASH_PROFILE_TIMEOUT_MS = 4_000L
+    }
+}

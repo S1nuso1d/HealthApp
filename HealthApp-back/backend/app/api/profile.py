@@ -7,6 +7,7 @@ from app.db.database import get_db
 from app.models.profile import UserProfile
 from app.models.user import User
 from app.schemas.profile import ProfileCreate, ProfileResponse
+from app.services.nutrition_targets_service import try_calculate_from_profile
 from app.services.avatar_storage import (
     delete_avatar_file,
     find_existing_avatar_path,
@@ -126,8 +127,34 @@ def update_my_profile(
     if not profile:
         raise HTTPException(status_code=404, detail="Профиль не найден")
 
-    for field, value in profile_data.model_dump(exclude_unset=True).items():
+    payload = profile_data.model_dump(exclude_unset=True)
+    for field, value in payload.items():
         setattr(profile, field, value)
+
+    recalc_macros = payload.get("onboarding_completed") is True or (
+        profile.onboarding_completed
+        and {"age", "sex", "height_cm", "weight_kg", "activity_level", "goal"} & payload.keys()
+    )
+    if recalc_macros:
+        targets = try_calculate_from_profile(
+            profile.age,
+            profile.sex,
+            profile.height_cm,
+            profile.weight_kg,
+            profile.activity_level,
+            profile.goal,
+        )
+        if targets:
+            profile.target_daily_calories = targets.target_daily_calories
+            profile.target_protein_g = targets.target_protein_g
+            profile.target_fat_g = targets.target_fat_g
+            profile.target_carbs_g = targets.target_carbs_g
+            if "target_water_ml" not in payload:
+                profile.target_water_ml = targets.target_water_ml
+            if "target_sleep_hours" not in payload:
+                profile.target_sleep_hours = targets.target_sleep_hours
+            if "target_steps" not in payload:
+                profile.target_steps = targets.target_steps
 
     db.commit()
     db.refresh(profile)

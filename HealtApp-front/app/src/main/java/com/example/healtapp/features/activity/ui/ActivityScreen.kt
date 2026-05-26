@@ -22,13 +22,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import java.time.LocalDate
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.healtapp.core.ui.components.AppScreen
+import com.example.healtapp.core.ui.components.CollapsibleAppCard
+import com.example.healtapp.core.ui.components.AppDialogMessage
+import com.example.healtapp.core.ui.components.AppMessageBanner
+import com.example.healtapp.core.ui.components.AppMessageType
 import com.example.healtapp.core.ui.components.AppTextField
+import com.example.healtapp.core.common.UserFacingMessages
 import com.example.healtapp.core.ui.components.SectionHeader
 import com.example.healtapp.data.network.dto.activity.ActivityDto
 import com.example.healtapp.features.activity.presentation.ActivityViewModel
@@ -65,6 +71,13 @@ fun ActivityScreen(
         }
     }
 
+    val todayKey = remember { LocalDate.now().toString() }
+    val weeklyStepsForChart = remember(uiState.weeklySteps, uiState.stepsToday, todayKey) {
+        uiState.weeklySteps.map { day ->
+            if (day.dateKey == todayKey) day.copy(steps = uiState.stepsToday) else day
+        }
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = Color.Transparent,
@@ -88,84 +101,88 @@ fun ActivityScreen(
                     ActivityStepsHeroCard(
                         stepsToday = uiState.stepsToday,
                         stepsGoal = uiState.stepsGoal,
+                        caloriesBurnedToday = uiState.caloriesBurnedToday,
+                        caloriesBurnGoal = uiState.caloriesBurnGoal,
                         trainingMinutesToday = uiState.trainingMinutesToday,
                         trainingCaloriesToday = uiState.trainingCaloriesToday,
                         healthConnectSteps = uiState.healthConnectStepsToday,
                         isSaving = uiState.isSaving,
+                        celebrateToken = uiState.progressCelebrateToken,
                         onSyncHealthConnect = viewModel::syncStepsFromHealthConnect,
+                        onSyncWorkoutsFromHealthConnect = viewModel::syncWorkoutsFromHealthConnect,
                         onEditGoalInProfile = onOpenProfile,
                     )
 
-                    SectionHeader(
-                        title = "Неделя",
-                        subtitle = "Сравнение с дневной целью",
-                    )
+                    SectionHeader(title = "Неделя", subtitle = null)
                     WeeklyStepsBarChart(
-                        days = uiState.weeklySteps,
+                        days = weeklyStepsForChart,
                         goal = uiState.stepsGoal,
                     )
                 }
 
-                SectionHeader(
-                    title = "Тренировки",
-                    subtitle = "Ходьба и шаги — отдельно, в блоке выше",
-                )
-
-                ActivityTrainingFormCard(
-                    activityType = uiState.activityType,
-                    activityTypes = trainingActivityTypes,
-                    onActivityTypeSelected = viewModel::updateActivityType,
-                    durationMinutes = uiState.durationMinutes,
-                    onDurationChange = viewModel::updateDuration,
-                    calories = uiState.caloriesBurned,
-                    onCaloriesChange = viewModel::updateCalories,
-                    distanceKm = uiState.distanceKm,
-                    onDistanceChange = viewModel::updateDistance,
-                    intensity = uiState.intensity,
-                    intensityOptions = intensityTypes,
-                    onIntensitySelected = viewModel::updateIntensity,
-                    isSaving = uiState.isSaving,
-                    onSave = viewModel::saveTraining,
-                )
-
-                uiState.error?.let {
-                    Text(
-                        text = it,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium,
+                CollapsibleAppCard(
+                    title = "Новая тренировка",
+                    subtitle = "Ручной ввод",
+                    initiallyExpanded = false,
+                ) {
+                    ActivityTrainingFormCard(
+                        embeddedInCard = true,
+                        activityType = uiState.activityType,
+                        activityTypes = trainingActivityTypes,
+                        onActivityTypeSelected = viewModel::updateActivityType,
+                        durationMinutes = uiState.durationMinutes,
+                        onDurationChange = viewModel::updateDuration,
+                        calories = uiState.caloriesBurned,
+                        onCaloriesChange = viewModel::updateCalories,
+                        distanceKm = uiState.distanceKm,
+                        onDistanceChange = viewModel::updateDistance,
+                        intensity = uiState.intensity,
+                        intensityOptions = intensityTypes,
+                        onIntensitySelected = viewModel::updateIntensity,
+                        notes = uiState.trainingNotes,
+                        onNotesChange = viewModel::updateTrainingNotes,
+                        perceivedExertion = uiState.perceivedExertion,
+                        onPerceivedExertionChange = viewModel::updatePerceivedExertion,
+                        isSaving = uiState.isSaving,
+                        onSave = viewModel::saveTraining,
                     )
                 }
 
-                SectionHeader(
+                uiState.error?.let {
+                    AppMessageBanner(text = it, type = AppMessageType.Error)
+                }
+
+                CollapsibleAppCard(
                     title = "История",
                     subtitle = if (uiState.trainingHistory.isEmpty()) {
-                        "Пока нет тренировок"
+                        "Пока нет ручных записей"
                     } else {
                         "${uiState.trainingHistory.size} записей"
                     },
-                )
-
-                if (uiState.trainingHistory.isEmpty() && !uiState.isLoading) {
-                    Text(
-                        text = "Добавьте тренировку — она появится здесь с датой и деталями.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        uiState.trainingHistory.forEach { activity ->
-                            ActivityTrainingHistoryRow(
-                                activity = activity,
-                                onEdit = {
-                                    activityToEdit = activity
-                                    editDuration = activity.duration_minutes.toString()
-                                    editCal = activity.calories_burned?.toString().orEmpty()
-                                    editDist = activity.distance_km?.toString().orEmpty()
-                                    editIntensity = activity.intensity.orEmpty()
-                                    editType = activityTitleFromApi(activity.activity_type)
-                                },
-                                onDelete = { activityToDelete = activity },
-                            )
+                    initiallyExpanded = false,
+                ) {
+                    if (uiState.trainingHistory.isEmpty() && !uiState.isLoading) {
+                        Text(
+                            text = "Добавьте тренировку вручную — она появится здесь.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            uiState.trainingHistory.forEach { activity ->
+                                ActivityTrainingHistoryRow(
+                                    activity = activity,
+                                    onEdit = {
+                                        activityToEdit = activity
+                                        editDuration = activity.duration_minutes.toString()
+                                        editCal = activity.calories_burned?.toString().orEmpty()
+                                        editDist = activity.distance_km?.toString().orEmpty()
+                                        editIntensity = activity.intensity.orEmpty()
+                                        editType = activityTitleFromApi(activity.activity_type)
+                                    },
+                                    onDelete = { activityToDelete = activity },
+                                )
+                            }
                         }
                     }
                 }
@@ -178,7 +195,10 @@ fun ActivityScreen(
                     onDismissRequest = { activityToDelete = null },
                     title = { Text("Удалить тренировку?") },
                     text = {
-                        Text("${activityTitleFromApi(act.activity_type)}, ${act.duration_minutes} мин")
+                        AppDialogMessage(
+                            warning = UserFacingMessages.DELETE_RECORD_WARNING,
+                            body = "${activityTitleFromApi(act.activity_type)}, ${act.duration_minutes} мин",
+                        )
                     },
                     confirmButton = {
                         TextButton(

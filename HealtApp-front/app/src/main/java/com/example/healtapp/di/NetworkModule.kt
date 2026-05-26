@@ -17,11 +17,20 @@ import com.example.healtapp.data.network.api.MealApi
 import com.example.healtapp.data.network.api.ProfileApi
 import com.example.healtapp.data.network.api.SleepApi
 import com.example.healtapp.data.network.api.SmartApi
+import com.example.healtapp.data.network.api.GamificationApi
+import com.example.healtapp.data.network.api.SocialApi
 import com.example.healtapp.data.network.api.StatesApi
 import com.example.healtapp.data.preferences.DashboardCache
+import com.example.healtapp.data.preferences.ProfileCache
+import com.example.healtapp.data.preferences.PendingSyncStore
+import com.example.healtapp.data.preferences.WeightHistoryStore
+import com.example.healtapp.data.preferences.WidgetSnapshotStore
 import com.example.healtapp.data.network.auth.DataStoreTokenProvider
 import com.example.healtapp.data.network.auth.TokenProvider
+import com.example.healtapp.data.network.ApiServerConfig
 import com.example.healtapp.data.network.interceptor.AuthInterceptor
+import com.example.healtapp.data.network.interceptor.DynamicBaseUrlInterceptor
+import com.example.healtapp.data.preferences.ApiServerPreferences
 import com.example.healtapp.data.preferences.NotificationPrefs
 import com.example.healtapp.data.preferences.ThemePreferences
 import com.example.healtapp.data.preferences.TokenStorage
@@ -61,6 +70,18 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    fun provideApiServerPreferences(
+        @ApplicationContext context: Context,
+    ): ApiServerPreferences = ApiServerPreferences(context)
+
+    @Provides
+    @Singleton
+    fun provideDynamicBaseUrlInterceptor(
+        serverConfig: ApiServerConfig,
+    ): DynamicBaseUrlInterceptor = DynamicBaseUrlInterceptor(serverConfig)
+
+    @Provides
+    @Singleton
     fun provideTokenProvider(
         impl: DataStoreTokenProvider,
     ): TokenProvider = impl
@@ -68,29 +89,33 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideAuthInterceptor(
-        tokenProvider: TokenProvider
-    ): AuthInterceptor = AuthInterceptor(tokenProvider)
+        tokenProvider: TokenProvider,
+        tokenStorage: TokenStorage,
+    ): AuthInterceptor = AuthInterceptor(tokenProvider, tokenStorage)
 
     @Provides
     @Singleton
     fun provideOkHttpClient(
-        authInterceptor: AuthInterceptor
+        authInterceptor: AuthInterceptor,
+        dynamicBaseUrlInterceptor: DynamicBaseUrlInterceptor,
     ): OkHttpClient {
         val logging = HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) {
-                HttpLoggingInterceptor.Level.BODY
+                HttpLoggingInterceptor.Level.BASIC
             } else {
                 HttpLoggingInterceptor.Level.NONE
             }
+            redactHeader("Authorization")
         }
 
         return OkHttpClient.Builder()
+            .addInterceptor(dynamicBaseUrlInterceptor)
             .addInterceptor(authInterceptor)
             .addInterceptor(logging)
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(90, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
-            .callTimeout(120, TimeUnit.SECONDS)
+            .connectTimeout(12, TimeUnit.SECONDS)
+            .readTimeout(25, TimeUnit.SECONDS)
+            .writeTimeout(20, TimeUnit.SECONDS)
+            .callTimeout(35, TimeUnit.SECONDS)
             .build()
     }
 
@@ -112,7 +137,7 @@ object NetworkModule {
         okHttpClient: OkHttpClient
     ): Retrofit {
         return Retrofit.Builder()
-            .baseUrl(BuildConfig.BASE_URL)
+            .baseUrl("http://127.0.0.1/")
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
@@ -195,7 +220,41 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    fun provideGamificationApi(retrofit: Retrofit): GamificationApi =
+        retrofit.create(GamificationApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideSocialApi(retrofit: Retrofit): SocialApi =
+        retrofit.create(SocialApi::class.java)
+
+    @Provides
+    @Singleton
     fun provideDashboardCache(
         @ApplicationContext context: Context,
     ): DashboardCache = DashboardCache(context)
+
+    @Provides
+    @Singleton
+    fun provideProfileCache(
+        @ApplicationContext context: Context,
+    ): ProfileCache = ProfileCache(context)
+
+    @Provides
+    @Singleton
+    fun provideWidgetSnapshotStore(
+        @ApplicationContext context: Context,
+    ): WidgetSnapshotStore = WidgetSnapshotStore(context)
+
+    @Provides
+    @Singleton
+    fun provideWeightHistoryStore(
+        @ApplicationContext context: Context,
+    ): WeightHistoryStore = WeightHistoryStore(context)
+
+    @Provides
+    @Singleton
+    fun providePendingSyncStore(
+        @ApplicationContext context: Context,
+    ): PendingSyncStore = PendingSyncStore(context)
 }

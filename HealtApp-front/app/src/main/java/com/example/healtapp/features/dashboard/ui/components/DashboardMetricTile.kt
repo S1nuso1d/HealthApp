@@ -27,6 +27,9 @@ import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.ui.animation.AppMotion
 import com.example.healtapp.core.ui.components.AppCard
 import com.example.healtapp.core.ui.theme.brandingGradient
+import com.example.healtapp.core.ui.theme.contentPrimaryColor
+import com.example.healtapp.core.ui.theme.contentSecondaryColor
+import com.example.healtapp.core.ui.theme.iconTintColor
 
 @Composable
 fun DashboardMetricTile(
@@ -60,19 +63,20 @@ fun DashboardMetricTile(
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = iconTintColor(),
                     modifier = Modifier.size(24.dp),
                 )
             }
             Text(
                 text = title,
                 style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = contentSecondaryColor(),
             )
             Text(
                 text = value,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
+                color = contentPrimaryColor(),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -96,7 +100,7 @@ fun DashboardMetricTile(
             Text(
                 text = progressLabel,
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
+                color = contentSecondaryColor(),
                 fontWeight = FontWeight.Medium,
             )
         }

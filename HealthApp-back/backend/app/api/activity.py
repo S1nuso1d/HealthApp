@@ -10,6 +10,7 @@ from app.models.user import User
 from app.schemas.activity import ActivityCreate, ActivityOut
 from app.services.analytics_sync import rebuild_user_analytics
 from app.services.realtime_manager import realtime_manager
+from app.services.achievement_service import refresh_user_achievements
 from app.services.smart_trigger_service import generate_smart_triggers_and_reminders
 
 router = APIRouter(prefix="/activity", tags=["Activity"])
@@ -48,6 +49,7 @@ def create_activity(
 
     rebuild_user_analytics(db, current_user.id, days=7)
     generate_smart_triggers_and_reminders(db, current_user.id, period_days=7)
+    refresh_user_achievements(db, current_user.id)
 
     background_tasks.add_task(
         realtime_manager.broadcast_user_update,
@@ -158,6 +160,7 @@ def update_activity(
 
     rebuild_user_analytics(db, current_user.id, days=7)
     generate_smart_triggers_and_reminders(db, current_user.id, period_days=7)
+    refresh_user_achievements(db, current_user.id)
 
     background_tasks.add_task(
         realtime_manager.broadcast_user_update,
@@ -192,6 +195,7 @@ def delete_activity(
 
     rebuild_user_analytics(db, current_user.id, days=7)
     generate_smart_triggers_and_reminders(db, current_user.id, period_days=7)
+    refresh_user_achievements(db, current_user.id)
 
     background_tasks.add_task(
         realtime_manager.broadcast_user_update,

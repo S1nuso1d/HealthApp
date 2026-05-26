@@ -12,7 +12,10 @@ from app.schemas.meal import MealCreate, MealOut
 from app.schemas.meal_copy import CopyDayRequest
 from app.schemas.saved_dish import SavedDishCreate, SavedDishOut
 from app.services.analytics_sync import rebuild_user_analytics
+from app.services.meal_timing import enrich_meal_timing
+from app.models.sleep import SleepRecord
 from app.services.realtime_manager import realtime_manager
+from app.services.achievement_service import refresh_user_achievements
 from app.services.smart_trigger_service import generate_smart_triggers_and_reminders
 
 router = APIRouter(prefix="/meal", tags=["Meal"])
@@ -168,6 +171,7 @@ def copy_meals_from_day(
 
     rebuild_user_analytics(db, current_user.id, days=7)
     generate_smart_triggers_and_reminders(db, current_user.id, period_days=7)
+    refresh_user_achievements(db, current_user.id)
 
     background_tasks.add_task(
         realtime_manager.broadcast_user_update,
@@ -230,8 +234,15 @@ def update_meal(
     meal.portion_g = data.portion_g
     meal.glycemic_load = data.glycemic_load
     meal.meal_category = data.meal_category
-    meal.minutes_before_sleep = data.minutes_before_sleep
-    meal.is_late_meal = data.is_late_meal
+    sleep_starts = _upcoming_sleep_starts(db, current_user.id)
+    is_late, mins_before = enrich_meal_timing(
+        data.meal_time,
+        sleep_starts,
+        is_late_meal=data.is_late_meal,
+        minutes_before_sleep=data.minutes_before_sleep,
+    )
+    meal.minutes_before_sleep = mins_before
+    meal.is_late_meal = is_late
     meal.meal_time = data.meal_time
     meal.notes = data.notes
     meal.source = data.source
@@ -242,6 +253,7 @@ def update_meal(
 
     rebuild_user_analytics(db, current_user.id, days=7)
     generate_smart_triggers_and_reminders(db, current_user.id, period_days=7)
+    refresh_user_achievements(db, current_user.id)
 
     background_tasks.add_task(
         realtime_manager.broadcast_user_update,
@@ -276,6 +288,7 @@ def delete_meal(
 
     rebuild_user_analytics(db, current_user.id, days=7)
     generate_smart_triggers_and_reminders(db, current_user.id, period_days=7)
+    refresh_user_achievements(db, current_user.id)
 
     background_tasks.add_task(
         realtime_manager.broadcast_user_update,
@@ -287,6 +300,22 @@ def delete_meal(
     return {"message": "Запись питания удалена"}
 
 
+def _upcoming_sleep_starts(db: Session, user_id: int) -> list:
+    from datetime import datetime, timedelta, timezone
+
+    now = datetime.now(timezone.utc)
+    rows = (
+        db.query(SleepRecord.sleep_start)
+        .filter(
+            SleepRecord.user_id == user_id,
+            SleepRecord.sleep_start >= now - timedelta(days=30),
+        )
+        .order_by(SleepRecord.sleep_start.asc())
+        .all()
+    )
+    return [r[0] for r in rows]
+
+
 @router.post("/", response_model=MealOut)
 def create_meal(
     data: MealCreate,
@@ -294,6 +323,13 @@ def create_meal(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    sleep_starts = _upcoming_sleep_starts(db, current_user.id)
+    is_late, mins_before = enrich_meal_timing(
+        data.meal_time,
+        sleep_starts,
+        is_late_meal=data.is_late_meal,
+        minutes_before_sleep=data.minutes_before_sleep,
+    )
     meal = MealRecord(
         user_id=current_user.id,
         meal_type=data.meal_type,
@@ -309,8 +345,8 @@ def create_meal(
         portion_g=data.portion_g,
         glycemic_load=data.glycemic_load,
         meal_category=data.meal_category,
-        minutes_before_sleep=data.minutes_before_sleep,
-        is_late_meal=data.is_late_meal,
+        minutes_before_sleep=mins_before,
+        is_late_meal=is_late,
         meal_time=data.meal_time,
         notes=data.notes,
         source=data.source,
@@ -321,6 +357,7 @@ def create_meal(
 
     rebuild_user_analytics(db, current_user.id, days=7)
     generate_smart_triggers_and_reminders(db, current_user.id, period_days=7)
+    refresh_user_achievements(db, current_user.id)
 
     background_tasks.add_task(
         realtime_manager.broadcast_user_update,

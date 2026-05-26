@@ -111,15 +111,10 @@ fun MealDailySummaryCard(
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    text = "Белки · жиры · углеводы",
+                    text = "Подробнее по БЖУ — в блоке «Ориентиры на день»",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    MacroMini("Б", "${"%.0f".format(protein)} г", targetProteinG?.let { "цель ~ ${"%.0f".format(it)} г" })
-                    MacroMini("Ж", "${"%.0f".format(fat)} г", targetFatG?.let { "цель ~ ${"%.0f".format(it)} г" })
-                    MacroMini("У", "${"%.0f".format(carbs)} г", targetCarbsG?.let { "цель ~ ${"%.0f".format(it)} г" })
-                }
                 if (caffeine > 0f) {
                     Text(
                         text = "Кофеин: ${"%.0f".format(caffeine)} мг",
@@ -129,21 +124,6 @@ fun MealDailySummaryCard(
                 }
             }
             AnimatedCalorieRing(consumed = consumed, target = target, progress = animatedProgress)
-        }
-    }
-}
-
-@Composable
-private fun MacroMini(label: String, value: String, targetHint: String? = null) {
-    Column {
-        Text(text = label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-        Text(text = value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-        if (!targetHint.isNullOrBlank()) {
-            Text(
-                text = targetHint,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }

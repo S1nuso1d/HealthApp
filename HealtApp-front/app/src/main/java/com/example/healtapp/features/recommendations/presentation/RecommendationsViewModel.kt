@@ -47,10 +47,10 @@ class RecommendationsViewModel @Inject constructor(
                 return@launch
             }
 
-            _uiState.value = _uiState.value.copy(
-                isLoading = true,
-                error = null
-            )
+            val silent = _uiState.value.recommendations.isNotEmpty()
+            if (!silent) {
+                _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            }
 
             val result = aiRepository.getRecommendations(days)
 

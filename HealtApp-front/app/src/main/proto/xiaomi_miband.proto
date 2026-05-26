@@ -1,0 +1,72 @@
+syntax = "proto2";
+
+package xiaomi;
+
+option java_package = "com.example.healtapp.miband.proto";
+option java_outer_classname = "XiaomiProto";
+
+// Minimal subset for Mi Band 8 auth + activity sync (Xiaomi protobuf protocol).
+
+message Command {
+  required uint32 type = 1;
+  optional uint32 subtype = 2;
+  optional Auth auth = 3;
+  optional Health health = 10;
+  optional uint32 status = 100;
+}
+
+message Auth {
+  optional string userId = 7;
+  optional uint32 status = 8;
+  optional PhoneNonce phoneNonce = 30;
+  optional WatchNonce watchNonce = 31;
+  optional AuthStep3 authStep3 = 32;
+  optional AuthStep4 authStep4 = 33;
+}
+
+message PhoneNonce {
+  required bytes nonce = 1;
+}
+
+message WatchNonce {
+  required bytes nonce = 1;
+  required bytes hmac = 2;
+}
+
+message AuthStep3 {
+  required bytes encryptedNonces = 1;
+  required bytes encryptedDeviceInfo = 2;
+}
+
+message AuthStep4 {
+  required uint32 unknown1 = 1;
+  optional uint32 unknown2 = 2;
+}
+
+message AuthDeviceInfo {
+  required uint32 unknown1 = 1;
+  required float phoneApiLevel = 2;
+  required string phoneName = 3;
+  required uint32 unknown3 = 4;
+  required string region = 5;
+}
+
+message Health {
+  optional ActivitySyncRequestToday activitySyncRequestToday = 1;
+  optional bytes activityRequestFileIds = 2;
+  optional bytes activitySyncAckFileIds = 3;
+  optional RealTimeStats realTimeStats = 4;
+}
+
+message ActivitySyncRequestToday {
+  optional uint32 unknown1 = 1;
+}
+
+message RealTimeStats {
+  optional uint32 steps = 1;
+  optional uint32 calories = 2;
+  optional uint32 unknown3 = 3;
+  optional uint32 heartRate = 4;
+  optional uint32 unknown5 = 5;
+  optional uint32 standingHours = 6;
+}

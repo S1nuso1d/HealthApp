@@ -8,4 +8,6 @@ data class HydrationUiState(
     val todayRecords: List<HydrationDto> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
+    val progressCelebrateToken: Int = 0,
+    val pendingSyncCount: Int = 0,
 )

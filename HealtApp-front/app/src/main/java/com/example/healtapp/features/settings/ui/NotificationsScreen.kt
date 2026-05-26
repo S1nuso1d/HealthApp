@@ -18,6 +18,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.outlined.LocalDrink
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.EventBusy
 import androidx.compose.material.icons.outlined.TipsAndUpdates
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -82,7 +84,7 @@ fun NotificationsScreen(
 
     AppScreen(
         title = "Уведомления",
-        subtitle = "Напоминания о воде, питании и персональных советах",
+        subtitle = "Вода, еда, цели и советы",
         headerIcon = Icons.Filled.Notifications,
         onNavigateBack = onBack,
         scrollable = true,
@@ -125,6 +127,24 @@ fun NotificationsScreen(
                     checked = uiState.settings.mealReminders,
                     onCheckedChange = { enabled ->
                         requestAndRun { viewModel.setMealReminders(enabled) }
+                    },
+                )
+                ReminderToggleRow(
+                    icon = Icons.Outlined.EventBusy,
+                    title = "Пропущенные приёмы пищи",
+                    subtitle = "Если завтрак, обед или ужин не записан к 10:30 / 15:00 / 21:00",
+                    checked = uiState.settings.missedMealChecks,
+                    onCheckedChange = { enabled ->
+                        requestAndRun { viewModel.setMissedMealChecks(enabled) }
+                    },
+                )
+                ReminderToggleRow(
+                    icon = Icons.Outlined.CheckCircle,
+                    title = "Достижение целей",
+                    subtitle = "Шаги и вода — когда дневная цель выполнена",
+                    checked = uiState.settings.goalAchievementNotifications,
+                    onCheckedChange = { enabled ->
+                        requestAndRun { viewModel.setGoalAchievementNotifications(enabled) }
                     },
                 )
                 ReminderToggleRow(

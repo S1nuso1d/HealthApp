@@ -29,6 +29,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.healtapp.core.ui.components.AppButton
 import com.example.healtapp.core.ui.components.AppCard
+import com.example.healtapp.core.ui.components.AppMessageBanner
+import com.example.healtapp.core.ui.components.AppMessageType
 import com.example.healtapp.core.ui.components.AppScreen
 import com.example.healtapp.features.actionplan.presentation.ActionPlanViewModel
 import com.example.healtapp.features.dashboard.presentation.ActionPlanItemUi
@@ -55,7 +57,7 @@ fun ActionPlanScreen(
         Column(Modifier.padding(padding)) {
         AppScreen(
             title = "План действий",
-            subtitle = "Задачи на основе рекомендаций",
+            subtitle = "Персональные задачи · выполняются при достижении целей",
             headerIcon = Icons.Filled.Flag,
             onNavigateBack = onBack,
         ) {
@@ -84,7 +86,7 @@ fun ActionPlanScreen(
             }
 
             uiState.error?.let {
-                Text(it, color = MaterialTheme.colorScheme.error)
+                AppMessageBanner(text = it, type = AppMessageType.Error)
             }
         }
         }

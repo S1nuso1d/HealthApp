@@ -67,6 +67,17 @@ class ProfileCreate(BaseModel):
         description="Цель шагов в день",
         examples=[10_000],
     )
+    is_vegetarian: Optional[bool] = Field(None, description="Вегетарианская диета")
+    has_allergies: Optional[bool] = Field(None, description="Есть пищевые аллергии")
+    allergies_text: Optional[str] = Field(
+        None,
+        max_length=500,
+        description="На что аллергия / непереносимость",
+    )
+    onboarding_completed: Optional[bool] = Field(
+        None,
+        description="Пользователь прошёл стартовый опрос",
+    )
 
 
 class ProfileResponse(BaseModel):
@@ -85,6 +96,10 @@ class ProfileResponse(BaseModel):
     target_fat_g: Optional[float] = None
     target_carbs_g: Optional[float] = None
     target_steps: Optional[int] = None
+    is_vegetarian: Optional[bool] = None
+    has_allergies: Optional[bool] = None
+    allergies_text: Optional[str] = None
+    onboarding_completed: bool = False
     has_avatar: bool = Field(False, description="Есть загруженное фото профиля")
 
     class Config:

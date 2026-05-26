@@ -1,6 +1,8 @@
 package com.example.healtapp.di
 
 import com.example.healtapp.data.repository.ActivityRepositoryImpl
+import com.example.healtapp.data.repository.GamificationRepositoryImpl
+import com.example.healtapp.data.repository.SocialRepositoryImpl
 import com.example.healtapp.data.repository.AiRepositoryImpl
 import com.example.healtapp.data.repository.AuthRepositoryImpl
 import com.example.healtapp.data.repository.HydrationRepositoryImpl
@@ -10,6 +12,8 @@ import com.example.healtapp.data.repository.ProfileRepositoryImpl
 import com.example.healtapp.data.repository.SleepRepositoryImpl
 import com.example.healtapp.data.repository.WellnessRepositoryImpl
 import com.example.healtapp.domain.repository.ActivityRepository
+import com.example.healtapp.domain.repository.GamificationRepository
+import com.example.healtapp.domain.repository.SocialRepository
 import com.example.healtapp.domain.repository.AiRepository
 import com.example.healtapp.domain.repository.AuthRepository
 import com.example.healtapp.domain.repository.HydrationRepository
@@ -63,5 +67,13 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindWellnessRepository(impl: WellnessRepositoryImpl): WellnessRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindGamificationRepository(impl: GamificationRepositoryImpl): GamificationRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSocialRepository(impl: SocialRepositoryImpl): SocialRepository
 }
 

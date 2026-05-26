@@ -4,16 +4,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Nightlight
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,17 +19,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.healtapp.core.ui.components.AppButton
 import com.example.healtapp.core.ui.components.AppCard
-import com.example.healtapp.core.ui.components.AppTextField
-import com.example.healtapp.core.ui.components.DatePickerField
 import com.example.healtapp.core.ui.theme.cardHeaderGradient
-import com.example.healtapp.core.ui.theme.chipSelectedColor
 import com.example.healtapp.core.ui.theme.themedCardLavender
 
-private val qualityPresets = listOf(60, 70, 80, 90)
-
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SleepFormCard(
     sleepDate: String,
@@ -78,70 +66,25 @@ fun SleepFormCard(
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        text = "Выберите дату в календаре; пробуждение на след. день — автоматически",
+                        text = "Дата в календаре; пробуждение на след. день — автоматически",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
-
-            DatePickerField(
-                value = sleepDate,
-                onValueChange = onSleepDateChange,
-                label = "Дата засыпания",
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                AppTextField(
-                    value = sleepStart,
-                    onValueChange = onSleepStartChange,
-                    label = "Засыпание",
-                    modifier = Modifier.weight(1f),
-                )
-                AppTextField(
-                    value = sleepEnd,
-                    onValueChange = onSleepEndChange,
-                    label = "Пробуждение",
-                    modifier = Modifier.weight(1f),
-                )
-            }
-
-            Text(
-                text = "Качество сна",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                qualityPresets.forEach { preset ->
-                    FilterChip(
-                        selected = quality == preset.toString(),
-                        onClick = { onQualityChange(preset.toString()) },
-                        label = { Text("$preset") },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = chipSelectedColor(themedCardLavender()),
-                        ),
-                    )
-                }
-            }
-            AppTextField(
-                value = quality,
-                onValueChange = onQualityChange,
-                label = "Качество (0–100)",
-            )
-            AppTextField(
-                value = note,
-                onValueChange = onNoteChange,
-                label = "Заметка (необязательно)",
-            )
-            AppButton(
-                text = if (isSaving) "Сохранение…" else "Сохранить ночь",
-                onClick = onSaveClick,
-                enabled = !isSaving,
+            SleepFormFields(
+                sleepDate = sleepDate,
+                sleepStart = sleepStart,
+                sleepEnd = sleepEnd,
+                quality = quality,
+                note = note,
+                isSaving = isSaving,
+                onSleepDateChange = onSleepDateChange,
+                onSleepStartChange = onSleepStartChange,
+                onSleepEndChange = onSleepEndChange,
+                onQualityChange = onQualityChange,
+                onNoteChange = onNoteChange,
+                onSaveClick = onSaveClick,
             )
         }
     }

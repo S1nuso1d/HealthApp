@@ -4,14 +4,17 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.healtapp.core.common.AgeUtils
 import com.example.healtapp.core.common.AppRefreshBus
 import com.example.healtapp.core.common.AvatarJpegBytes
 import com.example.healtapp.core.export.HealthReportExporter
 import com.example.healtapp.data.network.dto.profile.ProfileDto
 import com.example.healtapp.core.ui.theme.ThemeMode
 import com.example.healtapp.data.preferences.ThemePreferences
+import com.example.healtapp.core.common.UserFacingMessages
 import com.example.healtapp.data.preferences.TokenStorage
 import com.example.healtapp.domain.repository.AuthRepository
+import com.example.healtapp.data.preferences.WeightHistoryStore
 import com.example.healtapp.domain.repository.ProfileRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -31,6 +34,7 @@ class ProfileEditViewModel @Inject constructor(
     private val tokenStorage: TokenStorage,
     private val themePreferences: ThemePreferences,
     @ApplicationContext private val appContext: Context,
+    private val weightHistoryStore: WeightHistoryStore,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileEditUiState())
@@ -72,6 +76,7 @@ class ProfileEditViewModel @Inject constructor(
                     isLoading = false,
                     guestMode = false,
                     error = null,
+                    birthDate = profile.age?.let { AgeUtils.estimatedBirthDateFromAge(it) }.orEmpty(),
                     age = profile.age?.toString().orEmpty(),
                     sex = profile.sex ?: _uiState.value.sex,
                     height = profile.height_cm?.toString().orEmpty(),
@@ -85,7 +90,16 @@ class ProfileEditViewModel @Inject constructor(
                     targetProtein = profile.target_protein_g?.let { "%.0f".format(it) }.orEmpty(),
                     targetFat = profile.target_fat_g?.let { "%.0f".format(it) }.orEmpty(),
                     targetCarbs = profile.target_carbs_g?.let { "%.0f".format(it) }.orEmpty(),
+                    isVegetarian = profile.is_vegetarian == true,
+                    hasAllergies = profile.has_allergies == true,
+                    allergiesText = profile.allergies_text.orEmpty(),
                     hasAvatar = profile.hasAvatar,
+                    weightHistory = weightHistoryStore.loadEntries(),
+                    weightWeeklyReminder = if (weightHistoryStore.shouldShowWeeklyReminder()) {
+                        "Раз в неделю обновляйте вес в «Основных данных» — так точнее ИМТ и КБЖУ."
+                    } else {
+                        null
+                    },
                     avatarLoadNonce = if (profile.hasAvatar) {
                         _uiState.value.avatarLoadNonce + 1
                     } else {
@@ -95,7 +109,7 @@ class ProfileEditViewModel @Inject constructor(
             }.onFailure { t ->
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = t.message ?: "Не удалось загрузить профиль",
+                    error = UserFacingMessages.fromThrowable(t, "Не удалось загрузить профиль"),
                 )
             }
         }
@@ -129,7 +143,7 @@ class ProfileEditViewModel @Inject constructor(
             }.onFailure { t ->
                 _uiState.value = _uiState.value.copy(
                     isUploadingAvatar = false,
-                    error = t.message ?: "Не удалось загрузить фото",
+                    error = UserFacingMessages.fromThrowable(t, "Не удалось загрузить фото"),
                 )
             }
         }
@@ -156,7 +170,7 @@ class ProfileEditViewModel @Inject constructor(
             }.onFailure { t ->
                 _uiState.value = _uiState.value.copy(
                     isUploadingAvatar = false,
-                    error = t.message ?: "Не удалось удалить фото",
+                    error = UserFacingMessages.fromThrowable(t, "Не удалось удалить фото"),
                 )
             }
         }
@@ -170,7 +184,9 @@ class ProfileEditViewModel @Inject constructor(
                 val text = HealthReportExporter.buildReportText(appContext, profile)
                 HealthReportExporter.shareAsFile(appContext, text)
             }.onFailure { t ->
-                _uiState.update { it.copy(error = t.message ?: "Не удалось сформировать отчёт") }
+                _uiState.update {
+                    it.copy(error = UserFacingMessages.fromThrowable(t, "Не удалось сформировать отчёт"))
+                }
             }
             _uiState.update { it.copy(isExportingReport = false) }
         }
@@ -180,6 +196,18 @@ class ProfileEditViewModel @Inject constructor(
         viewModelScope.launch {
             authRepository.logout()
             onLoggedOut()
+        }
+    }
+
+    fun updateBirthDate(value: String) {
+        val age = AgeUtils.ageFromBirthDate(value)
+        update {
+            copy(
+                birthDate = value,
+                age = age?.toString().orEmpty(),
+                error = null,
+                success = null,
+            )
         }
     }
 
@@ -198,6 +226,16 @@ class ProfileEditViewModel @Inject constructor(
     fun updateTargetProtein(value: String) = update { copy(targetProtein = value, error = null, success = null) }
     fun updateTargetFat(value: String) = update { copy(targetFat = value, error = null, success = null) }
     fun updateTargetCarbs(value: String) = update { copy(targetCarbs = value, error = null, success = null) }
+    fun updateIsVegetarian(value: Boolean) = update { copy(isVegetarian = value, error = null, success = null) }
+    fun updateHasAllergies(value: Boolean) = update {
+        copy(
+            hasAllergies = value,
+            allergiesText = if (!value) "" else allergiesText,
+            error = null,
+            success = null,
+        )
+    }
+    fun updateAllergiesText(value: String) = update { copy(allergiesText = value, error = null, success = null) }
 
     fun updateCurrentPassword(value: String) = update { copy(currentPassword = value, error = null, success = null) }
     fun updateNewPassword(value: String) = update { copy(newPassword = value, error = null, success = null) }
@@ -215,8 +253,11 @@ class ProfileEditViewModel @Inject constructor(
             }
             _uiState.value = state.copy(isSaving = true, error = null, success = null)
 
+            val ageYears = AgeUtils.ageFromBirthDate(state.birthDate)
+                ?: state.age.toIntOrNull()
+
             val result = profileRepository.updateMyProfile(
-                age = state.age.toIntOrNull(),
+                age = ageYears,
                 sex = state.sex,
                 heightCm = state.height.toFloatOrNull(),
                 weightKg = state.weight.toFloatOrNull(),
@@ -229,18 +270,30 @@ class ProfileEditViewModel @Inject constructor(
                 targetProteinG = state.targetProtein.toFloatOrNull(),
                 targetFatG = state.targetFat.toFloatOrNull(),
                 targetCarbsG = state.targetCarbs.toFloatOrNull(),
+                isVegetarian = state.isVegetarian,
+                hasAllergies = state.hasAllergies,
+                allergiesText = if (state.hasAllergies) state.allergiesText.trim().take(500).ifBlank { null } else null,
             )
 
-            result.onSuccess {
+            result.onSuccess { profile ->
+                cachedProfile = profile
+                state.weight.toFloatOrNull()?.let { weightHistoryStore.append(it) }
+                weightHistoryStore.markWeeklyPromptShown()
+                val ageStr = AgeUtils.ageFromBirthDate(state.birthDate)?.toString()
+                    ?: profile.age?.toString()
+                    ?: state.age
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,
                     success = "Профиль успешно сохранён",
+                    age = ageStr,
+                    weightHistory = weightHistoryStore.loadEntries(),
+                    weightWeeklyReminder = null,
                 )
                 AppRefreshBus.notifyDataChanged()
             }.onFailure { t ->
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,
-                    error = t.message ?: "Не удалось сохранить профиль",
+                    error = UserFacingMessages.fromThrowable(t, "Не удалось сохранить профиль"),
                 )
             }
         }
@@ -280,7 +333,7 @@ class ProfileEditViewModel @Inject constructor(
             }.onFailure { t ->
                 _uiState.value = _uiState.value.copy(
                     isChangingPassword = false,
-                    error = t.message ?: "Не удалось сменить пароль",
+                    error = UserFacingMessages.fromThrowable(t, "Не удалось сменить пароль"),
                 )
             }
         }

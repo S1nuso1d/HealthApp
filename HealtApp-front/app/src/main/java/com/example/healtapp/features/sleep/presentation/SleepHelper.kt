@@ -19,7 +19,22 @@ object SleepHelper {
     private val dayLabelFormatter = DateTimeFormatter.ofPattern("EE", Locale("ru", "RU"))
     private val chartDayFormatter = DateTimeFormatter.ofPattern("d MMM", Locale("ru", "RU"))
 
-    fun sleepDateKey(iso: String): String = bedtimeDateKey(iso)
+    fun sleepDateKey(iso: String): String = wakeDateKey(iso)
+
+    /** Дата пробуждения (конец сна) — как на экране активности по дню. */
+    fun wakeDateKey(iso: String): String {
+        val trimmed = iso.trim()
+        if (trimmed.isEmpty()) return ""
+        return runCatching {
+            OffsetDateTime.parse(trimmed).toLocalDate().toString()
+        }.getOrElse {
+            runCatching {
+                LocalDateTime.parse(trimmed.take(19)).toLocalDate().toString()
+            }.getOrElse {
+                trimmed.take(10)
+            }
+        }
+    }
 
     /** Дата засыпания в локальной зоне устройства. */
     fun bedtimeDateKey(iso: String): String {
@@ -59,15 +74,12 @@ object SleepHelper {
 
     fun hoursForNight(records: List<SleepRecordUi>, dateKey: String): Float =
         records
-            .filter { bedtimeDateKey(it.sleepStartIso) == dateKey }
+            .filter { wakeDateKey(it.sleepEndIso) == dateKey }
             .maxOfOrNull { effectiveDurationHours(it) }
             ?: 0f
 
-    fun weeklySleep(records: List<SleepRecordUi>, days: Int = 7): List<DaySleep> {
-        val calendarWeek = buildCalendarWeek(records, days)
-        if (calendarWeek.any { it.hours > 0f }) return calendarWeek
-        return buildFromRecentRecords(records, days)
-    }
+    fun weeklySleep(records: List<SleepRecordUi>, days: Int = 7): List<DaySleep> =
+        buildCalendarWeek(records, days)
 
     private fun buildCalendarWeek(records: List<SleepRecordUi>, days: Int): List<DaySleep> {
         val today = LocalDate.now()
@@ -87,31 +99,15 @@ object SleepHelper {
         }
     }
 
-    /** Если в календарной неделе пусто — показываем последние ночи с данными. */
-    private fun buildFromRecentRecords(records: List<SleepRecordUi>, days: Int): List<DaySleep> {
-        val withHours = records
-            .map { it to effectiveDurationHours(it) }
-            .filter { (_, hours) -> hours > 0f }
-            .sortedByDescending { (record, _) -> record.sleepEndIso }
-            .take(days)
-            .reversed()
-
-        if (withHours.isEmpty()) return buildCalendarWeek(emptyList(), days)
-
-        return withHours.map { (record, hours) ->
-            val key = bedtimeDateKey(record.sleepStartIso)
-            val label = runCatching {
-                LocalDate.parse(key).format(chartDayFormatter)
-            }.getOrElse { key.take(5) }
-            DaySleep(dateKey = key, label = label, hours = hours)
-        }
-    }
-
     fun lastNightRecord(records: List<SleepRecordUi>): SleepRecordUi? =
         records.maxByOrNull { it.sleepEndIso }
 
     fun lastNightHours(records: List<SleepRecordUi>): Float =
         lastNightRecord(records)?.let { effectiveDurationHours(it) } ?: 0f
+
+    /** Сон с датой пробуждения = сегодня (локальная дата устройства). */
+    fun todaySleepHours(records: List<SleepRecordUi>): Float =
+        hoursForNight(records, LocalDate.now().toString())
 
     fun averageHoursLast7(records: List<SleepRecordUi>): Float {
         val week = weeklySleep(records)

@@ -34,6 +34,8 @@ data class FatSecretServingOption(
 
     val carbsG: Float?,
 
+    val metricGrams: Float? = null,
+
 )
 
 
@@ -226,6 +228,8 @@ object FatSecretParse {
 
                 ?: "Порция"
 
+            val metricG = floatField(o, "metric_serving_amount")?.takeIf { it > 0f }
+
             out.add(
 
                 FatSecretServingOption(
@@ -241,6 +245,8 @@ object FatSecretParse {
                     fatG = floatField(o, "fat"),
 
                     carbsG = floatField(o, "carbohydrate"),
+
+                    metricGrams = metricG,
 
                 ),
 

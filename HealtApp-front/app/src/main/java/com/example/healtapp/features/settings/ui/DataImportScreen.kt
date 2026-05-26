@@ -17,6 +17,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.healtapp.core.ui.components.AppButton
 import com.example.healtapp.core.ui.components.AppCard
+import com.example.healtapp.core.ui.components.AppMessageBanner
+import com.example.healtapp.core.ui.components.AppMessageType
 import com.example.healtapp.core.ui.components.AppScreen
 import com.example.healtapp.features.settings.presentation.ImportViewModel
 import kotlinx.coroutines.Dispatchers
@@ -90,11 +92,7 @@ fun DataImportScreen(
         }
 
         uiState.error?.let {
-            Text(
-                text = it,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.error,
-            )
+            AppMessageBanner(text = it, type = AppMessageType.Error)
         }
     }
 }

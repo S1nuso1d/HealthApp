@@ -2,6 +2,7 @@ package com.example.healtapp.features.profile.presentation
 
 import com.example.healtapp.core.common.Constants
 import com.example.healtapp.core.ui.theme.ThemeMode
+import com.example.healtapp.data.preferences.WeightEntry
 
 data class ProfileEditUiState(
     val isLoading: Boolean = true,
@@ -14,6 +15,7 @@ data class ProfileEditUiState(
     /** Меняется после загрузки/смены фото, чтобы Coil не брал старый кэш. */
     val avatarLoadNonce: Int = 0,
 
+    val birthDate: String = "",
     val age: String = "",
     val sex: String = Constants.Sex.MALE,
     val height: String = "",
@@ -28,6 +30,10 @@ data class ProfileEditUiState(
     val targetFat: String = "",
     val targetCarbs: String = "",
 
+    val isVegetarian: Boolean = false,
+    val hasAllergies: Boolean = false,
+    val allergiesText: String = "",
+
     val currentPassword: String = "",
     val newPassword: String = "",
     val confirmPassword: String = "",
@@ -38,4 +44,7 @@ data class ProfileEditUiState(
     val guestMode: Boolean = false,
 
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
+
+    val weightHistory: List<WeightEntry> = emptyList(),
+    val weightWeeklyReminder: String? = null,
 )

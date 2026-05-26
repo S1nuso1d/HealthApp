@@ -31,6 +31,12 @@ class HealthChatService:
 
         weak_text = ", ".join(weak_areas) if weak_areas else "явно слабых зон сейчас не видно"
 
+        today_note = ""
+        if "Контекст на сегодня" in user_question or "контекст на сегодня" in user_question.lower():
+            today_note = (
+                "\n\n(В вопросе переданы сегодняшние показатели — учти их в первую очередь.)"
+            )
+
         insight_titles = [item.title for item in analytics.insights[:3]]
         insight_text = "; ".join(insight_titles) if insight_titles else "явных инсайтов пока нет"
 
@@ -42,9 +48,9 @@ class HealthChatService:
         recommendation_block = "\n".join(recommendation_texts) if recommendation_texts else "- Пока рекомендаций нет"
 
         text = f"""
-Сейчас я не смог получить ответ от локальной LLM, поэтому даю аналитический fallback-ответ.
+Сейчас не удалось связаться с языковой моделью — краткий ответ по вашей аналитике в приложении.
 
-Твой вопрос: {user_question}
+Ваш вопрос: {user_question}{today_note}
 
 По текущей аналитике:
 - общий health score: {summary.health_score}/100
@@ -166,10 +172,14 @@ class HealthChatService:
         self,
         analytics: AnalyticsResponse,
         user_question: str,
+        today: dict | None = None,
+        personal_hints: list[dict] | None = None,
     ) -> AIResponse:
         prompt = PromptBuilder.build_chat_prompt(
             analytics=analytics,
             user_question=user_question,
+            today=today,
+            personal_hints=personal_hints,
         )
 
         try:

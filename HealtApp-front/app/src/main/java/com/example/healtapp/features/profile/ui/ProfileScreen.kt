@@ -6,7 +6,9 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,22 +16,22 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Flag
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Timeline
+import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Logout
-import androidx.compose.material.icons.filled.MonitorHeart
+import androidx.compose.material.icons.filled.Eco
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Watch
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.PhotoLibrary
@@ -51,6 +53,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -63,13 +66,18 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.healtapp.BuildConfig
 import com.example.healtapp.core.common.Constants
 import com.example.healtapp.core.ui.components.AppButton
+import com.example.healtapp.core.ui.components.AppMessageBanner
+import com.example.healtapp.core.ui.components.AppMessageType
 import com.example.healtapp.core.ui.components.AppCard
 import com.example.healtapp.core.ui.components.AppScreen
 import com.example.healtapp.core.ui.components.AppTextField
+import com.example.healtapp.core.ui.components.DatePickerField
 import com.example.healtapp.core.ui.components.SectionHeader
 import com.example.healtapp.core.ui.theme.chipSelectedColor
+import com.example.healtapp.core.ui.theme.metricIconGradient
 import com.example.healtapp.core.ui.theme.themedCardBlue
 import com.example.healtapp.core.ui.theme.themedCardMint
+import com.example.healtapp.di.ApiServerConfigEntryPoint
 import com.example.healtapp.di.ImageLoaderEntryPoint
 import com.example.healtapp.features.auth.ui.components.ChangePasswordForm
 import com.example.healtapp.features.auth.ui.components.ChangePasswordFormHeader
@@ -79,7 +87,7 @@ import com.example.healtapp.features.profile.presentation.ProfileEditViewModel
 import com.example.healtapp.features.profile.ui.components.ProfileBodyStatsCard
 import com.example.healtapp.features.profile.ui.components.ProfileGoalsEditSheet
 import com.example.healtapp.features.profile.ui.components.ProfileGoalsStrip
-import com.example.healtapp.features.profile.ui.components.ProfileHeroBlock
+import com.example.healtapp.features.profile.ui.components.ProfileHeaderAvatar
 import com.example.healtapp.features.profile.ui.components.ProfileNavLink
 import com.example.healtapp.features.profile.ui.components.ProfileThemeSelector
 import dagger.hilt.android.EntryPointAccessors
@@ -89,13 +97,13 @@ import java.io.File
 @Composable
 fun ProfileScreen(
     onOpenDataPrivacy: () -> Unit = {},
-    onOpenImport: () -> Unit = {},
     onOpenIntegrations: () -> Unit = {},
-    onOpenHealthVitals: () -> Unit = {},
+    onOpenMiBandBle: () -> Unit = {},
+    onOpenServerConnection: () -> Unit = {},
     onOpenNotifications: () -> Unit = {},
-    onOpenAiAssistant: () -> Unit = {},
-    onOpenTimeline: () -> Unit = {},
-    onOpenActionPlan: () -> Unit = {},
+    onOpenAchievements: () -> Unit = {},
+    onOpenFriends: () -> Unit = {},
+    onOpenNutritionGuide: () -> Unit = {},
     onLogout: () -> Unit = {},
 ) {
     val viewModel: ProfileEditViewModel = hiltViewModel()
@@ -118,7 +126,8 @@ fun ProfileScreen(
     var showAvatarSheet by remember { mutableStateOf(false) }
     var showGoalsSheet by remember { mutableStateOf(false) }
     var goalsCardExpanded by remember { mutableStateOf(false) }
-    var basicsCardExpanded by remember { mutableStateOf(true) }
+    var basicsCardExpanded by remember { mutableStateOf(false) }
+    var dietCardExpanded by remember { mutableStateOf(false) }
     var goalsSavePending by remember { mutableStateOf(false) }
     var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
 
@@ -150,9 +159,15 @@ fun ProfileScreen(
         }
     }
 
-    val avatarUrl = remember(uiState.hasAvatar, uiState.avatarLoadNonce) {
+    val apiServerConfig = remember {
+        EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            ApiServerConfigEntryPoint::class.java,
+        ).apiServerConfig()
+    }
+    val avatarUrl = remember(uiState.hasAvatar, uiState.avatarLoadNonce, apiServerConfig.baseUrl()) {
         if (!uiState.hasAvatar) null
-        else "${BuildConfig.BASE_URL.trimEnd('/')}/profile/me/avatar?v=${uiState.avatarLoadNonce}"
+        else "${apiServerConfig.avatarBase()}/profile/me/avatar?v=${uiState.avatarLoadNonce}"
     }
 
     if (showAvatarSheet) {
@@ -171,11 +186,6 @@ fun ProfileScreen(
                     text = "Фото профиля",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    text = "Выбери источник изображения",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(8.dp))
                 AvatarSheetRow(Icons.Outlined.PhotoLibrary, "Галерея") {
@@ -212,38 +222,39 @@ fun ProfileScreen(
         }
     }
 
+    val avatarEnabled = !uiState.isLoading && !uiState.isUploadingAvatar && !uiState.guestMode
+
     AppScreen(
         title = "Профиль",
-        subtitle = "Данные, цели и настройки",
-        headerIcon = Icons.Filled.Person,
+        subtitle = "Данные · цели · настройки",
+        headerLeading = {
+            ProfileHeaderAvatar(
+                initial = initial,
+                avatarUrl = avatarUrl,
+                imageLoader = imageLoader,
+                isUploading = uiState.isUploadingAvatar,
+            )
+        },
+        onHeaderLeadingClick = if (avatarEnabled) {
+            { showAvatarSheet = true }
+        } else {
+            null
+        },
         scrollable = true,
     ) {
-        ProfileHeroBlock(
-            initial = initial,
-            avatarUrl = avatarUrl,
-            imageLoader = imageLoader,
-            goal = uiState.goal,
-            activityLevel = uiState.activityLevel,
-            guestMode = uiState.guestMode,
-            isUploadingAvatar = uiState.isUploadingAvatar,
-            enabled = !uiState.isLoading && !uiState.isUploadingAvatar && !uiState.guestMode,
-            onAvatarClick = { showAvatarSheet = true },
-        )
-
         if (!uiState.guestMode) {
             ProfileGoalsStrip(
                 targetSleep = uiState.targetSleep,
                 targetWater = uiState.targetWater,
                 targetSteps = uiState.targetSteps,
-                targetCalories = uiState.targetCalories,
                 onEditClick = { showGoalsSheet = true },
-                onOpenDetailedGoals = { goalsCardExpanded = true },
             )
 
             ProfileBodyStatsCard(
                 heightCm = uiState.height,
                 weightKg = uiState.weight,
-                onEditBody = { basicsCardExpanded = true },
+                weightHistory = uiState.weightHistory,
+                weightWeeklyReminder = uiState.weightWeeklyReminder,
             )
         }
 
@@ -252,14 +263,12 @@ fun ProfileScreen(
             targetSleep = uiState.targetSleep,
             targetWater = uiState.targetWater,
             targetSteps = uiState.targetSteps,
-            targetCalories = uiState.targetCalories,
             isSaving = uiState.isSaving,
             guestMode = uiState.guestMode,
             onDismiss = { showGoalsSheet = false },
             onSleepChange = viewModel::updateTargetSleep,
             onWaterChange = viewModel::updateTargetWater,
             onStepsChange = viewModel::updateTargetSteps,
-            onCaloriesChange = viewModel::updateTargetCalories,
             onSave = {
                 goalsSavePending = true
                 viewModel.save()
@@ -277,10 +286,10 @@ fun ProfileScreen(
         }
 
         uiState.error?.let {
-            Text(text = it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+            AppMessageBanner(text = it, type = AppMessageType.Error)
         }
         uiState.success?.let {
-            Text(text = it, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
+            AppMessageBanner(text = it, type = AppMessageType.Success)
         }
 
         ProfileExpandableCard(
@@ -295,15 +304,87 @@ fun ProfileScreen(
         }
 
         ProfileExpandableCard(
+            title = "Питание и ограничения",
+            icon = Icons.Filled.Restaurant,
+            initiallyExpanded = false,
+            expanded = dietCardExpanded,
+            onExpandedChange = { dietCardExpanded = it },
+        ) {
+            Text(text = "Вегетарианец?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                FilterChip(
+                    selected = !uiState.isVegetarian,
+                    onClick = { viewModel.updateIsVegetarian(false) },
+                    label = { Text("Нет") },
+                )
+                FilterChip(
+                    selected = uiState.isVegetarian,
+                    onClick = { viewModel.updateIsVegetarian(true) },
+                    label = { Text("Да") },
+                    leadingIcon = { Icon(Icons.Filled.Eco, contentDescription = null) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = chipSelectedColor(themedCardMint()),
+                    ),
+                )
+            }
+            Text(text = "Аллергии?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                FilterChip(
+                    selected = !uiState.hasAllergies,
+                    onClick = { viewModel.updateHasAllergies(false) },
+                    label = { Text("Нет") },
+                )
+                FilterChip(
+                    selected = uiState.hasAllergies,
+                    onClick = { viewModel.updateHasAllergies(true) },
+                    label = { Text("Да") },
+                )
+            }
+            if (uiState.hasAllergies) {
+                AppTextField(
+                    uiState.allergiesText,
+                    viewModel::updateAllergiesText,
+                    label = "На что аллергия",
+                )
+            }
+            AppButton(
+                text = if (uiState.isSaving) "Сохраняем..." else "Сохранить",
+                enabled = !uiState.isSaving && !uiState.isLoading && !uiState.guestMode,
+                onClick = viewModel::save,
+            )
+        }
+
+        ProfileExpandableCard(
             title = "Основные данные",
             icon = Icons.Filled.Tune,
-            initiallyExpanded = true,
+            initiallyExpanded = false,
             expanded = basicsCardExpanded,
             onExpandedChange = { basicsCardExpanded = it },
         ) {
-            AppTextField(uiState.age, viewModel::updateAge, label = "Возраст")
+            DatePickerField(
+                value = uiState.birthDate,
+                onValueChange = viewModel::updateBirthDate,
+                label = "Дата рождения",
+                enabled = !uiState.guestMode,
+            )
+            if (uiState.age.isNotBlank()) {
+                Text(
+                    text = "Возраст: ${uiState.age} лет (обновляется автоматически)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             AppTextField(uiState.height, viewModel::updateHeight, label = "Рост (см)")
             AppTextField(uiState.weight, viewModel::updateWeight, label = "Вес (кг)")
+            AppButton(
+                text = when {
+                    uiState.isSaving -> "Сохраняем..."
+                    uiState.isLoading -> "Загрузка..."
+                    else -> "Сохранить данные"
+                },
+                enabled = !uiState.isSaving && !uiState.isLoading && !uiState.guestMode,
+                onClick = viewModel::save,
+            )
             Text(
                 text = "Пол",
                 style = MaterialTheme.typography.titleMedium,
@@ -342,37 +423,13 @@ fun ProfileScreen(
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = "Те же значения, что в блоке «Твои цели» — можно править здесь точнее",
+                text = "Калории и БЖУ настраиваются в разделе «Питание»",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             AppTextField(uiState.targetSleep, viewModel::updateTargetSleep, label = "Цель сна (часы)")
             AppTextField(uiState.targetWater, viewModel::updateTargetWater, label = "Цель воды (мл)")
             AppTextField(uiState.targetSteps, viewModel::updateTargetSteps, label = "Цель шагов в день")
-            AppTextField(uiState.targetCalories, viewModel::updateTargetCalories, label = "Цель калорий (ккал)")
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-
-            Text(
-                text = "БЖУ в день",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                AppTextField(
-                    uiState.targetProtein,
-                    viewModel::updateTargetProtein,
-                    label = "Белки (г)",
-                    modifier = Modifier.weight(1f),
-                )
-                AppTextField(
-                    uiState.targetFat,
-                    viewModel::updateTargetFat,
-                    label = "Жиры (г)",
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            AppTextField(uiState.targetCarbs, viewModel::updateTargetCarbs, label = "Углеводы (г)")
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
 
@@ -422,39 +479,14 @@ fun ProfileScreen(
         }
 
         SectionHeader(
-            title = "Инсайты и помощник",
-            subtitle = "AI, лента и план на день",
+            title = "Сообщество",
+            subtitle = "Достижения, друзья и лента",
         )
 
-        AppCard {
-            Column {
-                ProfileNavLink(
-                    icon = Icons.Filled.AutoAwesome,
-                    title = "AI-советник",
-                    subtitle = "Вопросы по вашему дневнику",
-                    onClick = onOpenAiAssistant,
-                    showDivider = false,
-                )
-                ProfileNavLink(
-                    icon = Icons.Filled.Timeline,
-                    title = "Лента здоровья",
-                    subtitle = "Инсайты и аналитика",
-                    onClick = onOpenTimeline,
-                )
-                ProfileNavLink(
-                    icon = Icons.Filled.Flag,
-                    title = "План действий",
-                    subtitle = "Задачи из рекомендаций",
-                    onClick = onOpenActionPlan,
-                )
-                ProfileNavLink(
-                    icon = Icons.Filled.Share,
-                    title = "Экспорт отчёта",
-                    subtitle = if (uiState.isExportingReport) "Формируем…" else "Текстовый отчёт для врача",
-                    onClick = { if (!uiState.isExportingReport) viewModel.exportHealthReport() },
-                )
-            }
-        }
+        ProfileCommunityHubCard(
+            onOpenAchievements = onOpenAchievements,
+            onOpenFriends = onOpenFriends,
+        )
 
         SectionHeader(
             title = "Сервис",
@@ -466,33 +498,34 @@ fun ProfileScreen(
                 ProfileNavLink(
                     icon = Icons.Filled.Description,
                     title = "Конфиденциальность",
-                    subtitle = "Политика хранения данных",
+                    subtitle = "Данные, аккаунт и удаление",
                     onClick = onOpenDataPrivacy,
                     showDivider = false,
                 )
                 ProfileNavLink(
-                    icon = Icons.Filled.CloudUpload,
-                    title = "Импорт CSV",
-                    subtitle = "Загрузка истории",
-                    onClick = onOpenImport,
-                )
-                ProfileNavLink(
-                    icon = Icons.Filled.MonitorHeart,
-                    title = "Показатели здоровья",
-                    subtitle = "Графики и метрики",
-                    onClick = onOpenHealthVitals,
-                )
-                ProfileNavLink(
                     icon = Icons.Filled.Link,
                     title = "Интеграции",
-                    subtitle = "Health Connect, FatSecret",
+                    subtitle = "Health Connect, FatSecret, Mi Band BLE",
                     onClick = onOpenIntegrations,
+                )
+                ProfileNavLink(
+                    icon = Icons.Filled.Watch,
+                    title = "Mi Band 8 (BLE)",
+                    subtitle = "Прямое подключение Xiaomi",
+                    onClick = onOpenMiBandBle,
                 )
                 ProfileNavLink(
                     icon = Icons.Filled.Notifications,
                     title = "Уведомления",
                     subtitle = "Вода, еда, советы",
                     onClick = onOpenNotifications,
+                )
+                ProfileNavLink(
+                    icon = Icons.Filled.Restaurant,
+                    title = "Подсказки: дневник питания",
+                    subtitle = "Показать обучение снова",
+                    onClick = onOpenNutritionGuide,
+                    showDivider = false,
                 )
             }
         }
@@ -533,6 +566,102 @@ private fun launchCamera(context: android.content.Context, onUri: (Uri) -> Unit)
         file,
     )
     onUri(uri)
+}
+
+@Composable
+private fun ProfileCommunityHubCard(
+    onOpenAchievements: () -> Unit,
+    onOpenFriends: () -> Unit,
+) {
+    AppCard {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Brush.linearGradient(metricIconGradient(themedCardMint()))),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Group,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Ваше сообщество",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Награды, рекорды и друзья в одном месте",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                CommunityActionTile(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Filled.EmojiEvents,
+                    title = "Достижения",
+                    subtitle = "Серии, цели и рекорды",
+                    onClick = onOpenAchievements,
+                    accent = themedCardMint(),
+                )
+                CommunityActionTile(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Filled.Group,
+                    title = "Друзья",
+                    subtitle = "Лента и приватность",
+                    onClick = onOpenFriends,
+                    accent = themedCardBlue(),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CommunityActionTile(
+    modifier: Modifier = Modifier,
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    accent: Color,
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(Brush.linearGradient(metricIconGradient(accent)))
+            .clickable(onClick = onClick)
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(26.dp),
+        )
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }
 
 @Composable

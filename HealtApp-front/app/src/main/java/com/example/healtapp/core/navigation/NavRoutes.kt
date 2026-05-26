@@ -19,9 +19,17 @@ sealed class NavRoute(val route: String) {
     data object DataPrivacy : NavRoute("data_privacy")
     data object DataImport : NavRoute("data_import")
     data object Integrations : NavRoute("integrations")
+    data object MiBandBle : NavRoute("miband_ble")
+    data object GoalsCalendar : NavRoute("goals_calendar")
+    data object ServerConnection : NavRoute("server_connection")
     data object HealthVitals : NavRoute("health_vitals")
     data object Notifications : NavRoute("notifications")
     data object AiAssistant : NavRoute("ai_assistant")
+    data object Achievements : NavRoute("achievements")
+    data object Friends : NavRoute("friends")
+    data object FriendProfile : NavRoute("friend_profile/{userId}") {
+        fun route(userId: Int) = "friend_profile/$userId"
+    }
 }
 
 object NavRoutes {
@@ -43,7 +51,13 @@ object NavRoutes {
     val DataPrivacy = NavRoute.DataPrivacy
     val DataImport = NavRoute.DataImport
     val Integrations = NavRoute.Integrations
+    val MiBandBle = NavRoute.MiBandBle
+    val GoalsCalendar = NavRoute.GoalsCalendar
+    val ServerConnection = NavRoute.ServerConnection
     val HealthVitals = NavRoute.HealthVitals
     val Notifications = NavRoute.Notifications
     val AiAssistant = NavRoute.AiAssistant
+    val Achievements = NavRoute.Achievements
+    val Friends = NavRoute.Friends
+    val FriendProfile = NavRoute.FriendProfile
 }

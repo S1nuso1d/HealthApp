@@ -1,7 +1,7 @@
 package com.example.healtapp.data.network.realtime
 
-import com.example.healtapp.BuildConfig
 import com.example.healtapp.core.common.AppRefreshBus
+import com.example.healtapp.data.network.ApiServerConfig
 import com.example.healtapp.data.network.auth.ApplicationScope
 import com.example.healtapp.data.preferences.TokenStorage
 import kotlinx.coroutines.CoroutineScope
@@ -19,7 +19,8 @@ import javax.inject.Singleton
 @Singleton
 class RealtimeUpdatesClient @Inject constructor(
     private val tokenStorage: TokenStorage,
-    @ApplicationScope private val applicationScope: CoroutineScope
+    private val serverConfig: ApiServerConfig,
+    @ApplicationScope private val applicationScope: CoroutineScope,
 ) {
     private val client = OkHttpClient()
     private var websocket: WebSocket? = null
@@ -49,10 +50,7 @@ class RealtimeUpdatesClient @Inject constructor(
         val token = tokenStorage.getToken()
         if (token.isNullOrBlank()) return
 
-        val wsUrl = BuildConfig.BASE_URL
-            .trimEnd('/')
-            .replaceFirst("http://", "ws://")
-            .replaceFirst("https://", "wss://") + "/ws?token=$token"
+        val wsUrl = "${serverConfig.webSocketBase()}/ws?token=$token"
 
         val request = Request.Builder()
             .url(wsUrl)
@@ -74,11 +72,8 @@ class RealtimeUpdatesClient @Inject constructor(
                     if (manuallyStopped) return
                     val code = response?.code
                     if (code == 401 || code == 403) {
+                        // Не сбрасываем JWT: иначе при каждом входе WebSocket без /ws уводит на экран логина.
                         pauseReconnectForAuth = true
-                        applicationScope.launch {
-                            tokenStorage.clearToken()
-                            AppRefreshBus.notifySessionExpired()
-                        }
                         return
                     }
                     applicationScope.launch {

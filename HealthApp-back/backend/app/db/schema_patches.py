@@ -77,3 +77,55 @@ def apply_lightweight_schema_patches() -> None:
                     conn.execute(text("ALTER TABLE user_profiles ADD COLUMN target_steps INTEGER"))
                 else:
                     conn.execute(text("ALTER TABLE user_profiles ADD COLUMN target_steps INTEGER"))
+            if "is_vegetarian" not in prof_cols:
+                conn.execute(text("ALTER TABLE user_profiles ADD COLUMN is_vegetarian BOOLEAN"))
+            if "has_allergies" not in prof_cols:
+                conn.execute(text("ALTER TABLE user_profiles ADD COLUMN has_allergies BOOLEAN"))
+            if "allergies_text" not in prof_cols:
+                conn.execute(text("ALTER TABLE user_profiles ADD COLUMN allergies_text VARCHAR(500)"))
+            if "onboarding_completed" not in prof_cols:
+                if dialect == "postgresql":
+                    conn.execute(
+                        text(
+                            "ALTER TABLE user_profiles ADD COLUMN onboarding_completed "
+                            "BOOLEAN NOT NULL DEFAULT false"
+                        )
+                    )
+                else:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE user_profiles ADD COLUMN onboarding_completed "
+                            "BOOLEAN NOT NULL DEFAULT 0"
+                        )
+                    )
+
+    if "user_achievements" in tables:
+        ach_cols = {c["name"] for c in insp.get_columns("user_achievements")}
+        dialect = engine.dialect.name
+        with engine.begin() as conn:
+            if "achievement_kind" not in ach_cols:
+                conn.execute(
+                    text(
+                        "ALTER TABLE user_achievements ADD COLUMN achievement_kind "
+                        "VARCHAR(24) NOT NULL DEFAULT 'daily'"
+                    )
+                )
+            if "progress_current" not in ach_cols:
+                if dialect == "postgresql":
+                    conn.execute(text("ALTER TABLE user_achievements ADD COLUMN progress_current DOUBLE PRECISION"))
+                else:
+                    conn.execute(text("ALTER TABLE user_achievements ADD COLUMN progress_current REAL"))
+            if "progress_target" not in ach_cols:
+                if dialect == "postgresql":
+                    conn.execute(text("ALTER TABLE user_achievements ADD COLUMN progress_target DOUBLE PRECISION"))
+                else:
+                    conn.execute(text("ALTER TABLE user_achievements ADD COLUMN progress_target REAL"))
+            if "progress_unit" not in ach_cols:
+                conn.execute(text("ALTER TABLE user_achievements ADD COLUMN progress_unit VARCHAR(24)"))
+            if "record_value" not in ach_cols:
+                if dialect == "postgresql":
+                    conn.execute(text("ALTER TABLE user_achievements ADD COLUMN record_value DOUBLE PRECISION"))
+                else:
+                    conn.execute(text("ALTER TABLE user_achievements ADD COLUMN record_value REAL"))
+            if "record_label" not in ach_cols:
+                conn.execute(text("ALTER TABLE user_achievements ADD COLUMN record_label VARCHAR(128)"))

@@ -17,6 +17,8 @@ class NotificationPrefs(private val context: Context) {
         private val HYDRATION_ENABLED = booleanPreferencesKey("hydration_reminders")
         private val MEAL_REMINDERS_ENABLED = booleanPreferencesKey("meal_reminders")
         private val RECOMMENDATIONS_ENABLED = booleanPreferencesKey("recommendation_reminders")
+        private val MISSED_MEAL_CHECKS = booleanPreferencesKey("missed_meal_checks")
+        private val GOAL_ACHIEVEMENTS = booleanPreferencesKey("goal_achievement_notifications")
         private val RECOMMENDATION_HOUR = intPreferencesKey("recommendation_hour")
         private val RECOMMENDATION_MINUTE = intPreferencesKey("recommendation_minute")
 
@@ -26,9 +28,11 @@ class NotificationPrefs(private val context: Context) {
 
     val settingsFlow: Flow<NotificationSettings> = context.notificationDataStore.data.map { prefs ->
         NotificationSettings(
-            hydrationReminders = prefs[HYDRATION_ENABLED] ?: false,
-            mealReminders = prefs[MEAL_REMINDERS_ENABLED] ?: false,
+            hydrationReminders = prefs[HYDRATION_ENABLED] ?: true,
+            mealReminders = prefs[MEAL_REMINDERS_ENABLED] ?: true,
             recommendationReminders = prefs[RECOMMENDATIONS_ENABLED] ?: true,
+            missedMealChecks = prefs[MISSED_MEAL_CHECKS] ?: true,
+            goalAchievementNotifications = prefs[GOAL_ACHIEVEMENTS] ?: true,
             recommendationHour = prefs[RECOMMENDATION_HOUR] ?: DEFAULT_RECOMMENDATION_HOUR,
             recommendationMinute = prefs[RECOMMENDATION_MINUTE] ?: DEFAULT_RECOMMENDATION_MINUTE,
         )
@@ -48,6 +52,14 @@ class NotificationPrefs(private val context: Context) {
         context.notificationDataStore.edit { it[RECOMMENDATIONS_ENABLED] = enabled }
     }
 
+    suspend fun setMissedMealChecks(enabled: Boolean) {
+        context.notificationDataStore.edit { it[MISSED_MEAL_CHECKS] = enabled }
+    }
+
+    suspend fun setGoalAchievementNotifications(enabled: Boolean) {
+        context.notificationDataStore.edit { it[GOAL_ACHIEVEMENTS] = enabled }
+    }
+
     suspend fun setRecommendationReminderTime(hour: Int, minute: Int) {
         val h = hour.coerceIn(0, 23)
         val m = minute.coerceIn(0, 59)
@@ -59,9 +71,11 @@ class NotificationPrefs(private val context: Context) {
 }
 
 data class NotificationSettings(
-    val hydrationReminders: Boolean = false,
-    val mealReminders: Boolean = false,
+    val hydrationReminders: Boolean = true,
+    val mealReminders: Boolean = true,
     val recommendationReminders: Boolean = true,
+    val missedMealChecks: Boolean = true,
+    val goalAchievementNotifications: Boolean = true,
     val recommendationHour: Int = NotificationPrefs.DEFAULT_RECOMMENDATION_HOUR,
     val recommendationMinute: Int = NotificationPrefs.DEFAULT_RECOMMENDATION_MINUTE,
 ) {

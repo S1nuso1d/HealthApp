@@ -60,8 +60,8 @@ fun scoreRingGradient(): List<Color> =
     }
 
 @Composable
-fun accentColor(): Color =
-    if (isAppDarkTheme()) BrutalAccent else MaterialTheme.colorScheme.primary
+fun brandingAccentColor(): Color =
+    if (isAppDarkTheme()) BrutalWhite else MaterialTheme.colorScheme.primary
 
 /** Кольца и диаграммы (сон, шаги, БЖУ). */
 @Composable

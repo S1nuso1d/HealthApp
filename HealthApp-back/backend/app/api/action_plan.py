@@ -31,7 +31,12 @@ def generate_action_plan(
         user_id=current_user.id,
         limit=limit,
         replace_existing=replace_existing,
+        use_personalized=True,
     )
+
+    from app.services.action_plan_sync_service import sync_action_plan_completion
+
+    sync_action_plan_completion(db, current_user.id)
 
     return ActionPlanGenerateResponse(
         message="Action plan успешно сгенерирован",
@@ -49,6 +54,9 @@ def get_action_plan(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    from app.services.action_plan_sync_service import ensure_daily_action_plan
+
+    ensure_daily_action_plan(db, current_user.id, limit=5)
     return ActionPlanBuilder.get_for_user(db=db, user_id=current_user.id)
 
 

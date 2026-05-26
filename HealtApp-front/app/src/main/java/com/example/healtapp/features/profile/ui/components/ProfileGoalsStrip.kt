@@ -12,7 +12,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.Bedtime
-import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.Icon
@@ -39,14 +38,11 @@ fun ProfileGoalsStrip(
     targetSleep: String,
     targetWater: String,
     targetSteps: String,
-    targetCalories: String,
     onEditClick: () -> Unit,
-    onOpenDetailedGoals: () -> Unit,
 ) {
     val sleep = targetSleep.toFloatOrNull()?.let { DecimalFormat("#.#").format(it) } ?: "—"
     val water = targetWater.toIntOrNull()?.let { "%,d".format(it).replace(',', '\u00A0') } ?: "—"
     val steps = targetSteps.toIntOrNull()?.let { "%,d".format(it).replace(',', '\u00A0') } ?: "—"
-    val kcal = targetCalories.toIntOrNull()?.let { "%,d".format(it).replace(',', '\u00A0') } ?: "—"
 
     AppCard(
         modifier = Modifier.clickable(onClick = onEditClick),
@@ -92,33 +88,12 @@ fun ProfileGoalsStrip(
                     modifier = Modifier.weight(1f),
                 )
             }
-            Row(
+            ProfileGoalChip(
+                icon = Icons.AutoMirrored.Filled.DirectionsWalk,
+                label = "Шаги",
+                value = steps,
+                gradient = metricIconGradient(themedCardMint(), mintTint = true),
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                ProfileGoalChip(
-                    icon = Icons.AutoMirrored.Filled.DirectionsWalk,
-                    label = "Шаги",
-                    value = steps,
-                    gradient = metricIconGradient(themedCardMint(), mintTint = true),
-                    modifier = Modifier.weight(1f),
-                )
-                ProfileGoalChip(
-                    icon = Icons.Filled.LocalFireDepartment,
-                    label = "Ккал",
-                    value = kcal,
-                    gradient = metricIconGradient(themedCardLavender(), mintTint = true),
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            Text(
-                text = "БЖУ, цель и активность →",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier
-                    .clickable(onClick = onOpenDetailedGoals)
-                    .padding(top = 2.dp),
             )
         }
     }

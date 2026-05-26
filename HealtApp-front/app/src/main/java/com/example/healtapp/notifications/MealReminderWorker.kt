@@ -7,6 +7,8 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.example.healtapp.data.preferences.NotificationPrefs
+import com.example.healtapp.di.ReminderEntryPoint
+import dagger.hilt.android.EntryPointAccessors
 import java.util.concurrent.TimeUnit
 
 class MealReminderWorker(
@@ -22,7 +24,22 @@ class MealReminderWorker(
             return Result.success()
         }
         val label = inputData.getString(KEY_MEAL_LABEL) ?: "Обед"
-        HealthNotificationHelper.mealReminder(applicationContext, label)
+        val apiType = when (label) {
+            "Завтрак" -> "breakfast"
+            "Обед" -> "lunch"
+            else -> "dinner"
+        }
+        val entry = EntryPointAccessors.fromApplication(
+            applicationContext,
+            ReminderEntryPoint::class.java,
+        )
+        if (entry.tokenStorage().getToken() != null && !entry.tokenStorage().isGuestMode()) {
+            if (!ReminderDataChecker.hasMealTypeToday(entry.mealRepository(), apiType)) {
+                HealthNotificationHelper.mealReminder(applicationContext, label)
+            }
+        } else {
+            HealthNotificationHelper.mealReminder(applicationContext, label)
+        }
         rescheduleSelf()
         return Result.success()
     }

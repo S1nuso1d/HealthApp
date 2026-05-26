@@ -7,6 +7,8 @@ import com.example.healtapp.data.network.dto.auth.PasswordConfirmDto
 import com.example.healtapp.data.network.dto.auth.RegisterRequestDto
 import com.example.healtapp.data.network.dto.auth.RegisterVerifyDto
 import com.example.healtapp.data.network.realtime.RealtimeUpdatesClient
+import com.example.healtapp.data.preferences.DashboardCache
+import com.example.healtapp.data.preferences.ProfileCache
 import com.example.healtapp.data.preferences.TokenStorage
 import com.example.healtapp.domain.repository.AuthRepository
 import javax.inject.Inject
@@ -14,6 +16,8 @@ import javax.inject.Inject
 class AuthRepositoryImpl @Inject constructor(
     private val authApi: AuthApi,
     private val tokenStorage: TokenStorage,
+    private val profileCache: ProfileCache,
+    private val dashboardCache: DashboardCache,
     private val realtimeUpdatesClient: RealtimeUpdatesClient,
 ) : AuthRepository {
 
@@ -56,6 +60,8 @@ class AuthRepositoryImpl @Inject constructor(
     override suspend fun logout() {
         realtimeUpdatesClient.stop()
         tokenStorage.clearToken()
+        profileCache.clear()
+        dashboardCache.clear()
     }
 
     override suspend fun deleteAccount(password: String): Result<Unit> {
@@ -63,6 +69,8 @@ class AuthRepositoryImpl @Inject constructor(
             authApi.deleteAccount(PasswordConfirmDto(password = password))
             realtimeUpdatesClient.stop()
             tokenStorage.clearToken()
+            profileCache.clear()
+            dashboardCache.clear()
         }
     }
 

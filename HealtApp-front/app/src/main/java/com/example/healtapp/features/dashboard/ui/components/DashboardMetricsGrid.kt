@@ -10,12 +10,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.WaterDrop
 import com.example.healtapp.core.ui.theme.metricIconGradient
 import com.example.healtapp.core.ui.theme.themedCardBlue
-import com.example.healtapp.core.ui.theme.themedCardLavender
-import com.example.healtapp.core.ui.theme.themedCardMint
 import java.text.DecimalFormat
 import kotlin.math.roundToInt
 
@@ -32,6 +31,8 @@ fun DashboardMetricsGrid(
     stepsToday: Int,
     stepsGoal: Int,
     activityMinutesToday: Int,
+    caloriesBurnedToday: Int,
+    caloriesBurnGoal: Int,
     onOpenSleep: () -> Unit,
     onOpenHydration: () -> Unit,
     onOpenNutrition: () -> Unit,
@@ -43,6 +44,7 @@ fun DashboardMetricsGrid(
     val waterProgress = if (waterTargetMl > 0) waterMl.toFloat() / waterTargetMl else 0f
     val calProgress = if (caloriesTarget > 0) caloriesToday.toFloat() / caloriesTarget else 0f
     val stepsProgress = if (stepsGoal > 0) stepsToday.toFloat() / stepsGoal else 0f
+    val burnProgress = if (caloriesBurnGoal > 0) caloriesBurnedToday.toFloat() / caloriesBurnGoal else 0f
 
     val waterStr = "%,d".format(waterMl).replace(',', '\u00A0')
     val waterGoalStr = "%,d".format(waterTargetMl).replace(',', '\u00A0')
@@ -65,7 +67,7 @@ fun DashboardMetricsGrid(
                     "Запишите ночь"
                 },
                 icon = Icons.Filled.Bedtime,
-                iconGradient = metricIconGradient(themedCardLavender()),
+                iconGradient = metricIconGradient(themedCardBlue()),
                 onClick = onOpenSleep,
                 modifier = Modifier.weight(1f),
             )
@@ -90,7 +92,7 @@ fun DashboardMetricsGrid(
                 progress = calProgress,
                 progressLabel = "ккал · цель $caloriesTarget",
                 icon = Icons.Filled.Restaurant,
-                iconGradient = metricIconGradient(themedCardMint(), mintTint = true),
+                iconGradient = metricIconGradient(themedCardBlue()),
                 onClick = onOpenNutrition,
                 modifier = Modifier.weight(1f),
             )
@@ -100,8 +102,33 @@ fun DashboardMetricsGrid(
                 progress = stepsProgress,
                 progressLabel = buildString {
                     val pct = if (stepsGoal > 0) ((stepsToday * 100f) / stepsGoal).roundToInt() else 0
-                    append("$pct% · $activityMinutesToday мин спорт")
+                    append("$pct% · $activityMinutesToday мин")
                 },
+                icon = Icons.AutoMirrored.Filled.DirectionsWalk,
+                iconGradient = metricIconGradient(themedCardBlue()),
+                onClick = onOpenActivity,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            DashboardMetricTile(
+                title = "Сожжено",
+                value = if (caloriesBurnedToday > 0) "$caloriesBurnedToday" else "—",
+                progress = burnProgress,
+                progressLabel = "ккал · цель $caloriesBurnGoal",
+                icon = Icons.Filled.LocalFireDepartment,
+                iconGradient = metricIconGradient(themedCardBlue()),
+                onClick = onOpenActivity,
+                modifier = Modifier.weight(1f),
+            )
+            DashboardMetricTile(
+                title = "Активность",
+                value = if (activityMinutesToday > 0) "$activityMinutesToday мин" else "—",
+                progress = if (activityMinutesToday > 0) (activityMinutesToday / 45f).coerceIn(0f, 1f) else 0f,
+                progressLabel = "тренировки за день",
                 icon = Icons.AutoMirrored.Filled.DirectionsWalk,
                 iconGradient = metricIconGradient(themedCardBlue()),
                 onClick = onOpenActivity,

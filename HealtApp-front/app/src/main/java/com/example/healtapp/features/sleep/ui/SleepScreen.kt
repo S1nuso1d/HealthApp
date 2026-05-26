@@ -29,28 +29,28 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.healtapp.core.ui.components.AppScreen
+import com.example.healtapp.core.ui.components.CollapsibleAppCard
+import com.example.healtapp.core.ui.components.AppDialogMessage
+import com.example.healtapp.core.ui.components.AppMessageBanner
+import com.example.healtapp.core.ui.components.AppMessageType
 import com.example.healtapp.core.ui.components.AppTextField
+import com.example.healtapp.core.common.UserFacingMessages
 import com.example.healtapp.core.ui.components.DatePickerField
-import com.example.healtapp.core.ui.components.SectionHeader
 import com.example.healtapp.features.sleep.presentation.SleepRecordUi
 import com.example.healtapp.features.sleep.presentation.SleepViewModel
-import com.example.healtapp.features.sleep.ui.components.SleepFormCard
-import com.example.healtapp.features.sleep.ui.components.SleepHcImportCard
+import com.example.healtapp.features.sleep.ui.components.SleepFormFields
 import com.example.healtapp.features.sleep.ui.components.SleepHeroCard
 import com.example.healtapp.features.sleep.ui.components.SleepHistoryRow
-import com.example.healtapp.features.sleep.ui.components.SleepInsightCard
 import com.example.healtapp.features.sleep.ui.components.SleepScreenSkeleton
 import com.example.healtapp.features.sleep.ui.components.WeeklySleepBarChart
 
 @Composable
 fun SleepScreen(
-    onOpenIntegrations: () -> Unit = {},
     onOpenProfile: () -> Unit = {},
 ) {
     val viewModel: SleepViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-
     var recordToDelete by remember { mutableStateOf<SleepRecordUi?>(null) }
     var recordToEdit by remember { mutableStateOf<SleepRecordUi?>(null) }
     var editDate by remember { mutableStateOf("") }
@@ -77,7 +77,7 @@ fun SleepScreen(
         ) {
             AppScreen(
                 title = "Сон",
-                subtitle = "Ночи, неделя и цель из профиля",
+                subtitle = "Ночи и цель из профиля",
                 headerIcon = Icons.Filled.Bedtime,
                 scrollable = true,
             ) {
@@ -85,7 +85,7 @@ fun SleepScreen(
                     SleepScreenSkeleton()
                 } else {
                     SleepHeroCard(
-                        lastNightHours = uiState.lastNightHours,
+                        todaySleepHours = uiState.todaySleepHours,
                         averageSleepHours = uiState.averageSleepHours,
                         targetSleepHours = uiState.targetSleepHours,
                         sleepQualityAverage = uiState.sleepQualityAverage,
@@ -93,73 +93,53 @@ fun SleepScreen(
                         onEditGoalInProfile = onOpenProfile,
                     )
 
-                    SectionHeader(
-                        title = "Неделя",
-                        subtitle = "Часы сна по дням засыпания",
-                    )
                     WeeklySleepBarChart(
                         days = uiState.weeklySleep,
                         goalHours = uiState.targetSleepHours,
                     )
-
-                    SleepInsightCard(text = uiState.insightText)
                 }
 
-                SectionHeader(
-                    title = "Импорт",
-                    subtitle = "Health Connect и разрешения",
-                )
-                SleepHcImportCard(
-                    isImporting = uiState.isHcImporting,
-                    importMessage = uiState.hcImportMessage,
-                    onImport = viewModel::importFromHealthConnect,
-                    onOpenIntegrations = onOpenIntegrations,
-                )
-
-                SectionHeader(
-                    title = "Новая запись",
-                    subtitle = "Если браслет не отдаёт сон в HC",
-                )
-                SleepFormCard(
-                    sleepDate = uiState.sleepDateInput,
-                    sleepStart = uiState.sleepStartInput,
-                    sleepEnd = uiState.sleepEndInput,
-                    quality = uiState.qualityInput,
-                    note = uiState.noteInput,
-                    isSaving = uiState.isSaving,
-                    onSleepDateChange = viewModel::updateSleepDate,
-                    onSleepStartChange = viewModel::updateSleepStart,
-                    onSleepEndChange = viewModel::updateSleepEnd,
-                    onQualityChange = viewModel::updateQuality,
-                    onNoteChange = viewModel::updateNote,
-                    onSaveClick = viewModel::saveSleepRecord,
-                )
-
-                uiState.error?.let { err ->
-                    Text(
-                        text = err,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium,
+                CollapsibleAppCard(
+                    title = "Добавить ночь",
+                    subtitle = "Ручной ввод",
+                    initiallyExpanded = false,
+                ) {
+                    SleepFormFields(
+                        sleepDate = uiState.sleepDateInput,
+                        sleepStart = uiState.sleepStartInput,
+                        sleepEnd = uiState.sleepEndInput,
+                        quality = uiState.qualityInput,
+                        note = uiState.noteInput,
+                        isSaving = uiState.isSaving,
+                        onSleepDateChange = viewModel::updateSleepDate,
+                        onSleepStartChange = viewModel::updateSleepStart,
+                        onSleepEndChange = viewModel::updateSleepEnd,
+                        onQualityChange = viewModel::updateQuality,
+                        onNoteChange = viewModel::updateNote,
+                        onSaveClick = viewModel::saveSleepRecord,
                     )
                 }
 
-                SectionHeader(
-                    title = "История",
+                uiState.error?.let { err ->
+                    AppMessageBanner(text = err, type = AppMessageType.Error)
+                }
+
+                CollapsibleAppCard(
+                    title = "История сна",
                     subtitle = if (uiState.records.isEmpty()) {
                         "Пока нет ночей"
                     } else {
                         "${uiState.records.size} записей"
                     },
-                )
-
-                if (uiState.records.isEmpty() && !uiState.isLoading) {
-                    Text(
-                        text = "Импортируйте из Health Connect или добавьте ночь вручную — она появится здесь.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    initiallyExpanded = false,
+                ) {
+                    if (uiState.records.isEmpty() && !uiState.isLoading) {
+                        Text(
+                            text = "Добавьте ночь вручную — она появится здесь.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
                         uiState.records.forEach { record ->
                             SleepHistoryRow(
                                 record = record,
@@ -184,7 +164,12 @@ fun SleepScreen(
                 AlertDialog(
                     onDismissRequest = { recordToDelete = null },
                     title = { Text("Удалить запись?") },
-                    text = { Text("Ночь за ${rec.date} будет удалена без восстановления.") },
+                    text = {
+                        AppDialogMessage(
+                            warning = UserFacingMessages.DELETE_RECORD_WARNING,
+                            body = "Ночь за ${rec.date} будет удалена.",
+                        )
+                    },
                     confirmButton = {
                         TextButton(
                             onClick = {

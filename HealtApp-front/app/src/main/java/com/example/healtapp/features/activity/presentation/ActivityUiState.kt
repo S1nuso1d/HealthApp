@@ -13,6 +13,8 @@ data class ActivityUiState(
     val weeklySteps: List<DaySteps> = emptyList(),
     val trainingMinutesToday: Int = 0,
     val trainingCaloriesToday: Int = 0,
+    val caloriesBurnedToday: Int = 0,
+    val caloriesBurnGoal: Int = 450,
     val healthConnectStepsToday: Int? = null,
 
     val activityType: String = "Бег",
@@ -22,5 +24,10 @@ data class ActivityUiState(
     val intensity: String = "Средняя",
 
     val trainingHistory: List<ActivityDto> = emptyList(),
+    val healthConnectWorkouts: List<ActivityDto> = emptyList(),
     val todayWalkRecordId: Int? = null,
+
+    val trainingNotes: String = "",
+    val perceivedExertion: String = "",
+    val progressCelebrateToken: Int = 0,
 )

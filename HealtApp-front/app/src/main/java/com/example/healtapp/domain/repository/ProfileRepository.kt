@@ -19,9 +19,20 @@ interface ProfileRepository {
         targetFatG: Float? = null,
         targetCarbsG: Float? = null,
         targetSteps: Int? = null,
+        isVegetarian: Boolean? = null,
+        hasAllergies: Boolean? = null,
+        allergiesText: String? = null,
+        onboardingCompleted: Boolean? = null,
     ): Result<ProfileDto>
 
     suspend fun uploadAvatar(imageBytes: ByteArray, mimeType: String): Result<ProfileDto>
 
     suspend fun deleteAvatar(): Result<ProfileDto>
+
+    suspend fun updateNutritionTargets(
+        targetDailyCalories: Int,
+        targetProteinG: Float,
+        targetFatG: Float,
+        targetCarbsG: Float,
+    ): Result<ProfileDto>
 }

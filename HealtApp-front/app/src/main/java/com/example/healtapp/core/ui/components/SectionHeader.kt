@@ -20,6 +20,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.ui.theme.brandingGradient
+import com.example.healtapp.core.ui.theme.contentPrimaryColor
+import com.example.healtapp.core.ui.theme.contentSecondaryColor
 
 @Composable
 fun SectionHeader(
@@ -45,13 +47,13 @@ fun SectionHeader(
                 text = title,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onBackground,
+                color = contentPrimaryColor(),
             )
             if (subtitle != null) {
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = contentSecondaryColor(),
                     modifier = Modifier.padding(top = 4.dp),
                 )
             }

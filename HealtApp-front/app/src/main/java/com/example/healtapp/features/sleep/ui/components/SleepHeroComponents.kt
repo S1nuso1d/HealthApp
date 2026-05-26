@@ -34,10 +34,14 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.healtapp.core.ui.animation.AppMotion
 import com.example.healtapp.core.ui.components.AppCard
 import com.example.healtapp.core.ui.components.ShimmerBox
 import com.example.healtapp.core.ui.theme.brandingGradient
+import com.example.healtapp.core.ui.theme.contentPrimaryColor
+import com.example.healtapp.core.ui.theme.contentSecondaryColor
+import com.example.healtapp.core.ui.theme.iconTintColor
 import com.example.healtapp.core.ui.theme.cardHeaderGradient
 import com.example.healtapp.core.ui.theme.chartBarFillGradientSoft
 import com.example.healtapp.core.ui.theme.chartBarGuideColor
@@ -49,14 +53,14 @@ import kotlin.math.roundToInt
 
 @Composable
 fun SleepHeroCard(
-    lastNightHours: Float,
+    todaySleepHours: Float,
     averageSleepHours: Float,
     targetSleepHours: Float,
     sleepQualityAverage: Int,
     consistencyPercent: Int,
     onEditGoalInProfile: () -> Unit,
 ) {
-    val progressSource = if (lastNightHours > 0f) lastNightHours else averageSleepHours
+    val progressSource = todaySleepHours
     val progress = if (targetSleepHours > 0f) {
         (progressSource / targetSleepHours).coerceIn(0f, 1.15f)
     } else {
@@ -92,21 +96,22 @@ fun SleepHeroCard(
                     Icon(
                         Icons.Filled.Bedtime,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = iconTintColor(),
                         modifier = Modifier.size(26.dp),
                     )
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Последняя ночь",
+                        text = "Сон сегодня",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
-                        text = if (lastNightHours > 0f) {
-                            "${SleepHelper.formatHours(lastNightHours)} ч сна"
+                        text = if (todaySleepHours > 0f) {
+                            "${SleepHelper.formatHours(todaySleepHours)} ч (пробуждение сегодня)"
                         } else {
-                            "Нет записи — добавьте ниже"
+                            "Нет записи за сегодня — добавьте ниже"
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -124,49 +129,49 @@ fun SleepHeroCard(
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Text(
-                        text = if (lastNightHours > 0f) {
-                            SleepHelper.formatHours(lastNightHours) + " ч"
+                        text = if (todaySleepHours > 0f) {
+                            SleepHelper.formatHours(todaySleepHours) + " ч"
                         } else {
                             "—"
                         },
                         style = MaterialTheme.typography.displaySmall,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
                         text = buildString {
                             append("Среднее за неделю: ${SleepHelper.formatHours(averageSleepHours)} ч")
-                            append(" · цель ${SleepHelper.formatHours(targetSleepHours)} ч")
                             if (goalReached) append(" · отлично!")
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        text = "Качество $sleepQualityAverage/100 · стабильность $consistencyPercent%",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
+                        text = "Цель: ${SleepHelper.formatHours(targetSleepHours)} ч",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    if (todaySleepHours > 0f && sleepQualityAverage > 0) {
+                        Text(
+                            text = "Качество $sleepQualityAverage/100 · стабильность $consistencyPercent%",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = contentPrimaryColor(),
+                        )
+                    }
                 }
                 SleepProgressRing(progress = animatedProgress, percent = percent)
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                TextButton(onClick = onEditGoalInProfile) {
-                    Icon(
-                        Icons.Outlined.Flag,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Text(
-                        text = "Цель: ${SleepHelper.formatHours(targetSleepHours)} ч · изменить",
-                        modifier = Modifier.padding(start = 4.dp),
-                    )
-                }
+            TextButton(onClick = onEditGoalInProfile) {
+                Icon(
+                    Icons.Outlined.Flag,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Text(
+                    text = "Изменить цель сна в профиле",
+                    modifier = Modifier.padding(start = 4.dp),
+                )
             }
         }
     }
@@ -241,69 +246,105 @@ fun WeeklySleepBarChart(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Box(
+            val valueSlotHeight = 18.dp
+            val barAreaHeight = 120.dp
+            val labelSlotHeight = 32.dp
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(156.dp),
+                    .height(valueSlotHeight + barAreaHeight + labelSlotHeight),
             ) {
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val goalY = size.height * (1f - goalHours / maxHours).coerceIn(0f, 1f)
-                    drawLine(
-                        color = goalLineColor,
-                        start = Offset(0f, goalY),
-                        end = Offset(size.width, goalY),
-                        strokeWidth = 2.dp.toPx(),
-                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 8f)),
-                    )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(valueSlotHeight),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    days.forEach { day ->
+                        val isToday = day.dateKey == java.time.LocalDate.now().toString()
+                        Text(
+                            text = if (day.hours > 0f) SleepHelper.formatHours(day.hours) else "",
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (isToday) {
+                                contentPrimaryColor()
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            fontWeight = if (isToday) FontWeight.SemiBold else FontWeight.Normal,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                        )
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(barAreaHeight),
+                ) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val goalY = size.height * (1f - goalHours / maxHours).coerceIn(0f, 1f)
+                        drawLine(
+                            color = goalLineColor,
+                            start = Offset(0f, goalY),
+                            end = Offset(size.width, goalY),
+                            strokeWidth = 2.dp.toPx(),
+                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 8f)),
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.Bottom,
+                    ) {
+                        days.forEach { day ->
+                            val barFraction = day.hours / maxHours
+                            val isToday = day.dateKey == java.time.LocalDate.now().toString()
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxSize(),
+                                contentAlignment = Alignment.BottomCenter,
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .padding(horizontal = 3.dp)
+                                        .fillMaxWidth(0.65f)
+                                        .height((barAreaHeight * barFraction.coerceIn(0.04f, 1f)).coerceAtLeast(4.dp))
+                                        .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
+                                        .background(
+                                            Brush.verticalGradient(
+                                                if (isToday) todayBarGradient else defaultBarGradient,
+                                            ),
+                                        ),
+                                )
+                            }
+                        }
+                    }
                 }
                 Row(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(top = 4.dp),
+                        .fillMaxWidth()
+                        .height(labelSlotHeight),
                     horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.Bottom,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     days.forEach { day ->
-                        val barFraction = day.hours / maxHours
-                        val isToday = day.label == "Сегодня"
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Bottom,
+                        val isToday = day.dateKey == java.time.LocalDate.now().toString()
+                        Text(
+                            text = day.label,
                             modifier = Modifier.weight(1f),
-                        ) {
-                            Text(
-                                text = if (day.hours > 0f) SleepHelper.formatHours(day.hours) else "",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (isToday) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                },
-                                fontWeight = if (isToday) FontWeight.SemiBold else FontWeight.Normal,
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .padding(horizontal = 3.dp, vertical = 4.dp)
-                                    .height((118 * barFraction.coerceIn(0.04f, 1f)).dp)
-                                    .fillMaxWidth(0.6f)
-                                    .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
-                                    .background(
-                                        Brush.verticalGradient(
-                                            if (isToday) todayBarGradient else defaultBarGradient,
-                                        ),
-                                    ),
-                            )
-                            Text(
-                                text = day.label,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (isToday) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                },
-                                maxLines = 1,
-                            )
-                        }
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                            color = if (isToday) {
+                                contentPrimaryColor()
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            fontWeight = if (isToday) FontWeight.SemiBold else FontWeight.Normal,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                        )
                     }
                 }
             }

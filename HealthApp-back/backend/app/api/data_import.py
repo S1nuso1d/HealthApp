@@ -112,6 +112,17 @@ def _apply_batch(db: Session, user: User, batch: ImportBatchResponse, request: I
         batch.sleeps_created += 1
 
     for a in request.activities:
+        duplicate = (
+            db.query(ActivityRecord.id)
+            .filter(
+                ActivityRecord.user_id == user.id,
+                ActivityRecord.activity_type == a.activity_type,
+                ActivityRecord.start_time == a.start_time,
+            )
+            .first()
+        )
+        if duplicate is not None:
+            continue
         db.add(
             ActivityRecord(
                 user_id=user.id,

@@ -39,6 +39,22 @@ data class ScoreBreakdownUi(
     val stateScore: Int = 0,
 )
 
+data class WeeklySummaryUi(
+    val periodLabel: String,
+    val metrics: List<WeeklyMetricUi>,
+) {
+    val hasAnyData: Boolean get() = metrics.any { it.daysLogged > 0 }
+}
+
+data class WeeklyMetricUi(
+    val key: String,
+    val label: String,
+    val averageDisplay: String,
+    val daysLogged: Int,
+    val daysInPeriod: Int,
+    val hint: String,
+)
+
 data class MoodCheckInUi(
     val mood: Int = 5,
     val energy: Int = 5,

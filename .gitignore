@@ -30,3 +30,6 @@ Thumbs.db
 # Python venv (local only)
 **/.venv/
 **/venv/
+
+# Generated docs cache
+docs/__pycache__/

@@ -1,7 +1,9 @@
 from sqlalchemy.orm import Session
 
 from app.models.action_plan import ActionPlan
-from app.recommendations.recommendation_engine import RecommendationEngine
+from app.services.action_plan_sync_service import (
+    select_personalized_recommendations,
+)
 
 
 class ActionPlanBuilder:
@@ -16,33 +18,47 @@ class ActionPlanBuilder:
         user_id: int,
         limit: int = 5,
         replace_existing: bool = True,
+        use_personalized: bool = True,
     ) -> list[ActionPlan]:
         """
-        Генерирует action plan из рекомендаций пользователя.
+        Генерирует action plan: персональные рекомендации с ротацией по дню
+        или классический список из инсайтов.
         """
 
         if replace_existing:
             ActionPlanBuilder.clear_existing_action_plans(db, user_id)
 
-        recommendations = RecommendationEngine.generate_recommendations(
-            db=db,
-            user_id=user_id,
-        )
+        if use_personalized:
+            selected = select_personalized_recommendations(db, user_id, limit=limit)
+        else:
+            from app.recommendations.recommendation_engine import RecommendationEngine
 
-        selected = recommendations[:limit]
+            selected = [
+                {
+                    "category": r.category,
+                    "title": r.title,
+                    "description": r.description,
+                    "priority": r.priority,
+                    "action": r.action,
+                    "related_insight_type": r.related_insight_type,
+                    "related_insight_title": r.related_insight_title,
+                }
+                for r in RecommendationEngine.generate_recommendations(db=db, user_id=user_id)[:limit]
+            ]
+
         created_items: list[ActionPlan] = []
 
         for rec in selected:
             action_plan = ActionPlan(
                 user_id=user_id,
-                category=rec.category,
-                title=rec.title,
-                description=rec.description,
-                priority=rec.priority,
+                category=rec.get("category", "correlation"),
+                title=rec.get("title", "Задача"),
+                description=rec.get("description", ""),
+                priority=rec.get("priority", "medium"),
                 status="pending",
-                action_text=rec.action,
-                source_insight_type=rec.related_insight_type,
-                source_insight_title=rec.related_insight_title,
+                action_text=rec.get("action"),
+                source_insight_type=rec.get("related_insight_type"),
+                source_insight_title=rec.get("related_insight_title"),
             )
             db.add(action_plan)
             created_items.append(action_plan)

@@ -14,7 +14,7 @@ from app.models.meal import MealRecord
 from app.models.saved_recommendation import SavedRecommendation
 from app.models.sleep import SleepRecord
 from app.models.user_state import UserState
-from app.services.action_plan_service import build_action_plan_from_recommendations
+from app.services.analytics.action_plan_service import build_action_plan_from_recommendations
 
 
 def safe_mean(values: list[float | int]) -> float:

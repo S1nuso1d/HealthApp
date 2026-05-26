@@ -7,8 +7,18 @@ import com.example.healtapp.data.network.api.IntegrationsApi
 import com.example.healtapp.data.network.dto.meal.MealCreateRequestDto
 import com.example.healtapp.data.network.dto.meal.SavedDishCreateRequestDto
 import com.example.healtapp.data.network.dto.meal.SavedDishDto
+import com.example.healtapp.data.preferences.PendingMealOp
+import com.example.healtapp.data.preferences.PendingSyncStore
+import com.example.healtapp.data.sync.PendingSyncFlusher
 import com.example.healtapp.domain.repository.MealRepository
 import com.example.healtapp.domain.repository.ProfileRepository
+import com.example.healtapp.core.common.Constants
+import com.example.healtapp.core.common.NutritionTargetsCalculator
+import com.example.healtapp.data.network.dto.profile.ProfileDto
+import com.example.healtapp.features.meal.DishIngredient
+import com.example.healtapp.features.meal.DishIngredientFactory
+import com.example.healtapp.features.meal.DishIngredientsJson
+import com.example.healtapp.features.meal.DishIngredientsPayload
 import com.example.healtapp.features.meal.util.FatSecretFoodHit
 import com.example.healtapp.features.meal.util.FatSecretParse
 import com.example.healtapp.features.meal.util.FatSecretServingOption
@@ -28,6 +38,8 @@ class MealViewModel @Inject constructor(
     private val repository: MealRepository,
     private val integrationsApi: IntegrationsApi,
     private val profileRepository: ProfileRepository,
+    private val pendingSyncStore: PendingSyncStore,
+    private val pendingSyncFlusher: PendingSyncFlusher,
 ) : ViewModel() {
 
     companion object {
@@ -52,6 +64,10 @@ class MealViewModel @Inject constructor(
         }
 
         private val API_TYPES = setOf("breakfast", "lunch", "dinner", "snack", "drink")
+
+        private const val DEFAULT_AGE_YEARS = 30
+        private const val DEFAULT_HEIGHT_CM = 170f
+        private const val DEFAULT_WEIGHT_KG = 70f
     }
 
     private val searchCache = object : LinkedHashMap<String, List<FatSecretFoodHit>>(16, 0.75f, true) {
@@ -71,6 +87,47 @@ class MealViewModel @Inject constructor(
 
     fun clearSnackMessage() {
         _uiState.update { it.copy(snackMessage = null) }
+    }
+
+    fun refresh() {
+        loadMeals()
+    }
+
+    fun saveNutritionTargets(
+        calories: Int,
+        proteinG: Float,
+        fatG: Float,
+        carbsG: Float,
+    ) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSavingTargets = true, error = null) }
+            val result = profileRepository.updateNutritionTargets(
+                targetDailyCalories = calories,
+                targetProteinG = proteinG,
+                targetFatG = fatG,
+                targetCarbsG = carbsG,
+            )
+            result.onSuccess {
+                AppRefreshBus.notifyDataChanged()
+                _uiState.update {
+                    it.copy(
+                        isSavingTargets = false,
+                        caloriesTarget = calories,
+                        targetProteinG = proteinG,
+                        targetFatG = fatG,
+                        targetCarbsG = carbsG,
+                        snackMessage = "Ориентиры сохранены",
+                    )
+                }
+            }.onFailure { e ->
+                _uiState.update {
+                    it.copy(
+                        isSavingTargets = false,
+                        snackMessage = e.message ?: "Не удалось сохранить",
+                    )
+                }
+            }
+        }
     }
 
     fun focusMealSlot(displayType: String) {
@@ -96,14 +153,30 @@ class MealViewModel @Inject constructor(
 
     fun loadMeals() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            pendingSyncFlusher.flush()
+            val pending = pendingSyncStore.load()
+            _uiState.update {
+                it.copy(
+                    isLoading = true,
+                    error = null,
+                    pendingSyncCount = pending.hydration.size + pending.meals.size,
+                )
+            }
 
             val profileRes = profileRepository.getMyProfile()
             val targets = profileRes.getOrNull()
-            val calTarget = targets?.target_daily_calories ?: 2200
-            val tp = targets?.target_protein_g
-            val tf = targets?.target_fat_g
-            val tc = targets?.target_carbs_g
+            val resolved = resolveNutritionTargets(targets)
+            val calTarget = resolved.calories
+            val tp = resolved.proteinG
+            val tf = resolved.fatG
+            val tc = resolved.carbsG
+            val targetsHint = nutritionTargetsHint(resolved)
+            maybePersistComputedTargets(targets, resolved)
+            val autoSnack = if (resolved.autoFilled) {
+                "Подобрали ориентиры: ${resolved.calories} ккал, Б ${resolved.proteinG.toInt()} / Ж ${resolved.fatG.toInt()} / У ${resolved.carbsG.toInt()} г"
+            } else {
+                null
+            }
 
             val savedRes = repository.listSavedDishes()
             val savedList = savedRes.getOrNull().orEmpty()
@@ -147,6 +220,12 @@ class MealViewModel @Inject constructor(
                     targetProteinG = tp,
                     targetFatG = tf,
                     targetCarbsG = tc,
+                    nutritionTargetsHint = targetsHint,
+                    snackMessage = if (resolved.autoFilled && it.nutritionTargetsHint != targetsHint) {
+                        autoSnack
+                    } else {
+                        it.snackMessage
+                    },
                     dayCaloriesTotal = dayCals,
                     dayProteinTotal = dayP,
                     dayFatTotal = dayF,
@@ -224,6 +303,26 @@ class MealViewModel @Inject constructor(
         }
     }
 
+    fun searchBarcodeForDishTemplate(barcode: String, onAdded: (DishIngredient) -> Unit) {
+        val code = barcode.trim()
+        if (code.length < 4) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isFoodSearchLoading = true, foodSearchError = null) }
+            runCatching {
+                val raw = integrationsApi.searchBarcode(code)
+                val foodId = FatSecretParse.extractFoodIdFromBarcodeResponse(raw)
+                    ?: error("Продукт по штрихкоду не найден")
+                integrationsApi.getFood(foodId)
+            }.onSuccess { detail ->
+                val template = DishIngredientFactory.fromFoodDetailJson(detail, null)
+                _uiState.update { it.copy(isFoodSearchLoading = false) }
+                if (template != null) onAdded(template)
+            }.onFailure {
+                _uiState.update { it.copy(isFoodSearchLoading = false) }
+            }
+        }
+    }
+
     fun searchFoodByBarcode(barcode: String) {
         val code = barcode.trim()
         if (code.length < 4) {
@@ -240,10 +339,28 @@ class MealViewModel @Inject constructor(
             }.onSuccess { detail ->
                 applyFoodDetail(detail)
             }.onFailure { e ->
+                val msg = e.message ?: "Ошибка штрихкода"
                 _uiState.update {
                     it.copy(
                         isFoodSearchLoading = false,
-                        foodSearchError = e.message ?: "Ошибка штрихкода",
+                        foodSearchError = "$msg. База FatSecret меньше магазинной — попробуйте текстовый поиск «$code» или введите вручную.",
+                    )
+                }
+                if (code.length >= 4) {
+                    searchFoodsFallbackQuery(code)
+                }
+            }
+        }
+    }
+
+    private suspend fun searchFoodsFallbackQuery(query: String) {
+        runCatching {
+            val hits = FatSecretParse.parseSearchHits(integrationsApi.searchFoods(query))
+            if (hits.isNotEmpty()) {
+                _uiState.update {
+                    it.copy(
+                        foodSearchResults = hits.take(8),
+                        foodSearchError = "По штрихкоду не найдено; варианты по поиску «$query»:",
                     )
                 }
             }
@@ -265,6 +382,51 @@ class MealViewModel @Inject constructor(
                     )
                 }
             }
+        }
+    }
+
+    fun fetchIngredientTemplate(foodId: String, onResult: (DishIngredient) -> Unit) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isFoodSearchLoading = true, foodSearchError = null) }
+            runCatching { integrationsApi.getFood(foodId) }
+                .onSuccess { json ->
+                    val template = DishIngredientFactory.fromFoodDetailJson(json, foodId)
+                    _uiState.update { it.copy(isFoodSearchLoading = false) }
+                    if (template != null) {
+                        onResult(template)
+                    } else {
+                        _uiState.update { it.copy(foodSearchError = "Не удалось разобрать продукт") }
+                    }
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(
+                            isFoodSearchLoading = false,
+                            foodSearchError = e.message ?: "Ошибка загрузки",
+                        )
+                    }
+                }
+        }
+    }
+
+    fun filteredSavedDishes(query: String): List<SavedDishDto> {
+        val q = query.trim().lowercase()
+        if (q.length < 2) return emptyList()
+        return _uiState.value.savedDishes.filter { it.name.lowercase().contains(q) }
+    }
+
+    fun clearMealSearchSelection() {
+        _uiState.update {
+            it.copy(
+                mealName = "",
+                calories = "",
+                protein = "",
+                fat = "",
+                carbs = "",
+                servingOptions = emptyList(),
+                portionMultiplier = 1f,
+                selectedServingIndex = 0,
+            )
         }
     }
 
@@ -294,6 +456,7 @@ class MealViewModel @Inject constructor(
                             selectedServingIndex = 0,
                             foodSearchResults = emptyList(),
                             snackMessage = "Добавлено в «${state.mealType}»",
+                            progressCelebrateToken = it.progressCelebrateToken + 1,
                         )
                     }
                     loadMeals()
@@ -301,10 +464,88 @@ class MealViewModel @Inject constructor(
                     onSuccess()
                 }
                 .onFailure { e ->
+                    val pending = enqueueMealOffline(request)
                     _uiState.update {
                         it.copy(
                             isSaving = false,
-                            error = e.message ?: "Не удалось добавить в дневник",
+                            error = offlineMealError(e, pending),
+                            pendingSyncCount = pending,
+                            snackMessage = "Сохранено офлайн — отправим при появлении сети",
+                        )
+                    }
+                }
+        }
+    }
+
+    fun saveDishWithIngredients(
+        name: String,
+        mealTypeDisplay: String?,
+        ingredients: List<DishIngredient>,
+    ) {
+        val templates = ingredients
+            .filter { it.name.isNotBlank() }
+            .map { if (it.isTemplate) it.copy(grams = 0f) else it }
+        val totals = DishIngredientsPayload(templates.map { it.per100gPreview() }).referencePer100g()
+        viewModelScope.launch {
+            val body = SavedDishCreateRequestDto(
+                name = name,
+                meal_type = mealTypeDisplay?.let { apiMealTypeFromDisplay(it) },
+                calories = totals.calories.takeIf { it > 0f },
+                protein_g = totals.protein.takeIf { it > 0f },
+                fat_g = totals.fat.takeIf { it > 0f },
+                carbs_g = totals.carbs.takeIf { it > 0f },
+                notes = DishIngredientsJson.encode(templates),
+            )
+            repository.createSavedDish(body)
+                .onSuccess {
+                    _uiState.update { it.copy(snackMessage = "Блюдо «$name» сохранено") }
+                    loadMeals()
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(error = e.message ?: "Не удалось сохранить блюдо") }
+                }
+        }
+    }
+
+    fun addSavedDishToDiaryFromIngredients(
+        dishName: String,
+        mealSlotDisplay: String,
+        ingredients: List<DishIngredient>,
+        onSuccess: () -> Unit = {},
+    ) {
+        val scaled = ingredients.map { it.withScaledMacros() }
+        val totals = DishIngredientsPayload(scaled).totals()
+        viewModelScope.launch {
+            val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
+            val request = MealCreateRequestDto(
+                meal_type = apiMealTypeFromDisplay(mealSlotDisplay.ifBlank { "Завтрак" }),
+                name = dishName,
+                calories = totals.calories.takeIf { it > 0f },
+                protein_g = totals.protein.takeIf { it > 0f },
+                fat_g = totals.fat.takeIf { it > 0f },
+                carbs_g = totals.carbs.takeIf { it > 0f },
+                meal_time = LocalDateTime.now().format(formatter),
+                source = "saved_dish",
+                notes = DishIngredientsJson.encode(scaled),
+            )
+            _uiState.update { it.copy(isSaving = true, error = null) }
+            repository.createMeal(request)
+                .onSuccess {
+                    _uiState.update {
+                        it.copy(isSaving = false, snackMessage = "«$dishName» добавлено")
+                    }
+                    loadMeals()
+                    AppRefreshBus.notifyDataChanged()
+                    onSuccess()
+                }
+                .onFailure { e ->
+                    val pending = enqueueMealOffline(request)
+                    _uiState.update {
+                        it.copy(
+                            isSaving = false,
+                            error = offlineMealError(e, pending),
+                            pendingSyncCount = pending,
+                            snackMessage = "Сохранено офлайн — отправим при появлении сети",
                         )
                     }
                 }
@@ -312,6 +553,12 @@ class MealViewModel @Inject constructor(
     }
 
     fun addSavedDishToDiary(dish: SavedDishDto, onSuccess: () -> Unit = {}) {
+        val ingredients = DishIngredientFactory.templatesForApply(DishIngredientsJson.decode(dish.notes))
+        if (ingredients.isNotEmpty()) {
+            val slot = dish.meal_type?.let { displayMealTypeFromApi(it) } ?: "Завтрак"
+            addSavedDishToDiaryFromIngredients(dish.name, slot, ingredients, onSuccess)
+            return
+        }
         viewModelScope.launch {
             val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
             val slot = dish.meal_type?.let { displayMealTypeFromApi(it) } ?: _uiState.value.mealType
@@ -336,8 +583,14 @@ class MealViewModel @Inject constructor(
                     onSuccess()
                 }
                 .onFailure { e ->
+                    val pending = enqueueMealOffline(request)
                     _uiState.update {
-                        it.copy(isSaving = false, error = e.message ?: "Не удалось добавить блюдо")
+                        it.copy(
+                            isSaving = false,
+                            error = offlineMealError(e, pending),
+                            pendingSyncCount = pending,
+                            snackMessage = "Сохранено офлайн — отправим при появлении сети",
+                        )
                     }
                 }
         }
@@ -592,15 +845,37 @@ class MealViewModel @Inject constructor(
                     AppRefreshBus.notifyDataChanged()
                 }
                 .onFailure { throwable ->
+                    val pending = enqueueMealOffline(request)
                     _uiState.update {
                         it.copy(
                             isSaving = false,
-                            error = throwable.message ?: "Не удалось сохранить прием пищи",
+                            error = offlineMealError(throwable, pending),
+                            pendingSyncCount = pending,
+                            snackMessage = "Сохранено офлайн — отправим при появлении сети",
                         )
                     }
                 }
         }
     }
+
+    private suspend fun enqueueMealOffline(request: MealCreateRequestDto): Int {
+        pendingSyncStore.enqueueMeal(
+            PendingMealOp(
+                mealType = request.meal_type,
+                name = request.name,
+                calories = request.calories,
+                proteinG = request.protein_g,
+                fatG = request.fat_g,
+                carbsG = request.carbs_g,
+            ),
+        )
+        val q = pendingSyncStore.load()
+        return q.hydration.size + q.meals.size
+    }
+
+    private fun offlineMealError(cause: Throwable, pendingCount: Int): String =
+        cause.message?.takeIf { it.isNotBlank() }
+            ?: "Нет сети — в очереди $pendingCount"
 
     fun updateMealRecord(id: Int, request: MealCreateRequestDto) {
         viewModelScope.launch {
@@ -639,6 +914,94 @@ class MealViewModel @Inject constructor(
                         )
                     }
                 }
+        }
+    }
+
+    private data class ResolvedTargets(
+        val calories: Int,
+        val proteinG: Float,
+        val fatG: Float,
+        val carbsG: Float,
+        val fromProfile: Boolean,
+        val usedBodyDefaults: Boolean,
+        val autoFilled: Boolean,
+    )
+
+    private fun resolveNutritionTargets(profile: ProfileDto?): ResolvedTargets {
+        val storedCal = profile?.target_daily_calories?.takeIf { it > 0 }
+        val storedP = profile?.target_protein_g?.takeIf { it > 0f }
+        val storedF = profile?.target_fat_g?.takeIf { it > 0f }
+        val storedC = profile?.target_carbs_g?.takeIf { it > 0f }
+        val allStored = storedCal != null && storedP != null && storedF != null && storedC != null
+        if (allStored) {
+            return ResolvedTargets(
+                calories = storedCal,
+                proteinG = storedP,
+                fatG = storedF,
+                carbsG = storedC,
+                fromProfile = true,
+                usedBodyDefaults = false,
+                autoFilled = false,
+            )
+        }
+
+        val usedBodyDefaults = profile == null ||
+            (profile.age ?: 0) < 1 ||
+            (profile.height_cm ?: 0f) <= 0f ||
+            (profile.weight_kg ?: 0f) <= 0f
+
+        val age = profile?.age?.takeIf { it > 0 } ?: DEFAULT_AGE_YEARS
+        val height = profile?.height_cm?.takeIf { it > 0f } ?: DEFAULT_HEIGHT_CM
+        val weight = profile?.weight_kg?.takeIf { it > 0f } ?: DEFAULT_WEIGHT_KG
+
+        val computed = NutritionTargetsCalculator.calculate(
+            age = age,
+            sex = profile?.sex ?: Constants.Sex.MALE,
+            heightCm = height,
+            weightKg = weight,
+            activityLevel = profile?.activity_level ?: Constants.ActivityLevel.MEDIUM,
+            goal = profile?.goal ?: Constants.Goals.IMPROVE_ENERGY,
+        ) ?: NutritionTargetsCalculator.calculate(
+            age = DEFAULT_AGE_YEARS,
+            sex = Constants.Sex.MALE,
+            heightCm = DEFAULT_HEIGHT_CM,
+            weightKg = DEFAULT_WEIGHT_KG,
+            activityLevel = Constants.ActivityLevel.MEDIUM,
+            goal = Constants.Goals.IMPROVE_ENERGY,
+        )!!
+
+        return ResolvedTargets(
+            calories = storedCal ?: computed.calories,
+            proteinG = storedP ?: computed.proteinG,
+            fatG = storedF ?: computed.fatG,
+            carbsG = storedC ?: computed.carbsG,
+            fromProfile = false,
+            usedBodyDefaults = usedBodyDefaults,
+            autoFilled = !allStored,
+        )
+    }
+
+    private fun nutritionTargetsHint(resolved: ResolvedTargets): String = when {
+        resolved.fromProfile -> "Ваши цели из профиля"
+        resolved.usedBodyDefaults ->
+            "Подобрали ориентиры (~${resolved.calories} ккал) — укажите рост и вес в профиле для точности"
+        else -> "Рассчитали КБЖУ по росту, весу, активности и цели"
+    }
+
+    private fun maybePersistComputedTargets(profile: ProfileDto?, resolved: ResolvedTargets) {
+        if (profile == null || !resolved.autoFilled) return
+        val needsSave = profile.target_daily_calories == null || profile.target_daily_calories == 0 ||
+            profile.target_protein_g == null || profile.target_protein_g == 0f ||
+            profile.target_fat_g == null || profile.target_fat_g == 0f ||
+            profile.target_carbs_g == null || profile.target_carbs_g == 0f
+        if (!needsSave) return
+        viewModelScope.launch {
+            profileRepository.updateNutritionTargets(
+                targetDailyCalories = resolved.calories,
+                targetProteinG = resolved.proteinG,
+                targetFatG = resolved.fatG,
+                targetCarbsG = resolved.carbsG,
+            )
         }
     }
 }

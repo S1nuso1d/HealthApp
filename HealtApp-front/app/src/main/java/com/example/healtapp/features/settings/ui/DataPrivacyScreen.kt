@@ -12,8 +12,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.healtapp.core.common.UserFacingMessages
 import com.example.healtapp.core.ui.components.AppButton
 import com.example.healtapp.core.ui.components.AppCard
+import com.example.healtapp.core.ui.components.AppMessageBanner
+import com.example.healtapp.core.ui.components.AppMessageType
 import com.example.healtapp.core.ui.components.AppScreen
 import com.example.healtapp.core.ui.components.AppTextField
 import com.example.healtapp.core.ui.components.SectionHeader
@@ -35,14 +38,14 @@ fun DataPrivacyScreen(
     }
 
     AppScreen(
-        title = "Данные и конфиденциальность",
-        subtitle = "Как устроено хранение информации",
+        title = "Конфиденциальность",
+        subtitle = "Данные, аккаунт и удаление",
         headerIcon = Icons.Filled.Policy,
         onNavigateBack = onBack,
         scrollable = true,
     ) {
         Text(
-            text = "HealthApp хранит введённые тобой показатели (сон, вода, питание, активность и др.) на сервере, чтобы синхронизировать их между устройствами и строить сводки. Учётная запись привязана к e-mail; пароль хранится в виде хэша и не передаётся в открытом виде.",
+            text = "HealthApp хранит введённые вами показатели (сон, вода, питание, активность и др.) на сервере для синхронизации между устройствами и сводок. Пароль хранится в виде хэша и не передаётся в открытом виде.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -50,9 +53,9 @@ fun DataPrivacyScreen(
         AppCard {
             Text(
                 text = "Что можно сделать сейчас:\n" +
-                    "• Не вводить в заметки и названия чувствительные медицинские диагнозы, если не хочешь, чтобы они хранились на сервере.\n" +
-                    "• Использовать отдельный пароль для приложения, не совпадающий с банковским или почтой.\n" +
-                    "• При смене телефона войти в тот же аккаунт — данные подтянутся с бэкенда.",
+                    "• Не вносить в заметки чувствительные диагнозы, если не хотите хранить их на сервере.\n" +
+                    "• Использовать отдельный пароль для приложения.\n" +
+                    "• На новом телефоне войти в тот же аккаунт — данные подтянутся с сервера.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )
@@ -60,27 +63,31 @@ fun DataPrivacyScreen(
 
         SectionHeader(
             title = "Удаление аккаунта",
-            subtitle = "Безвозвратно: профиль, записи и привязки интеграций",
+            subtitle = "Безвозвратно: профиль, записи и интеграции",
         )
 
         AppCard {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    text = "Это действие нельзя отменить. Понадобится текущий пароль.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error,
+                AppMessageBanner(
+                    text = UserFacingMessages.IRREVERSIBLE_ACCOUNT_DELETE,
+                    type = AppMessageType.Warning,
+                    title = "Необратимое действие",
+                )
+                AppMessageBanner(
+                    text = UserFacingMessages.PASSWORD_REQUIRED_TO_DELETE,
+                    type = AppMessageType.Info,
                 )
                 AppTextField(
                     value = uiState.deletePassword,
                     onValueChange = viewModel::updateDeletePassword,
-                    label = "Пароль для подтверждения",
+                    label = "Текущий пароль",
                     isPassword = true,
                 )
-                uiState.deleteError?.let {
-                    Text(
-                        text = it,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium,
+                uiState.deleteError?.let { err ->
+                    AppMessageBanner(
+                        text = err,
+                        type = AppMessageType.Error,
+                        title = "Не удалось удалить",
                     )
                 }
                 AppButton(

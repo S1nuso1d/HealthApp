@@ -1,5 +1,6 @@
 package com.example.healtapp.features.profile.ui.components
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,10 +11,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.MonitorWeight
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -21,10 +20,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.common.BmiHelper
+import com.example.healtapp.data.preferences.WeightEntry
 import com.example.healtapp.core.ui.components.AppCard
 import com.example.healtapp.core.ui.components.SectionHeader
 import com.example.healtapp.core.ui.theme.bmiCategoryColor
@@ -34,7 +38,8 @@ import com.example.healtapp.core.ui.theme.bmiScaleGradient
 fun ProfileBodyStatsCard(
     heightCm: String,
     weightKg: String,
-    onEditBody: () -> Unit,
+    weightHistory: List<WeightEntry> = emptyList(),
+    weightWeeklyReminder: String? = null,
     modifier: Modifier = Modifier,
 ) {
     val height = heightCm.toFloatOrNull()
@@ -44,20 +49,31 @@ fun ProfileBodyStatsCard(
 
     AppCard(modifier = modifier) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    SectionHeader(
-                        title = "Показатели тела",
-                        subtitle = "ИМТ по росту и весу из профиля",
-                    )
-                }
-                IconButton(onClick = onEditBody) {
-                    Icon(Icons.Outlined.Edit, contentDescription = "Изменить рост и вес")
-                }
+            SectionHeader(
+                title = "Показатели тела",
+                subtitle = "ИМТ по росту и весу из профиля",
+            )
+
+            weightWeeklyReminder?.let { reminder ->
+                Text(
+                    text = reminder,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+
+            if (weightHistory.size >= 2) {
+                Text(
+                    text = "Вес за последние недели",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                WeightTrendChart(
+                    entries = weightHistory.takeLast(14),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(72.dp),
+                )
             }
 
             if (bmi == null) {
@@ -180,6 +196,39 @@ private fun BmiGauge(
                         .background(markerColor),
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun WeightTrendChart(
+    entries: List<WeightEntry>,
+    modifier: Modifier = Modifier,
+) {
+    val weights = entries.map { it.weightKg }
+    val minW = weights.minOrNull() ?: return
+    val maxW = weights.maxOrNull() ?: return
+    val range = (maxW - minW).coerceAtLeast(0.5f)
+    val lineColor = MaterialTheme.colorScheme.primary
+
+    Canvas(modifier = modifier) {
+        if (weights.size < 2) return@Canvas
+        val stepX = size.width / (weights.size - 1).coerceAtLeast(1)
+        val path = Path()
+        weights.forEachIndexed { index, w ->
+            val x = index * stepX
+            val y = size.height - ((w - minW) / range) * size.height
+            if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        }
+        drawPath(
+            path = path,
+            color = lineColor,
+            style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round),
+        )
+        weights.forEachIndexed { index, w ->
+            val x = index * stepX
+            val y = size.height - ((w - minW) / range) * size.height
+            drawCircle(color = lineColor, radius = 4.dp.toPx(), center = Offset(x, y))
         }
     }
 }

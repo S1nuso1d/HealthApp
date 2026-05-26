@@ -6,11 +6,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ErrorOutline
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,15 +23,12 @@ fun ErrorStateView(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(
-            imageVector = Icons.Outlined.ErrorOutline,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.error,
+        AppMessageBanner(
+            text = message,
+            type = AppMessageType.Error,
+            title = "Что-то пошло не так",
+            modifier = Modifier.padding(horizontal = 8.dp),
         )
-        Spacer(modifier = Modifier.height(10.dp))
-        Text(text = "Что-то пошло не так", style = MaterialTheme.typography.titleMedium)
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(text = message, style = MaterialTheme.typography.bodyMedium)
 
         if (onRetry != null) {
             Spacer(modifier = Modifier.height(14.dp))

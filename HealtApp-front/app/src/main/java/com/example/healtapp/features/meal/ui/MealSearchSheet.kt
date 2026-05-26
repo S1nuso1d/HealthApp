@@ -32,8 +32,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.ui.components.AppButton
+import com.example.healtapp.core.ui.components.AppCard
+import com.example.healtapp.core.ui.components.AppMessageBanner
+import com.example.healtapp.core.ui.components.AppMessageType
 import com.example.healtapp.core.ui.components.AppTextField
+import com.example.healtapp.data.network.dto.meal.SavedDishDto
 import com.example.healtapp.features.meal.presentation.MealUiState
+import androidx.compose.material3.TextButton
 import com.example.healtapp.features.meal.ui.components.MealFatSecretHitRow
 import com.example.healtapp.features.meal.ui.components.MealServingPicker
 import kotlinx.coroutines.delay
@@ -44,11 +49,13 @@ fun MealSearchSheet(
     visible: Boolean,
     mealSlotLabel: String,
     uiState: MealUiState,
+    savedDishes: List<SavedDishDto> = emptyList(),
     onDismiss: () -> Unit,
     onQueryChange: (String) -> Unit,
     onSearchDebounced: () -> Unit,
     onSearchNow: () -> Unit,
     onSelectFood: (String) -> Unit,
+    onSelectSavedDish: (SavedDishDto) -> Unit = {},
     onOpenBarcode: () -> Unit,
     onSelectServing: (Int) -> Unit,
     onMultiplierChange: (Float) -> Unit,
@@ -116,14 +123,49 @@ fun MealSearchSheet(
             }
 
             uiState.foodSearchError?.let {
-                Text(text = it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                AppMessageBanner(text = it, type = AppMessageType.Error)
             }
             uiState.error?.let {
-                Text(text = it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                AppMessageBanner(text = it, type = AppMessageType.Error)
             }
 
             if (uiState.isFoodSearchLoading) {
                 CircularProgressIndicator(Modifier.size(32.dp).align(Alignment.CenterHorizontally))
+            }
+
+            AnimatedVisibility(
+                visible = savedDishes.isNotEmpty(),
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically(),
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Мои блюда",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    savedDishes.forEach { dish ->
+                        AppCard {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = dish.name,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                TextButton(onClick = { onSelectSavedDish(dish) }) {
+                                    Text("Выбрать")
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             AnimatedVisibility(

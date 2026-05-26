@@ -33,6 +33,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.navigation.BottomNavItem
 import com.example.healtapp.core.ui.theme.brandingGradient
+import com.example.healtapp.core.ui.theme.accentColor
+import com.example.healtapp.core.ui.theme.contentSecondaryColor
 import com.example.healtapp.core.ui.theme.isAppDarkTheme
 
 @Composable
@@ -131,22 +133,14 @@ private fun BottomNavItemCell(
                 modifier = Modifier
                     .size(26.dp)
                     .scale(scale),
-                tint = if (selected) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
+                tint = if (selected) accentColor() else contentSecondaryColor(),
             )
         }
         Text(
             text = item.title,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-            color = if (selected) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            },
+            color = if (selected) accentColor() else contentSecondaryColor(),
             maxLines = 1,
         )
         if (selected) {

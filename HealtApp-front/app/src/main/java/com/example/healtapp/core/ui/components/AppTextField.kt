@@ -15,7 +15,10 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
-import com.example.healtapp.core.ui.theme.BorderSoft
+import com.example.healtapp.core.ui.theme.contentPrimaryColor
+import com.example.healtapp.core.ui.theme.contentSecondaryColor
+import com.example.healtapp.core.ui.theme.iconTintColor
+import com.example.healtapp.core.ui.theme.isAppDarkTheme
 
 @Composable
 fun AppTextField(
@@ -42,7 +45,7 @@ fun AppTextField(
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = iconTintColor(),
                 )
             }
         },
@@ -71,10 +74,18 @@ fun AppTextField(
             focusedContainerColor = MaterialTheme.colorScheme.surface,
             unfocusedContainerColor = MaterialTheme.colorScheme.surface,
             disabledContainerColor = MaterialTheme.colorScheme.surface,
-            focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+            focusedTextColor = contentPrimaryColor(),
+            unfocusedTextColor = contentPrimaryColor(),
+            disabledTextColor = contentSecondaryColor(),
+            cursorColor = contentPrimaryColor(),
+            focusedIndicatorColor = if (isAppDarkTheme()) {
+                MaterialTheme.colorScheme.onSurface
+            } else {
+                MaterialTheme.colorScheme.primary
+            },
             unfocusedIndicatorColor = MaterialTheme.colorScheme.outline,
-            focusedLabelColor = MaterialTheme.colorScheme.primary,
-            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+            focusedLabelColor = contentPrimaryColor(),
+            unfocusedLabelColor = contentSecondaryColor(),
         )
     )
 }

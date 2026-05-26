@@ -3,6 +3,8 @@ package com.example.healtapp.features.activity.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.healtapp.core.common.AppRefreshBus
+import com.example.healtapp.core.common.CalorieBurnCalculator
+import com.example.healtapp.data.healthconnect.HealthConnectForegroundSync
 import com.example.healtapp.data.healthconnect.HealthConnectReader
 import com.example.healtapp.data.network.dto.activity.ActivityCreateRequestDto
 import com.example.healtapp.data.network.dto.activity.ActivityDto
@@ -23,6 +25,7 @@ class ActivityViewModel @Inject constructor(
     private val repository: ActivityRepository,
     private val profileRepository: ProfileRepository,
     private val healthConnectReader: HealthConnectReader,
+    private val healthConnectForegroundSync: HealthConnectForegroundSync,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ActivityUiState())
@@ -45,6 +48,10 @@ class ActivityViewModel @Inject constructor(
 
             val profile = profileRepository.getMyProfile().getOrNull()
             val goal = profile?.target_steps?.takeIf { it > 0 } ?: 10_000
+            val burnGoal = CalorieBurnCalculator.dailyBurnGoal(
+                targetSteps = goal,
+                goal = profile?.goal,
+            )
 
             val historyResult = repository.getActivityHistory()
             if (historyResult.isFailure) {
@@ -58,7 +65,10 @@ class ActivityViewModel @Inject constructor(
             }
 
             var all = historyResult.getOrNull().orEmpty()
-            val duplicateIds = ActivityStepsHelper.walkDuplicateIdsToRemove(all)
+            val duplicateIds = (
+                ActivityStepsHelper.walkDuplicateIdsToRemove(all) +
+                    ActivityStepsHelper.trainingDuplicateIdsToRemove(all)
+                ).distinct()
             if (duplicateIds.isNotEmpty()) {
                 duplicateIds.forEach { id -> repository.deleteActivity(id) }
                 all = repository.getActivityHistory().getOrNull().orEmpty()
@@ -76,21 +86,59 @@ class ActivityViewModel @Inject constructor(
                 .filter { ActivityStepsHelper.activityDateKey(it.start_time) == todayKey }
             val trainingMinutes = trainingToday.sumOf { it.duration_minutes.toLong() }.toInt()
             val trainingKcal = trainingToday.sumOf { (it.calories_burned ?: 0f).toDouble() }.toInt()
+            val totalBurned = CalorieBurnCalculator.totalBurnedToday(all, stepsToday)
+
+            val weeklySteps = ActivityStepsHelper.weeklySteps(all).map { day ->
+                if (day.dateKey == todayKey) day.copy(steps = stepsToday) else day
+            }
 
             _uiState.update {
                 it.copy(
                     isLoading = false,
                     stepsToday = stepsToday,
                     stepsGoal = goal,
-                    weeklySteps = ActivityStepsHelper.weeklySteps(all),
+                    weeklySteps = weeklySteps,
                     healthConnectStepsToday = hcSteps,
                     trainingHistory = ActivityStepsHelper.trainingHistory(all),
+                    healthConnectWorkouts = ActivityStepsHelper.syncedFromHealthConnect(all),
                     trainingMinutesToday = trainingMinutes,
                     trainingCaloriesToday = trainingKcal,
+                    caloriesBurnedToday = totalBurned,
+                    caloriesBurnGoal = burnGoal,
                     todayWalkRecordId = ActivityStepsHelper.findTodayWalkRecord(all)?.id,
                     error = null,
                 )
             }
+        }
+    }
+
+    fun syncWorkoutsFromHealthConnect() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true, error = null) }
+            healthConnectForegroundSync.importOnUserRequest()
+                .onSuccess { res ->
+                    val created = res.activities_created
+                    _uiState.update {
+                        it.copy(
+                            isSaving = false,
+                            snackMessage = if (created > 0) {
+                                "Импортировано тренировок: $created"
+                            } else {
+                                "Новых тренировок в Health Connect нет"
+                            },
+                        )
+                    }
+                    loadAll()
+                    if (created > 0) AppRefreshBus.notifyDataChanged()
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(
+                            isSaving = false,
+                            error = e.message ?: "Не удалось импортировать из Health Connect",
+                        )
+                    }
+                }
         }
     }
 
@@ -110,7 +158,11 @@ class ActivityViewModel @Inject constructor(
             upsertTodayWalkSteps(hc)
                 .onSuccess {
                     _uiState.update {
-                        it.copy(isSaving = false, snackMessage = "Синхронизировано: $hc шагов")
+                        it.copy(
+                            isSaving = false,
+                            snackMessage = "Синхронизировано: $hc шагов",
+                            progressCelebrateToken = it.progressCelebrateToken + 1,
+                        )
                     }
                     loadAll()
                     AppRefreshBus.notifyDataChanged()
@@ -166,6 +218,14 @@ class ActivityViewModel @Inject constructor(
         _uiState.update { it.copy(intensity = value) }
     }
 
+    fun updateTrainingNotes(value: String) {
+        _uiState.update { it.copy(trainingNotes = value) }
+    }
+
+    fun updatePerceivedExertion(value: String) {
+        _uiState.update { it.copy(perceivedExertion = value.filter { it.isDigit() }.take(2)) }
+    }
+
     fun saveTraining() {
         viewModelScope.launch {
             val state = _uiState.value
@@ -179,15 +239,25 @@ class ActivityViewModel @Inject constructor(
             val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
             val apiType = activityApiSlug(state.activityType.ifBlank { "Бег" })
 
+            val fields = trainingFormFieldsFor(state.activityType)
+            val rawDist = state.distanceKm.toFloatOrNull()
+            val distanceKm = when {
+                !fields.showDistance -> null
+                state.activityType == "Плавание" && rawDist != null -> rawDist / 1000f
+                else -> rawDist
+            }
             val request = ActivityCreateRequestDto(
                 activity_type = apiType,
                 start_time = now.minusMinutes(duration.toLong()).format(formatter),
                 end_time = now.format(formatter),
                 duration_minutes = duration,
                 steps = null,
-                distance_km = state.distanceKm.toFloatOrNull(),
+                distance_km = distanceKm,
                 calories_burned = state.caloriesBurned.toFloatOrNull(),
                 intensity = state.intensity.ifBlank { null },
+                perceived_exertion = state.perceivedExertion.toIntOrNull()?.coerceIn(1, 10)
+                    .takeIf { fields.showExertion },
+                notes = state.trainingNotes.trim().takeIf { it.isNotBlank() && fields.showNotes },
                 source = "manual",
             )
 
@@ -200,7 +270,10 @@ class ActivityViewModel @Inject constructor(
                             durationMinutes = "",
                             caloriesBurned = "",
                             distanceKm = "",
+                            trainingNotes = "",
+                            perceivedExertion = "",
                             snackMessage = "Тренировка сохранена",
+                            progressCelebrateToken = it.progressCelebrateToken + 1,
                         )
                     }
                     loadAll()

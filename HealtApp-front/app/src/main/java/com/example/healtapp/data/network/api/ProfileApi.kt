@@ -1,6 +1,7 @@
 package com.example.healtapp.data.network.api
 
 import com.example.healtapp.data.network.dto.profile.ProfileDto
+import com.example.healtapp.data.network.dto.profile.NutritionTargetsUpdateDto
 import com.example.healtapp.data.network.dto.profile.UpdateProfileRequestDto
 import okhttp3.MultipartBody
 import retrofit2.http.Body
@@ -18,7 +19,12 @@ interface ProfileApi {
 
     @PUT("profile/me")
     suspend fun updateMyProfile(
-        @Body request: UpdateProfileRequestDto
+        @Body request: UpdateProfileRequestDto,
+    ): ProfileDto
+
+    @PUT("profile/me")
+    suspend fun updateNutritionTargets(
+        @Body request: NutritionTargetsUpdateDto,
     ): ProfileDto
 
     @Multipart

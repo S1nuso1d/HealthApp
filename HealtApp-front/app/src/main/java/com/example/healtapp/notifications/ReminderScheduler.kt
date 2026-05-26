@@ -26,6 +26,65 @@ object ReminderScheduler {
         rescheduleHydration(context, settings.hydrationReminders)
         rescheduleMeals(context, settings.mealReminders)
         rescheduleRecommendations(context, settings.recommendationReminders)
+        rescheduleMissedMealChecks(context, settings.missedMealChecks)
+        rescheduleGoalChecks(context, settings.goalAchievementNotifications)
+        rescheduleSleepEvening(context, settings.hydrationReminders)
+        rescheduleWeightReminder(context, settings.goalAchievementNotifications)
+        rescheduleSmartContext(context, settings.goalAchievementNotifications || settings.hydrationReminders)
+    }
+
+    fun rescheduleSmartContext(context: Context, enabled: Boolean) {
+        if (!enabled) {
+            SmartContextReminderWorker.cancelPeriodic(context)
+            return
+        }
+        SmartContextReminderWorker.schedulePeriodic(context)
+    }
+
+    fun rescheduleMissedMealChecks(context: Context, enabled: Boolean) {
+        val wm = WorkManager.getInstance(context)
+        if (!enabled) {
+            wm.cancelUniqueWork(MissedMealReminderWorker.WORK_BREAKFAST)
+            wm.cancelUniqueWork(MissedMealReminderWorker.WORK_LUNCH)
+            wm.cancelUniqueWork(MissedMealReminderWorker.WORK_DINNER)
+            return
+        }
+        scheduleMissedMeal(context, MissedMealReminderWorker.WORK_BREAKFAST, "breakfast", "Завтрак", 10, 30)
+        scheduleMissedMeal(context, MissedMealReminderWorker.WORK_LUNCH, "lunch", "Обед", 15, 0)
+        scheduleMissedMeal(context, MissedMealReminderWorker.WORK_DINNER, "dinner", "Ужин", 21, 0)
+    }
+
+    private fun scheduleMissedMeal(
+        context: Context,
+        workName: String,
+        apiType: String,
+        label: String,
+        hour: Int,
+        minute: Int,
+    ) {
+        val delayMs = delayUntilNext(hour, minute)
+        val request = OneTimeWorkRequestBuilder<MissedMealReminderWorker>()
+            .setInitialDelay(delayMs, TimeUnit.MILLISECONDS)
+            .setInputData(
+                workDataOf(
+                    MissedMealReminderWorker.KEY_MEAL_API_TYPE to apiType,
+                    MissedMealReminderWorker.KEY_MEAL_LABEL to label,
+                ),
+            )
+            .build()
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            workName,
+            ExistingWorkPolicy.REPLACE,
+            request,
+        )
+    }
+
+    fun rescheduleGoalChecks(context: Context, enabled: Boolean) {
+        if (!enabled) {
+            GoalProgressReminderWorker.cancelPeriodic(context)
+            return
+        }
+        GoalProgressReminderWorker.schedulePeriodic(context)
     }
 
     fun rescheduleHydration(context: Context, enabled: Boolean) {
@@ -34,7 +93,7 @@ object ReminderScheduler {
             wm.cancelUniqueWork(HYDRATION_PERIODIC)
             return
         }
-        val request = PeriodicWorkRequestBuilder<HydrationReminderWorker>(3, TimeUnit.HOURS)
+        val request = PeriodicWorkRequestBuilder<HydrationReminderWorker>(2, TimeUnit.HOURS)
             .setInitialDelay(30, TimeUnit.MINUTES)
             .build()
         wm.enqueueUniquePeriodicWork(
@@ -99,6 +158,39 @@ object ReminderScheduler {
         WorkManager.getInstance(context).enqueueUniqueWork(
             RECOMMENDATION_DAILY,
             ExistingWorkPolicy.REPLACE,
+            request,
+        )
+    }
+
+    private const val SLEEP_EVENING = "sleep_evening"
+
+    fun rescheduleSleepEvening(context: Context, enabled: Boolean) {
+        val wm = WorkManager.getInstance(context)
+        if (!enabled) {
+            wm.cancelUniqueWork(SLEEP_EVENING)
+            return
+        }
+        val delayMs = delayUntilNext(21, 30)
+        val request = OneTimeWorkRequestBuilder<SleepEveningReminderWorker>()
+            .setInitialDelay(delayMs, TimeUnit.MILLISECONDS)
+            .build()
+        wm.enqueueUniqueWork(SLEEP_EVENING, ExistingWorkPolicy.REPLACE, request)
+    }
+
+    private const val WEIGHT_WEEKLY = "weight_weekly"
+
+    fun rescheduleWeightReminder(context: Context, enabled: Boolean) {
+        val wm = WorkManager.getInstance(context)
+        if (!enabled) {
+            wm.cancelUniqueWork(WEIGHT_WEEKLY)
+            return
+        }
+        val request = PeriodicWorkRequestBuilder<WeightReminderWorker>(7, TimeUnit.DAYS)
+            .setInitialDelay(12, TimeUnit.HOURS)
+            .build()
+        wm.enqueueUniquePeriodicWork(
+            WEIGHT_WEEKLY,
+            ExistingPeriodicWorkPolicy.UPDATE,
             request,
         )
     }

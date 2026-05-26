@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
+import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material3.Icon
@@ -35,12 +36,18 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.healtapp.core.ui.animation.AppMotion
 import com.example.healtapp.core.ui.components.AppButton
 import com.example.healtapp.core.ui.components.AppCard
+import com.example.healtapp.core.ui.components.ProgressRing
+import com.example.healtapp.core.ui.components.progressCelebrateEffect
 import com.example.healtapp.core.ui.components.ShimmerBox
 import com.example.healtapp.core.ui.theme.brandingGradient
 import com.example.healtapp.core.ui.theme.cardHeaderGradient
+import com.example.healtapp.core.ui.theme.contentPrimaryColor
+import com.example.healtapp.core.ui.theme.contentSecondaryColor
+import com.example.healtapp.core.ui.theme.iconTintColor
 import com.example.healtapp.core.ui.theme.chartBarFillGradient
 import com.example.healtapp.core.ui.theme.chartBarFillGradientSoft
 import com.example.healtapp.core.ui.theme.chartBarGuideColor
@@ -56,11 +63,15 @@ fun formatStepsCount(steps: Int): String =
 fun ActivityStepsHeroCard(
     stepsToday: Int,
     stepsGoal: Int,
+    caloriesBurnedToday: Int,
+    caloriesBurnGoal: Int,
     trainingMinutesToday: Int,
     trainingCaloriesToday: Int,
     healthConnectSteps: Int?,
     isSaving: Boolean,
+    celebrateToken: Int = 0,
     onSyncHealthConnect: () -> Unit,
+    onSyncWorkoutsFromHealthConnect: () -> Unit,
     onEditGoalInProfile: () -> Unit,
 ) {
     val progress = if (stepsGoal > 0) (stepsToday / stepsGoal.toFloat()).coerceIn(0f, 1.15f) else 0f
@@ -91,7 +102,7 @@ fun ActivityStepsHeroCard(
                     Icon(
                         Icons.AutoMirrored.Filled.DirectionsWalk,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = iconTintColor(),
                         modifier = Modifier.size(26.dp),
                     )
                 }
@@ -119,7 +130,7 @@ fun ActivityStepsHeroCard(
                         text = formatStepsCount(stepsToday),
                         style = MaterialTheme.typography.displaySmall,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = contentPrimaryColor(),
                     )
                     Text(
                         text = buildString {
@@ -133,11 +144,65 @@ fun ActivityStepsHeroCard(
                         Text(
                             text = "Осталось ${formatStepsCount(remaining)}",
                             style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = contentPrimaryColor(),
                         )
                     }
                 }
-                StepsProgressRing(progress = animatedProgress, percent = percent)
+                Box(modifier = Modifier.progressCelebrateEffect(celebrateToken)) {
+                    StepsProgressRing(progress = animatedProgress, percent = percent)
+                }
+            }
+
+            val burnProgress = if (caloriesBurnGoal > 0) {
+                (caloriesBurnedToday / caloriesBurnGoal.toFloat()).coerceIn(0f, 1f)
+            } else 0f
+            val burnAnimated by animateFloatAsState(
+                targetValue = burnProgress,
+                animationSpec = AppMotion.tweenMedium(),
+                label = "burn_activity",
+            )
+            val burnPct = if (caloriesBurnGoal > 0) {
+                ((caloriesBurnedToday * 100) / caloriesBurnGoal).coerceAtMost(999)
+            } else 0
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f))
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Filled.LocalFireDepartment,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp),
+                        )
+                        Text(
+                            text = "Сожжено сегодня",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                    Text(
+                        text = "$caloriesBurnedToday ккал",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = "Цель $caloriesBurnGoal ккал · $burnPct% · тренировки $trainingCaloriesToday ккал",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                ProgressRing(progress = burnAnimated, text = "$burnPct%")
             }
 
             Row(
@@ -150,8 +215,8 @@ fun ActivityStepsHeroCard(
                     modifier = Modifier.weight(1f),
                 )
                 ActivityMiniStat(
-                    label = "Сожжено",
-                    value = "$trainingCaloriesToday ккал",
+                    label = "Шаги → ккал",
+                    value = "~${(caloriesBurnedToday - trainingCaloriesToday).coerceAtLeast(0)}",
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -182,6 +247,12 @@ fun ActivityStepsHeroCard(
             AppButton(
                 text = if (isSaving) "Синхронизация…" else "Синхронизировать шаги",
                 onClick = onSyncHealthConnect,
+                enabled = !isSaving,
+                isSecondary = true,
+            )
+            AppButton(
+                text = if (isSaving) "Импорт…" else "Тренировки из Health Connect",
+                onClick = onSyncWorkoutsFromHealthConnect,
                 enabled = !isSaving,
                 isSecondary = true,
             )
@@ -273,69 +344,105 @@ fun WeeklyStepsBarChart(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             val goalLineColor = chartBarGuideColor()
-            Box(
+            val valueSlotHeight = 18.dp
+            val barAreaHeight = 120.dp
+            val labelSlotHeight = 32.dp
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(156.dp),
+                    .height(valueSlotHeight + barAreaHeight + labelSlotHeight),
             ) {
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    val goalY = size.height * (1f - goal.toFloat() / maxSteps).coerceIn(0f, 1f)
-                    drawLine(
-                        color = goalLineColor,
-                        start = Offset(0f, goalY),
-                        end = Offset(size.width, goalY),
-                        strokeWidth = 2.dp.toPx(),
-                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 8f)),
-                    )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(valueSlotHeight),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    days.forEach { day ->
+                        val isToday = day.dateKey == java.time.LocalDate.now().toString()
+                        Text(
+                            text = if (day.steps > 0) formatShortSteps(day.steps) else "",
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (isToday) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            fontWeight = if (isToday) FontWeight.SemiBold else FontWeight.Normal,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                        )
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(barAreaHeight),
+                ) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val goalY = size.height * (1f - goal.toFloat() / maxSteps).coerceIn(0f, 1f)
+                        drawLine(
+                            color = goalLineColor,
+                            start = Offset(0f, goalY),
+                            end = Offset(size.width, goalY),
+                            strokeWidth = 2.dp.toPx(),
+                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 8f)),
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.Bottom,
+                    ) {
+                        days.forEach { day ->
+                            val barFraction = day.steps.toFloat() / maxSteps
+                            val isToday = day.dateKey == java.time.LocalDate.now().toString()
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxSize(),
+                                contentAlignment = Alignment.BottomCenter,
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .padding(horizontal = 3.dp)
+                                        .fillMaxWidth(0.65f)
+                                        .height((barAreaHeight * barFraction.coerceIn(0.04f, 1f)).coerceAtLeast(4.dp))
+                                        .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
+                                        .background(
+                                            Brush.verticalGradient(
+                                                if (isToday) todayBarGradient else defaultBarGradient,
+                                            ),
+                                        ),
+                                )
+                            }
+                        }
+                    }
                 }
                 Row(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(top = 4.dp),
+                        .fillMaxWidth()
+                        .height(labelSlotHeight),
                     horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.Bottom,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     days.forEach { day ->
-                        val barFraction = day.steps.toFloat() / maxSteps
-                        val isToday = day.label == "Сегодня"
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Bottom,
+                        val isToday = day.dateKey == java.time.LocalDate.now().toString()
+                        Text(
+                            text = day.label,
                             modifier = Modifier.weight(1f),
-                        ) {
-                            Text(
-                                text = if (day.steps > 0) formatShortSteps(day.steps) else "",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (isToday) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                },
-                                fontWeight = if (isToday) FontWeight.SemiBold else FontWeight.Normal,
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .padding(horizontal = 3.dp, vertical = 4.dp)
-                                    .height((118 * barFraction.coerceIn(0.04f, 1f)).dp)
-                                    .fillMaxWidth(0.6f)
-                                    .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
-                                    .background(
-                                        Brush.verticalGradient(
-                                            if (isToday) todayBarGradient else defaultBarGradient,
-                                        ),
-                                    ),
-                            )
-                            Text(
-                                text = day.label,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (isToday) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                },
-                                maxLines = 1,
-                            )
-                        }
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                            color = if (isToday) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            fontWeight = if (isToday) FontWeight.SemiBold else FontWeight.Normal,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                        )
                     }
                 }
             }
