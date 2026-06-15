@@ -32,7 +32,11 @@ import com.example.healtapp.core.ui.components.AppScreen
 import com.example.healtapp.core.ui.components.EmptyStateCard
 import com.example.healtapp.core.ui.components.PullToRefreshContainer
 import com.example.healtapp.features.social.presentation.SocialViewModel
+import com.example.healtapp.features.social.presentation.buildCommunityTimeline
+import com.example.healtapp.features.social.presentation.CommunityTimelineItem
 import com.example.healtapp.features.social.ui.components.CommunityChallengeBanner
+import com.example.healtapp.features.social.ui.components.CommunityClubPostCard
+import com.example.healtapp.features.social.ui.components.CommunityClubsRail
 import com.example.healtapp.features.social.ui.components.CommunityCommentsSheet
 import com.example.healtapp.features.social.ui.components.CommunityComposeFab
 import com.example.healtapp.features.social.ui.components.CommunityPostDeleteOverlay
@@ -48,10 +52,15 @@ fun CommunityFeedScreen(
     onBack: () -> Unit = {},
     onOpenFriend: (Int) -> Unit = {},
     onOpenFriends: () -> Unit = {},
+    onOpenClub: (Int) -> Unit = {},
 ) {
     val viewModel: SocialViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var expandedChallengeId by remember { mutableIntStateOf(-1) }
+    val myClubs = remember(uiState.clubs) { uiState.clubs.filter { it.is_member } }
+    val timeline = remember(uiState.feed, uiState.clubFeedEntries) {
+        buildCommunityTimeline(uiState.feed, uiState.clubFeedEntries)
+    }
 
     Box(Modifier.fillMaxSize()) {
         AppScreen(
@@ -113,37 +122,63 @@ fun CommunityFeedScreen(
                         }
                     }
 
+                    item(key = "clubs_rail") {
+                        CommunityClubsRail(
+                            clubs = myClubs,
+                            onOpenClub = onOpenClub,
+                        )
+                    }
+
                     item(key = "feed_header") {
                         CommunityFeedTopBar(
                             postsCount = uiState.feed.size,
+                            clubPostsCount = uiState.clubFeedEntries.size,
                             onOpenFriends = onOpenFriends,
                         )
                     }
 
-                    if (uiState.feed.isEmpty()) {
+                    if (timeline.isEmpty()) {
                         item(key = "empty_feed") {
                             EmptyStateCard(
                                 title = "Лента пуста",
-                                text = "Поделитесь тренировкой, рецептом ПП или лайфхаком — друзья увидят это здесь.",
+                                text = "Поделитесь тренировкой, рецептом ПП или загляните в клубы — здесь появятся новости друзей и сообществ.",
                             )
                         }
                     } else {
                         items(
-                            items = uiState.feed,
-                            key = { it.id },
-                        ) { post ->
-                            CommunityFeedPostCard(
-                                post = post,
-                                onAuthorClick = { onOpenFriend(post.author.user_id) },
-                                onReaction = { emoji -> viewModel.toggleReaction(post.id, emoji) },
-                                onCommentClick = { viewModel.openComments(post.id) },
-                                onLongPress = if (post.author.is_self) {
-                                    { viewModel.openDeleteOverlay(post) }
-                                } else {
-                                    null
-                                },
-                                modifier = appListItemModifier(),
-                            )
+                            items = timeline,
+                            key = { item ->
+                                when (item) {
+                                    is CommunityTimelineItem.UserPost -> "user_${item.post.id}"
+                                    is CommunityTimelineItem.ClubPost -> "club_${item.club.id}_${item.post.id}"
+                                }
+                            },
+                        ) { item ->
+                            when (item) {
+                                is CommunityTimelineItem.UserPost -> {
+                                    CommunityFeedPostCard(
+                                        post = item.post,
+                                        onAuthorClick = { onOpenFriend(item.post.author.user_id) },
+                                        onReaction = { emoji -> viewModel.toggleReaction(item.post.id, emoji) },
+                                        onCommentClick = { viewModel.openComments(item.post.id) },
+                                        onLongPress = if (item.post.author.is_self) {
+                                            { viewModel.openDeleteOverlay(item.post) }
+                                        } else {
+                                            null
+                                        },
+                                        modifier = appListItemModifier(),
+                                    )
+                                }
+                                is CommunityTimelineItem.ClubPost -> {
+                                    CommunityClubPostCard(
+                                        club = item.club,
+                                        post = item.post,
+                                        onOpenClub = { onOpenClub(item.club.id) },
+                                        onOpenAuthor = { onOpenFriend(item.post.user.user_id) },
+                                        modifier = appListItemModifier(),
+                                    )
+                                }
+                            }
                         }
                     }
 

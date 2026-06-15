@@ -50,6 +50,8 @@ class ProfileEditViewModel @Inject constructor(
     val uiState: StateFlow<ProfileEditUiState> = _uiState.asStateFlow()
 
     private var cachedProfile: ProfileDto? = null
+    /** Вес с сервера при последней загрузке/успешном сохранении — для истории только при изменении. */
+    private var savedWeightKg: Float? = null
 
     init {
         load()
@@ -81,7 +83,8 @@ class ProfileEditViewModel @Inject constructor(
             val result = getProfileUseCase()
             result.onSuccess { profile ->
                 cachedProfile = profile
-                
+                savedWeightKg = profile.weight_kg
+
                 var tCalories = profile.target_daily_calories?.toString()
                 var tProtein = profile.target_protein_g?.let { "%.0f".format(it) }
                 var tFat = profile.target_fat_g?.let { "%.0f".format(it) }
@@ -328,7 +331,12 @@ class ProfileEditViewModel @Inject constructor(
 
             result.onSuccess { profile ->
                 cachedProfile = profile
-                state.weight.toFloatOrNull()?.let { weightHistoryStore.append(it) }
+                val newWeight = state.weight.toFloatOrNull()
+                val previousWeight = savedWeightKg
+                if (newWeight != null && previousWeight != null && kotlin.math.abs(newWeight - previousWeight) > 0.05f) {
+                    weightHistoryStore.append(newWeight)
+                }
+                savedWeightKg = newWeight ?: previousWeight
                 weightHistoryStore.markWeeklyPromptShown()
                 val ageStr = AgeUtils.ageFromBirthDate(state.birthDate)?.toString()
                     ?: profile.age?.toString()

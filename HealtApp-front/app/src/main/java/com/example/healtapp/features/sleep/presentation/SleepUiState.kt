@@ -42,16 +42,30 @@ data class SleepUiState(
     val isSoundTracking: Boolean = false,
     val soundClipsThisSession: Int = 0,
     val isRecordingSoundClip: Boolean = false,
-    val soundClips: List<SleepSoundClipUi> = emptyList(),
+    /** Фрагменты текущей сессии (во время отслеживания — без воспроизведения). */
+    val sessionClips: List<SleepSoundClipUi> = emptyList(),
+    /** Фрагменты последней завершённой сессии — можно прослушать. */
+    val lastSessionClips: List<SleepSoundClipUi> = emptyList(),
+    val soundClipGroups: List<SleepSoundDayGroupUi> = emptyList(),
+    val canPlaybackSounds: Boolean = true,
     val playingSoundClipId: String? = null,
+    val showSoundPlaybackHint: Boolean = false,
     val aiSummary: String? = null,
     val isGeneratingSummary: Boolean = false,
 )
 
 data class SleepSoundClipUi(
     val id: String,
+    val dateKey: String,
+    val recordedAtEpochMs: Long,
     val timeLabel: String,
     val durationLabel: String,
     val label: String,
     val filePath: String,
+)
+
+data class SleepSoundDayGroupUi(
+    val dateKey: String,
+    val dayLabel: String,
+    val clips: List<SleepSoundClipUi>,
 )

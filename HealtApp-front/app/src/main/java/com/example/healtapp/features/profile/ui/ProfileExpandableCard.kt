@@ -1,6 +1,10 @@
 package com.example.healtapp.features.profile.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.graphics.Brush
@@ -99,7 +103,11 @@ fun ProfileExpandableCard(
                     modifier = Modifier.rotate(if (isExpanded) 180f else 0f),
                 )
             }
-            AnimatedVisibility(visible = isExpanded) {
+            AnimatedVisibility(
+                visible = isExpanded,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically(),
+            ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()

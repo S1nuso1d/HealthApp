@@ -109,6 +109,7 @@ fun NutritionHubScreen(initialTab: Int = 0, onOpenPlanner: () -> Unit = {}) {
                     subtitle = subtitle,
                     headerIcon = icon,
                     scrollable = true,
+                    scrollStateKey = "nutrition_hub_$tab",
                     extraBottomPadding = if (tab == 1) 72.dp else 0.dp,
                 ) {
                     NutritionHubTabs(selected = tab, onSelect = { tab = it })

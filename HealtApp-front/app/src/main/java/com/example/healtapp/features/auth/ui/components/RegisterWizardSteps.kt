@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.ui.components.AppButton
+import com.example.healtapp.core.ui.components.AppPasswordField
 import com.example.healtapp.core.ui.components.AppTextField
 import com.example.healtapp.core.ui.components.DatePickerField
 import com.example.healtapp.features.auth.presentation.AuthEvent
@@ -169,18 +170,16 @@ fun RegisterCredentialsStep(
             leadingIcon = Icons.Outlined.Email,
             keyboardType = KeyboardType.Email,
         )
-        AppTextField(
+        AppPasswordField(
             value = uiState.password,
             onValueChange = { onEvent(AuthEvent.PasswordChanged(it)) },
             label = "Пароль",
-            isPassword = true,
             leadingIcon = Icons.Outlined.Lock,
         )
-        AppTextField(
+        AppPasswordField(
             value = uiState.repeatPassword,
             onValueChange = { onEvent(AuthEvent.RepeatPasswordChanged(it)) },
             label = "Повторите пароль",
-            isPassword = true,
             leadingIcon = Icons.Outlined.PersonAddAlt1,
         )
         if (!passwordsMatch) {

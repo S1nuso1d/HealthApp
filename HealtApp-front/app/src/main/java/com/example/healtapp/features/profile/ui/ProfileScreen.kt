@@ -87,6 +87,8 @@ import com.example.healtapp.features.profile.ui.components.ProfileHeroBlock
 import com.example.healtapp.features.profile.ui.components.ProfileLogoutCard
 import com.example.healtapp.features.profile.ui.components.ProfileNavLink
 import com.example.healtapp.features.profile.ui.components.ProfilePersonalDataSection
+import com.example.healtapp.data.preferences.DashboardUiPrefs
+import com.example.healtapp.features.profile.ui.components.ProfileDashboardLayoutSelector
 import com.example.healtapp.features.profile.ui.components.ProfileThemeSelector
 import dagger.hilt.android.EntryPointAccessors
 import java.io.File
@@ -133,11 +135,13 @@ fun ProfileScreen(
     }
 
     var showAvatarSheet by remember { mutableStateOf(false) }
+    var dashboardLayout by remember { mutableStateOf(DashboardUiPrefs.getLayoutMode(context)) }
     var showGoalsSheet by remember { mutableStateOf(false) }
     var goalsCardExpanded by remember { mutableStateOf(false) }
     var basicsCardExpanded by remember { mutableStateOf(false) }
     var dietCardExpanded by remember { mutableStateOf(false) }
     var goalsSavePending by remember { mutableStateOf(false) }
+    var collapsingSection by remember { mutableStateOf<ProfileSaveSection?>(null) }
     var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
     var showGuide by remember { mutableStateOf(false) }
 
@@ -149,6 +153,15 @@ fun ProfileScreen(
         if (goalsSavePending && !uiState.isSaving && uiState.success != null) {
             showGoalsSheet = false
             goalsSavePending = false
+        }
+        if (!uiState.isSaving && uiState.success != null) {
+            when (collapsingSection) {
+                ProfileSaveSection.BASICS -> basicsCardExpanded = false
+                ProfileSaveSection.GOALS -> goalsCardExpanded = false
+                ProfileSaveSection.DIET -> dietCardExpanded = false
+                null -> {}
+            }
+            collapsingSection = null
         }
     }
 
@@ -251,6 +264,7 @@ fun ProfileScreen(
             title = "Профиль",
             subtitle = "Данные · цели · настройки",
             scrollable = true,
+            scrollStateKey = "profile",
         ) {
             ProfileHeroBlock(
                 initial = initial,
@@ -332,7 +346,10 @@ fun ProfileScreen(
                 onHeightChange = viewModel::updateHeight,
                 onWeightChange = viewModel::updateWeight,
                 onSexChange = viewModel::updateSex,
-                onSave = viewModel::save,
+                onSave = {
+                    collapsingSection = ProfileSaveSection.BASICS
+                    viewModel.save()
+                },
             )
 
             ProfileGoalsHabitsSection(
@@ -341,7 +358,10 @@ fun ProfileScreen(
                 onExpandedChange = { goalsCardExpanded = it },
                 onGoalChange = viewModel::updateGoal,
                 onActivityLevelChange = viewModel::updateActivityLevel,
-                onSave = viewModel::save,
+                onSave = {
+                    collapsingSection = ProfileSaveSection.GOALS
+                    viewModel.save()
+                },
             )
 
             ProfileDietSection(
@@ -351,7 +371,10 @@ fun ProfileScreen(
                 onIsVegetarianChange = viewModel::updateIsVegetarian,
                 onHasAllergiesChange = viewModel::updateHasAllergies,
                 onAllergiesTextChange = viewModel::updateAllergiesText,
-                onSave = viewModel::save,
+                onSave = {
+                    collapsingSection = ProfileSaveSection.DIET
+                    viewModel.save()
+                },
             )
 
             SectionHeader(
@@ -367,6 +390,14 @@ fun ProfileScreen(
                 ProfileThemeSelector(
                     selected = uiState.themeMode,
                     onSelected = viewModel::setThemeMode,
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                ProfileDashboardLayoutSelector(
+                    selected = dashboardLayout,
+                    onSelected = { mode ->
+                        DashboardUiPrefs.setLayoutMode(context, mode)
+                        dashboardLayout = mode
+                    },
                 )
             }
 
@@ -588,4 +619,10 @@ private fun AvatarSheetRow(
             color = contentColor,
         )
     }
+}
+
+private enum class ProfileSaveSection {
+    BASICS,
+    GOALS,
+    DIET,
 }

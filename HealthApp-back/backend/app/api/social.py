@@ -861,6 +861,38 @@ def weekly_steps_challenge(
     return {"metric": "steps", "period": "week", "entries": entries}
 
 
+@router.get("/users/{user_id}/avatar", summary="Аватар пользователя")
+def get_user_avatar(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.services.avatar_storage import find_existing_avatar_path, guess_media_type
+
+    if user_id == current_user.id:
+        can_view = True
+    else:
+        if db.query(UserBlock).filter_by(blocker_id=user_id, blocked_id=current_user.id).first():
+            raise HTTPException(status_code=403, detail="Профиль закрыт настройками приватности")
+        p = _privacy(db, user_id)
+        can_view = (
+            p.profile_visibility == "public"
+            or (p.profile_visibility == "friends" and _are_friends(db, current_user.id, user_id))
+        )
+    if not can_view:
+        raise HTTPException(status_code=403, detail="Профиль закрыт настройками приватности")
+
+    profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
+    if not profile or not profile.has_avatar:
+        raise HTTPException(status_code=404, detail="Аватар не найден")
+    path = find_existing_avatar_path(user_id)
+    if not path:
+        profile.has_avatar = False
+        db.commit()
+        raise HTTPException(status_code=404, detail="Аватар не найден")
+    return FileResponse(path, media_type=guess_media_type(path), filename=path.name)
+
+
 @router.get("/users/{user_id}/profile")
 def friend_profile(
     user_id: int,

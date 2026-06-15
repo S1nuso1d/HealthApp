@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.animation.AnimatedVisibility
@@ -67,6 +66,7 @@ fun FeatureScreenShell(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     extraBottomPadding: Dp = 16.dp,
+    scrollStateKey: String? = null,
     heroActions: @Composable RowScope.() -> Unit = {},
     heroFooter: @Composable (ColumnScope.() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
@@ -87,10 +87,11 @@ fun FeatureScreenShell(
                 actions = heroActions,
                 footer = heroFooter,
             )
+            val scrollState = rememberSaveableScrollState(key = scrollStateKey ?: title)
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(scrollState)
                     .padding(horizontal = 20.dp, vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {

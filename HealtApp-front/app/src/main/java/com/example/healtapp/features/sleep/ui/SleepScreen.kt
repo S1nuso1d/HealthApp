@@ -137,6 +137,7 @@ fun SleepScreen(
                 subtitle = "Ночи и цель из профиля",
                 headerIcon = Icons.Filled.Bedtime,
                 scrollable = true,
+                scrollStateKey = "sleep",
             ) {
                 if (uiState.isLoading && uiState.records.isEmpty()) {
                     SleepScreenSkeleton()
@@ -161,8 +162,12 @@ fun SleepScreen(
                     isTracking = uiState.isSoundTracking,
                     clipsThisSession = uiState.soundClipsThisSession,
                     isRecordingClip = uiState.isRecordingSoundClip,
-                    clips = uiState.soundClips,
+                    sessionClips = uiState.sessionClips,
+                    lastSessionClips = uiState.lastSessionClips,
+                    clipGroups = uiState.soundClipGroups,
+                    canPlayback = uiState.canPlaybackSounds,
                     playingClipId = uiState.playingSoundClipId,
+                    showPlaybackHint = uiState.showSoundPlaybackHint,
                     aiSummary = uiState.aiSummary,
                     isGeneratingSummary = uiState.isGeneratingSummary,
                     onStartClick = { requestTrackingStart() },

@@ -65,6 +65,31 @@ def build_user_health_context_text(
             f"шаги {profile.target_steps or 10000}, "
             f"калории {profile.target_daily_calories or 2200} ккал"
         )
+        cal = profile.target_daily_calories
+        prot = profile.target_protein_g
+        fat = profile.target_fat_g
+        carbs = profile.target_carbs_g
+        if prot is None or fat is None or carbs is None or cal is None:
+            from app.services.nutrition_targets_service import try_calculate_from_profile
+
+            computed = try_calculate_from_profile(
+                age=profile.age,
+                sex=profile.sex,
+                height_cm=profile.height_cm,
+                weight_kg=profile.weight_kg,
+                activity_level=profile.activity_level,
+                goal=profile.goal,
+            )
+            if computed:
+                cal = cal or computed.target_daily_calories
+                prot = prot or computed.target_protein_g
+                fat = fat or computed.target_fat_g
+                carbs = carbs or computed.target_carbs_g
+        if cal and prot is not None and fat is not None and carbs is not None:
+            lines.append(
+                f"Цель КБЖУ в день: {int(cal)} ккал, "
+                f"Б {prot:.0f} г, Ж {fat:.0f} г, У {carbs:.0f} г"
+            )
         if profile.has_allergies and profile.allergies_text:
             lines.append(f"Аллергии/ограничения: {profile.allergies_text}")
         elif profile.has_allergies:

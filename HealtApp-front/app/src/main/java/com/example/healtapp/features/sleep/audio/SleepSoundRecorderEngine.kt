@@ -213,16 +213,16 @@ class SleepSoundRecorderEngine(
         private const val SAMPLE_RATE = 16_000
         private const val CHUNK_MS = 100
         private const val PRE_BUFFER_MS = 600
-        private const val TRIGGER_RMS = 900.0
-        private const val QUIET_RATIO = 0.55
-        private const val LOUD_STREAK_REQUIRED = 3
-        private const val QUIET_STREAK_REQUIRED = 12
+        private const val TRIGGER_RMS = 500.0
+        private const val QUIET_RATIO = 0.5
+        private const val LOUD_STREAK_REQUIRED = 2
+        private const val QUIET_STREAK_REQUIRED = 8
         private const val MAX_CLIP_MS = 30_000
-        private const val MIN_PCM_BYTES = SAMPLE_RATE * 2 / 5
+        private const val MIN_PCM_BYTES = SAMPLE_RATE * 2 / 10
 
         fun classifySound(peakRms: Double): String = when {
-            peakRms >= 3500 -> "Громкий звук"
-            peakRms >= 1600 -> "Храп"
+            peakRms >= 1800 -> "Громкий звук"
+            peakRms >= 800 -> "Храп"
             else -> "Шум"
         }
     }

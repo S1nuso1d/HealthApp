@@ -58,12 +58,21 @@ class SleepViewModel @Inject constructor(
         }
         viewModelScope.launch {
             sleepSoundTracker.state.collect { trackerState ->
-                _uiState.update {
-                    it.copy(
+                val clipUi = trackerState.clips.map(::toClipUi)
+                val groups = groupClipsByDay(clipUi)
+                val sessionClips = if (trackerState.isTracking && trackerState.sessionStartedAtEpochMs != null) {
+                    clipUi.filter { it.recordedAtEpochMs >= trackerState.sessionStartedAtEpochMs }
+                } else {
+                    emptyList()
+                }
+                _uiState.update { state ->
+                    state.copy(
                         isSoundTracking = trackerState.isTracking,
                         soundClipsThisSession = trackerState.clipsThisSession,
                         isRecordingSoundClip = trackerState.isRecordingClip,
-                        soundClips = trackerState.clips.map(::toClipUi),
+                        sessionClips = sessionClips,
+                        soundClipGroups = groups,
+                        canPlaybackSounds = !trackerState.isTracking,
                     )
                 }
             }
@@ -77,16 +86,40 @@ class SleepViewModel @Inject constructor(
 
     fun startSleepSoundTracking() {
         sleepSoundTracker.startTracking()
-        _uiState.update { it.copy(snackMessage = "Отслеживание звуков запущено") }
+        _uiState.update {
+            it.copy(
+                snackMessage = "Отслеживание звуков запущено",
+                showSoundPlaybackHint = false,
+                lastSessionClips = emptyList(),
+                canPlaybackSounds = false,
+            )
+        }
     }
 
     fun stopSleepSoundTracking() {
-        val currentClips = _uiState.value.soundClips.take(10) // Take recent clips for summary to avoid huge payload
+        val sessionStart = sleepSoundTracker.state.value.sessionStartedAtEpochMs ?: 0L
+        val sessionCount = _uiState.value.soundClipsThisSession
         sleepSoundTracker.stopTracking()
         stopPlayback()
-        _uiState.update { it.copy(snackMessage = "Отслеживание остановлено") }
-        if (currentClips.isNotEmpty()) {
-            generateSummary(currentClips)
+        val refreshed = sleepSoundStorage.loadClips().map(::toClipUi)
+        val lastSession = refreshed.filter { it.recordedAtEpochMs >= sessionStart }
+        _uiState.update {
+            it.copy(
+                snackMessage = if (lastSession.isNotEmpty()) {
+                    "Запись завершена — нажмите ▶ у фрагмента, чтобы прослушать"
+                } else if (sessionCount > 0) {
+                    "Отслеживание остановлено"
+                } else {
+                    "Отслеживание остановлено"
+                },
+                showSoundPlaybackHint = lastSession.isNotEmpty(),
+                lastSessionClips = lastSession,
+                soundClipGroups = groupClipsByDay(refreshed),
+                canPlaybackSounds = true,
+            )
+        }
+        if (lastSession.isNotEmpty()) {
+            generateSummary(lastSession)
         }
     }
 
@@ -115,17 +148,26 @@ class SleepViewModel @Inject constructor(
     fun deleteSleepSoundClip(id: String) {
         if (_uiState.value.playingSoundClipId == id) stopPlayback()
         if (sleepSoundTracker.deleteClip(id)) {
-            _uiState.update { it.copy(snackMessage = "Фрагмент удалён") }
+            val refreshed = sleepSoundStorage.loadClips().map(::toClipUi)
+            _uiState.update {
+                it.copy(
+                    snackMessage = "Фрагмент удалён",
+                    soundClipGroups = groupClipsByDay(refreshed),
+                    lastSessionClips = it.lastSessionClips.filterNot { clip -> clip.id == id },
+                    sessionClips = it.sessionClips.filterNot { clip -> clip.id == id },
+                )
+            }
         }
     }
 
     fun toggleSleepSoundPlayback(clipId: String) {
         val current = _uiState.value
+        if (!current.canPlaybackSounds) return
         if (current.playingSoundClipId == clipId) {
             stopPlayback()
             return
         }
-        val clip = current.soundClips.find { it.id == clipId } ?: return
+        val clip = findClipById(clipId) ?: return
         stopPlayback()
         runCatching {
             mediaPlayer = MediaPlayer().apply {
@@ -152,18 +194,51 @@ class SleepViewModel @Inject constructor(
     }
 
     private fun toClipUi(clip: SleepSoundClip): SleepSoundClipUi {
-        val time = Instant.ofEpochMilli(clip.recordedAtEpochMs)
-            .atZone(ZoneId.systemDefault())
-            .toLocalTime()
+        val zone = ZoneId.systemDefault()
+        val zoned = Instant.ofEpochMilli(clip.recordedAtEpochMs).atZone(zone)
+        val time = zoned.toLocalTime()
             .format(DateTimeFormatter.ofPattern("HH:mm", Locale("ru", "RU")))
         val seconds = (clip.durationMs / 1000).coerceAtLeast(1)
         return SleepSoundClipUi(
             id = clip.id,
+            dateKey = SleepSoundStorage.clipDayKey(clip.recordedAtEpochMs, zone),
+            recordedAtEpochMs = clip.recordedAtEpochMs,
             timeLabel = time,
-            durationLabel = "${seconds} сек",
+            durationLabel = "$seconds сек",
             label = clip.label,
             filePath = sleepSoundStorage.clipFile(clip).absolutePath,
         )
+    }
+
+    private fun findClipById(id: String): SleepSoundClipUi? {
+        val state = _uiState.value
+        return state.lastSessionClips.find { it.id == id }
+            ?: state.sessionClips.find { it.id == id }
+            ?: state.soundClipGroups.flatMap { it.clips }.find { it.id == id }
+    }
+
+    private fun groupClipsByDay(clips: List<SleepSoundClipUi>): List<SleepSoundDayGroupUi> {
+        if (clips.isEmpty()) return emptyList()
+        val zone = ZoneId.systemDefault()
+        val today = LocalDate.now(zone)
+        val dateFormatter = DateTimeFormatter.ofPattern("d MMMM", Locale("ru", "RU"))
+        return clips
+            .groupBy { it.dateKey }
+            .entries
+            .sortedByDescending { it.key }
+            .map { (dateKey, dayClips) ->
+                val date = runCatching { LocalDate.parse(dateKey) }.getOrElse { today }
+                val label = when (date) {
+                    today -> "Сегодня"
+                    today.minusDays(1) -> "Вчера"
+                    else -> date.format(dateFormatter)
+                }
+                SleepSoundDayGroupUi(
+                    dateKey = dateKey,
+                    dayLabel = label,
+                    clips = dayClips.sortedByDescending { it.recordedAtEpochMs },
+                )
+            }
     }
 
     fun clearSnackMessage() {

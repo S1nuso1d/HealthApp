@@ -2,16 +2,27 @@ package com.example.healtapp.features.social.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Chat
-import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Groups
-import androidx.compose.material.icons.filled.Poll
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,20 +41,25 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.healtapp.core.ui.components.AppButton
 import com.example.healtapp.core.ui.components.AppCard
-import com.example.healtapp.core.ui.components.AppMessageBanner
-import com.example.healtapp.core.ui.components.AppMessageType
-import com.example.healtapp.core.ui.components.AppScreen
 import com.example.healtapp.core.ui.components.EmptyStateCard
+import com.example.healtapp.core.ui.components.FeatureHeroChip
+import com.example.healtapp.core.ui.components.FeatureInlineNotice
+import com.example.healtapp.core.ui.components.FeatureScreenShell
 import com.example.healtapp.core.ui.components.GradientFormPanel
 import com.example.healtapp.core.ui.components.GradientOutlinedField
-import com.example.healtapp.core.ui.components.PersonAvatar
 import com.example.healtapp.core.ui.components.RoundedSectionTabs
 import com.example.healtapp.core.ui.components.RoundedTabItem
 import com.example.healtapp.core.ui.components.SectionHeader
+import com.example.healtapp.core.ui.theme.heroContentColor
 import com.example.healtapp.data.network.dto.social.ClubMemberResponseDto
 import com.example.healtapp.data.network.dto.social.ClubPostResponseDto
+import com.example.healtapp.data.network.dto.social.ClubResponseDto
 import com.example.healtapp.features.social.presentation.ClubsViewModel
+import com.example.healtapp.features.social.ui.components.ClubAvatar
+import com.example.healtapp.features.social.ui.components.ClubPostComposerSheet
+import com.example.healtapp.features.social.ui.components.SocialUserAvatar
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClubDetailScreen(
     clubId: Int,
@@ -52,74 +68,178 @@ fun ClubDetailScreen(
     viewModel: ClubsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.detailState.collectAsStateWithLifecycle()
-    val context = LocalContext.current
     var tab by remember { mutableIntStateOf(0) }
+    var showComposer by remember { mutableStateOf(false) }
 
     LaunchedEffect(clubId) { viewModel.loadClubDetail(clubId) }
 
     val club = uiState.club
-    AppScreen(
-        title = club?.name ?: "Клуб",
-        subtitle = club?.description ?: "Обсуждения и достижения",
-        headerIcon = Icons.Filled.Groups,
-        onNavigateBack = onBack,
-    ) {
-        uiState.error?.let { AppMessageBanner(text = it, type = AppMessageType.Error) }
-        uiState.message?.let { AppMessageBanner(text = it, type = AppMessageType.Info) }
+    val showFab = club != null && club.is_member && (tab == 0 || tab == 1)
 
-        if (uiState.isLoading && club == null) {
-            CircularProgressIndicator()
-            return@AppScreen
-        }
-
-        club ?: return@AppScreen
-
-        AppCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                PersonAvatar(name = club.name, size = 64.dp, useGradient = true)
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(club.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text("${club.members_count} участников", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                    club.rules?.takeIf { it.isNotBlank() }?.let {
-                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Box(modifier = Modifier.fillMaxSize()) {
+        when {
+            uiState.isLoading && club == null -> {
+                FeatureScreenShell(
+                    title = "Клуб",
+                    subtitle = "Загрузка…",
+                    icon = Icons.Filled.Groups,
+                    onBack = onBack,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 32.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator()
                     }
                 }
             }
-            Row(modifier = Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AppButton(
-                    text = "Пригласить",
-                    onClick = {
-                        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(android.content.Intent.EXTRA_TEXT, "Присоединяйся к клубу «${club.name}» в HealthSync!")
+            club != null -> {
+                FeatureScreenShell(
+                    title = club.name,
+                    subtitle = club.description?.takeIf { it.isNotBlank() }
+                        ?: "Обсуждения, достижения и опросы",
+                    icon = Icons.Filled.Groups,
+                    onBack = onBack,
+                    scrollStateKey = "club_detail_${club.id}_$tab",
+                    extraBottomPadding = if (showFab) 72.dp else 16.dp,
+                    heroActions = {
+                        if (club.is_member) {
+                            IconButton(onClick = { viewModel.leaveClub(clubId); onBack() }) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ExitToApp,
+                                    contentDescription = "Выйти из клуба",
+                                    tint = heroContentColor(),
+                                )
+                            }
                         }
-                        context.startActivity(android.content.Intent.createChooser(intent, "Пригласить"))
                     },
-                    isSecondary = true,
-                )
-                if (club.is_member) {
-                    AppButton(text = "Выйти", onClick = { viewModel.leaveClub(clubId); onBack() }, isSecondary = true)
+                    heroFooter = {
+                        Row(
+                            modifier = Modifier.padding(start = 12.dp, top = 10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            ClubAvatar(club = club, size = 44.dp)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                FeatureHeroChip(label = "${club.members_count} участников")
+                                FeatureHeroChip(label = "${uiState.posts.size} публикаций")
+                                if (uiState.myRole == "admin") {
+                                    FeatureHeroChip(label = "Админ")
+                                }
+                            }
+                        }
+                    },
+                ) {
+                    uiState.error?.let { FeatureInlineNotice(text = it, isError = true) }
+                    uiState.message?.let { FeatureInlineNotice(text = it) }
+
+                    club.rules?.takeIf { it.isNotBlank() }?.let { rules ->
+                        AppCard {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(
+                                    text = "Правила клуба",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                                Text(
+                                    text = rules,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+
+                    val tabs = buildList {
+                        add(RoundedTabItem(0, "Лента", Icons.Filled.Chat))
+                        add(RoundedTabItem(1, "Участники", Icons.Filled.Groups))
+                        if (uiState.myRole == "admin") {
+                            add(RoundedTabItem(2, "Настройки", Icons.Filled.Settings))
+                        }
+                    }
+                    RoundedSectionTabs(tabs = tabs, selected = tab, onSelect = { tab = it })
+
+                    when (tab) {
+                        0 -> ClubFeedTab(
+                            clubId = clubId,
+                            posts = uiState.posts,
+                            isMember = club.is_member,
+                            viewModel = viewModel,
+                        )
+                        1 -> ClubMembersTab(
+                            members = uiState.members,
+                            isAdmin = uiState.myRole == "admin",
+                            clubId = clubId,
+                            onOpenMember = onOpenMember,
+                            viewModel = viewModel,
+                        )
+                        else -> ClubSettingsTab(club = club, viewModel = viewModel)
+                    }
                 }
             }
         }
 
-        val tabs = buildList {
-            add(RoundedTabItem(0, "Лента"))
-            add(RoundedTabItem(1, "Участники"))
-            if (uiState.myRole == "admin") add(RoundedTabItem(2, "Настройки"))
-        }
-        RoundedSectionTabs(tabs = tabs, selected = tab, onSelect = { tab = it })
-
-        when (tab) {
-            0 -> ClubFeedTab(clubId, uiState.posts, club.is_member, viewModel)
-            1 -> ClubMembersTab(clubId, uiState.members, uiState.myRole == "admin", onOpenMember, viewModel)
-            else -> ClubSettingsTab(club, viewModel)
+        if (club != null && club.is_member) {
+            when (tab) {
+                0 -> ClubFab(
+                    onClick = { showComposer = true },
+                    icon = Icons.Filled.Add,
+                    contentDescription = "Новая публикация",
+                )
+                1 -> ClubInviteFab(clubName = club.name)
+                else -> Unit
+            }
         }
     }
+
+    ClubPostComposerSheet(
+        visible = showComposer,
+        onDismiss = { showComposer = false },
+        onPublish = { type, body, pollOptions ->
+            viewModel.createPost(clubId, type, body, pollOptions)
+        },
+    )
+}
+
+@Composable
+private fun BoxScope.ClubFab(
+    onClick: () -> Unit,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+) {
+    FloatingActionButton(
+        onClick = onClick,
+        modifier = Modifier
+            .align(Alignment.BottomEnd)
+            .padding(end = 20.dp, bottom = 24.dp),
+        containerColor = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary,
+        shape = CircleShape,
+    ) {
+        Icon(icon, contentDescription = contentDescription)
+    }
+}
+
+@Composable
+private fun BoxScope.ClubInviteFab(clubName: String) {
+    val context = LocalContext.current
+    ClubFab(
+        onClick = {
+            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(
+                    android.content.Intent.EXTRA_TEXT,
+                    "Присоединяйся к клубу «$clubName» в HealthSync!",
+                )
+            }
+            context.startActivity(android.content.Intent.createChooser(intent, "Пригласить"))
+        },
+        icon = Icons.Filled.PersonAdd,
+        contentDescription = "Пригласить",
+    )
 }
 
 @Composable
@@ -129,62 +249,31 @@ private fun ClubFeedTab(
     isMember: Boolean,
     viewModel: ClubsViewModel,
 ) {
-    var composerType by remember { mutableIntStateOf(0) }
-    var body by remember { mutableStateOf("") }
-    var pollOptions by remember { mutableStateOf("") }
-    val typeKey = when (composerType) {
-        1 -> "achievement"
-        2 -> "poll"
-        else -> "discussion"
-    }
-
-    if (isMember) {
-        SectionHeader(title = "Новая публикация", subtitle = "Обсуждение, достижение или опрос")
-        GradientFormPanel {
-            RoundedSectionTabs(
-                tabs = listOf(
-                    RoundedTabItem(0, "Обсуждение", Icons.Filled.Chat),
-                    RoundedTabItem(1, "Достижение", Icons.Filled.EmojiEvents),
-                    RoundedTabItem(2, "Опрос", Icons.Filled.Poll),
-                ),
-                selected = composerType,
-                onSelect = { composerType = it },
-            )
-            GradientOutlinedField(
-                value = body,
-                onValueChange = { body = it },
-                label = if (composerType == 1) "Поделитесь методом или результатом" else "Текст",
-                singleLine = false,
-            )
-            if (composerType == 2) {
-                GradientOutlinedField(
-                    value = pollOptions,
-                    onValueChange = { pollOptions = it },
-                    label = "Варианты через запятую",
-                )
-            }
-            AppButton(
-                text = "Опубликовать",
-                onClick = {
-                    val opts = if (composerType == 2) {
-                        pollOptions.split(",").map { it.trim() }.filter { it.isNotBlank() }
-                    } else null
-                    viewModel.createPost(clubId, typeKey, body, opts)
-                    body = ""
-                    pollOptions = ""
-                },
-                enabled = body.isNotBlank() || composerType == 2,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-    }
-
-    SectionHeader(title = "Лента клуба", subtitle = "Всего: ${posts.size}")
+    SectionHeader(
+        title = "Лента клуба",
+        subtitle = if (isMember) {
+            "Всего: ${posts.size} · нажмите +, чтобы опубликовать"
+        } else {
+            "Всего: ${posts.size}"
+        },
+    )
 
     if (posts.isEmpty()) {
-        EmptyStateCard("Пока нет публикаций. Начните обсуждение или поделитесь достижением.")
+        EmptyStateCard(
+            title = "Пока пусто",
+            text = if (isMember) {
+                "Начните обсуждение или поделитесь достижением — кнопка + внизу справа."
+            } else {
+                "Пока нет публикаций в этом клубе."
+            },
+            icon = Icons.Filled.Chat,
+        )
     } else {
-        posts.forEach { post -> ClubPostCard(clubId, post, isMember, viewModel) }
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            posts.forEach { post ->
+                ClubPostCard(clubId = clubId, post = post, isMember = isMember, viewModel = viewModel)
+            }
+        }
     }
 }
 
@@ -202,9 +291,23 @@ private fun ClubPostCard(
     }
     AppCard {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                Text(post.user.display_name, fontWeight = FontWeight.SemiBold)
-                Text(typeLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SocialUserAvatar(user = post.user, size = 36.dp)
+                    Text(post.user.display_name, fontWeight = FontWeight.SemiBold)
+                }
+                Text(
+                    typeLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
             }
             post.body?.let {
                 Text(it, style = MaterialTheme.typography.bodyMedium)
@@ -217,8 +320,11 @@ private fun ClubPostCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .then(
-                                if (isMember) Modifier.clickable { viewModel.votePoll(clubId, post.id, option) }
-                                else Modifier,
+                                if (isMember) {
+                                    Modifier.clickable { viewModel.votePoll(clubId, post.id, option) }
+                                } else {
+                                    Modifier
+                                },
                             ),
                     ) {
                         Row(
@@ -229,7 +335,11 @@ private fun ClubPostCard(
                             Text(
                                 option,
                                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                color = if (selected) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                },
                             )
                             Text(
                                 "$votes",
@@ -252,33 +362,36 @@ private fun ClubMembersTab(
     onOpenMember: (Int) -> Unit,
     viewModel: ClubsViewModel,
 ) {
-    SectionHeader(title = "Участники", subtitle = "Всего: ${members.size}")
-    members.forEach { member ->
-        AppCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+    SectionHeader(
+        title = "Участники",
+        subtitle = "Всего: ${members.size} · пригласите друзей кнопкой справа внизу",
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        members.forEach { member ->
+            AppCard {
                 Row(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { onOpenMember(member.user.user_id) },
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    PersonAvatar(name = member.user.display_name)
-                    Column {
-                        Text(member.user.display_name, fontWeight = FontWeight.SemiBold)
-                        Text(
-                            if (member.role == "admin") "Администратор" else "Участник",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { onOpenMember(member.user.user_id) },
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        SocialUserAvatar(user = member.user)
+                        Column {
+                            Text(member.user.display_name, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                if (member.role == "admin") "Администратор" else "Участник",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
-                }
-                if (isAdmin && !member.user.is_self) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (isAdmin && !member.user.is_self) {
                         AppButton(
                             text = if (member.role == "admin") "−" else "Админ",
                             onClick = {
@@ -286,6 +399,7 @@ private fun ClubMembersTab(
                                 viewModel.setMemberRole(clubId, member.user.user_id, next)
                             },
                             isSecondary = true,
+                            modifier = Modifier.width(88.dp),
                         )
                     }
                 }
@@ -296,7 +410,7 @@ private fun ClubMembersTab(
 
 @Composable
 private fun ClubSettingsTab(
-    club: com.example.healtapp.data.network.dto.social.ClubResponseDto,
+    club: ClubResponseDto,
     viewModel: ClubsViewModel,
 ) {
     var name by remember(club.id) { mutableStateOf(club.name) }

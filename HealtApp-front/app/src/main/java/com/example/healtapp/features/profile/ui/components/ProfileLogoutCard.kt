@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.ui.animation.appPressScale
 import com.example.healtapp.core.ui.components.AppCard
+import com.example.healtapp.core.ui.components.AppFormMetrics
 import com.example.healtapp.core.ui.theme.isAppDarkTheme
 
 @Composable
@@ -96,9 +97,15 @@ fun ProfileLogoutCard(
                 interactionSource = interaction,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
+                    .height(AppFormMetrics.ControlHeight)
                     .appPressScale(interaction, pressedScale = 0.98f),
-                shape = RoundedCornerShape(if (isAppDarkTheme()) 8.dp else 18.dp),
+                shape = RoundedCornerShape(
+                    if (isAppDarkTheme()) {
+                        AppFormMetrics.ButtonCornerRadiusDark
+                    } else {
+                        AppFormMetrics.ButtonCornerRadiusLight
+                    },
+                ),
                 colors = ButtonDefaults.outlinedButtonColors(
                     contentColor = error,
                     disabledContentColor = error.copy(alpha = 0.38f),

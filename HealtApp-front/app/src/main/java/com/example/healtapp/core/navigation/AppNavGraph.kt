@@ -127,11 +127,7 @@ fun AppNavGraph() {
                     items = AppDestinations.bottomNavItems,
                     currentRoute = currentRoute,
                     onItemClick = { item ->
-                        navController.navigate(item.route) {
-                            popUpTo(NavRoutes.Dashboard.route)
-                            launchSingleTop = true
-                            restoreState = true
-                        }
+                        navController.navigateBottomTab(item.route)
                     },
                 )
             }
@@ -264,63 +260,31 @@ fun AppNavGraph() {
 
             composable(NavRoutes.Dashboard.route) {
                 DashboardScreen(
-                    onOpenSleep = {
-                        navController.navigate(NavRoutes.Sleep.route) { launchSingleTop = true }
-                    },
-                    onOpenHydration = {
-                        navController.navigate(NavRoutes.Hydration.route) { launchSingleTop = true }
-                    },
-                    onOpenNutrition = {
-                        navController.navigate(NavRoutes.Nutrition.route) { launchSingleTop = true }
-                    },
-                    onOpenActivity = {
-                        navController.navigate(NavRoutes.Activity.route) { launchSingleTop = true }
-                    },
-                    onOpenRecommendations = {
-                        navController.navigate(NavRoutes.Recommendations.route) { launchSingleTop = true }
-                    },
-                    onOpenActionPlan = {
-                        navController.navigate(NavRoutes.ActionPlan.route) { launchSingleTop = true }
-                    },
-                    onOpenTimeline = {
-                        navController.navigate(NavRoutes.Timeline.route) { launchSingleTop = true }
-                    },
-                    onOpenAiAssistant = {
-                        navController.navigate(NavRoutes.AiAssistant.route) { launchSingleTop = true }
-                    },
-                    onOpenHealthVitals = {
-                        navController.navigate(NavRoutes.HealthVitals.route) { launchSingleTop = true }
-                    },
+                    onOpenSleep = { navController.navigateFeature(NavRoutes.Sleep.route) },
+                    onOpenHydration = { navController.navigateFeature(NavRoutes.Hydration.route) },
+                    onOpenNutrition = { navController.navigateFeature(NavRoutes.Nutrition.route) },
+                    onOpenActivity = { navController.navigateFeature(NavRoutes.Activity.route) },
+                    onOpenRecommendations = { navController.navigateFeature(NavRoutes.Recommendations.route) },
+                    onOpenActionPlan = { navController.navigateFeature(NavRoutes.ActionPlan.route) },
+                    onOpenTimeline = { navController.navigateFeature(NavRoutes.Timeline.route) },
+                    onOpenAiAssistant = { navController.navigateFeature(NavRoutes.AiAssistant.route) },
+                    onOpenHealthVitals = { navController.navigateFeature(NavRoutes.HealthVitals.route) },
                 )
             }
             composable(NavRoutes.Profile.route) {
                 ProfileScreen(
-                    onOpenDataPrivacy = { navController.navigate(NavRoutes.DataPrivacy.route) },
-                    onOpenIntegrations = { navController.navigate(NavRoutes.Integrations.route) },
-                    onOpenMiBandBle = { navController.navigate(NavRoutes.MiBandBle.route) },
-                    onOpenNotifications = { navController.navigate(NavRoutes.Notifications.route) },
-                    onOpenAchievements = { navController.navigate(NavRoutes.Achievements.route) },
-                    onOpenFriends = { navController.navigate(NavRoutes.Friends.route) },
-                    onOpenClubs = {
-                        navController.navigate(NavRoutes.Clubs.route) {
-                            launchSingleTop = true
-                        }
-                    },
+                    onOpenDataPrivacy = { navController.navigateFeature(NavRoutes.DataPrivacy.route) },
+                    onOpenIntegrations = { navController.navigateFeature(NavRoutes.Integrations.route) },
+                    onOpenMiBandBle = { navController.navigateFeature(NavRoutes.MiBandBle.route) },
+                    onOpenNotifications = { navController.navigateFeature(NavRoutes.Notifications.route) },
+                    onOpenAchievements = { navController.navigateFeature(NavRoutes.Achievements.route) },
+                    onOpenFriends = { navController.navigateFeature(NavRoutes.Friends.route) },
+                    onOpenClubs = { navController.navigateFeature(NavRoutes.Clubs.route) },
                     onOpenPoliticalRecommendations = {
-                        navController.navigate(NavRoutes.PoliticalRecommendations.route) {
-                            launchSingleTop = true
-                        }
+                        navController.navigateFeature(NavRoutes.PoliticalRecommendations.route)
                     },
-                    onOpenPills = {
-                        navController.navigate(NavRoutes.Pills.route) {
-                            launchSingleTop = true
-                        }
-                    },
-                    onOpenCycle = {
-                        navController.navigate(NavRoutes.Cycle.route) {
-                            launchSingleTop = true
-                        }
-                    },
+                    onOpenPills = { navController.navigateFeature(NavRoutes.Pills.route) },
+                    onOpenCycle = { navController.navigateFeature(NavRoutes.Cycle.route) },
                     onLogout = { AppRefreshBus.notifyLogout() },
                 )
             }
@@ -388,7 +352,9 @@ fun AppNavGraph() {
             composable(NavRoutes.Hydration.route) {
                 com.example.healtapp.features.nutrition.ui.NutritionHubScreen(initialTab = 2)
             }
-            composable(NavRoutes.Recommendations.route) { RecommendationsScreen() }
+            composable(NavRoutes.Recommendations.route) {
+                RecommendationsScreen(onBack = { navController.popBackStack() })
+            }
             composable(
                 route = NavRoutes.Timeline.route,
                 enterTransition = { fadeIn() },
@@ -403,6 +369,11 @@ fun AppNavGraph() {
                     },
                     onOpenFriends = {
                         navController.navigate(NavRoutes.Friends.route) { launchSingleTop = true }
+                    },
+                    onOpenClub = { clubId ->
+                        navController.navigate(NavRoutes.ClubDetail.route(clubId)) {
+                            launchSingleTop = true
+                        }
                     },
                 )
             }

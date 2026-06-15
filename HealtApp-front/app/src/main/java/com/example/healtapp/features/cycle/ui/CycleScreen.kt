@@ -31,7 +31,9 @@ import com.example.healtapp.features.cycle.ui.components.CycleAddEntryDock
 import com.example.healtapp.features.cycle.ui.components.CycleAddSheet
 import com.example.healtapp.features.cycle.ui.components.CycleCalendarCard
 import com.example.healtapp.features.cycle.ui.components.CycleCollapsibleHistorySection
+import com.example.healtapp.features.cycle.ui.components.CycleDayMoodCard
 import com.example.healtapp.features.cycle.ui.components.CycleHeroBar
+import com.example.healtapp.features.cycle.ui.components.CycleMyCyclesCard
 import com.example.healtapp.features.cycle.ui.components.CyclePhaseBubble
 import java.time.LocalDate
 import java.time.YearMonth
@@ -45,9 +47,20 @@ fun CycleScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showAddSheet by remember { mutableStateOf(false) }
     val today = remember { LocalDate.now() }
-    val insight = remember(uiState.entries) { CycleCalculator.buildInsight(uiState.entries, today) }
-    val month = remember { YearMonth.from(today) }
-    val monthDays = remember(uiState.entries, month) { CycleCalculator.monthDays(month, insight) }
+    var displayMonth by remember { mutableStateOf(YearMonth.from(today)) }
+    var selectedDate by remember { mutableStateOf(today) }
+
+    val insight = remember(uiState.entries, today) { CycleCalculator.buildInsight(uiState.entries, today) }
+    val stats = remember(uiState.entries) { CycleCalculator.buildCycleStats(uiState.entries) }
+    val monthDays = remember(uiState.entries, displayMonth, today) {
+        CycleCalculator.monthDays(displayMonth, uiState.entries, today)
+    }
+    val selectedDay = remember(monthDays, selectedDate) {
+        monthDays.find { it.date == selectedDate }
+    }
+    val selectedMood = remember(uiState.entries, selectedDate) {
+        CycleCalculator.moodForDate(uiState.entries, selectedDate)
+    }
 
     Box(
         modifier = Modifier
@@ -82,7 +95,29 @@ fun CycleScreen(
                 }
 
                 item(key = "calendar") {
-                    CycleCalendarCard(month = month, monthDays = monthDays)
+                    CycleCalendarCard(
+                        month = displayMonth,
+                        monthDays = monthDays,
+                        selectedDate = selectedDate,
+                        onSelectDate = { selectedDate = it },
+                        onPreviousMonth = { displayMonth = displayMonth.minusMonths(1) },
+                        onNextMonth = { displayMonth = displayMonth.plusMonths(1) },
+                    )
+                }
+
+                item(key = "day_mood") {
+                    CycleDayMoodCard(
+                        date = selectedDate,
+                        mood = selectedMood,
+                        phase = selectedDay?.phase ?: insight.phase,
+                        cycleDay = selectedDay?.cycleDay,
+                    )
+                }
+
+                if (uiState.entries.isNotEmpty()) {
+                    item(key = "my_cycles") {
+                        CycleMyCyclesCard(stats = stats)
+                    }
                 }
 
                 if (uiState.entries.isNotEmpty()) {

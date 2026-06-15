@@ -8,26 +8,32 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.healtapp.core.ui.components.AppButton
+import com.example.healtapp.features.meal.ui.components.MealSheetHeader
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
@@ -127,22 +133,36 @@ fun BarcodeScannerSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
     ) {
-        Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
-            Text(
-                text = "Наведите камеру на штрихкод",
-                style = MaterialTheme.typography.titleMedium,
+        Column(
+            Modifier
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 24.dp),
+        ) {
+            MealSheetHeader(
+                title = "Сканирование",
+                subtitle = "Наведите камеру на штрихкод продукта",
+                icon = Icons.Filled.QrCodeScanner,
+                onDismiss = onDismiss,
             )
             Spacer(Modifier.height(12.dp))
-            AndroidView(
-                factory = { _ -> previewView },
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(400.dp),
-            )
-            Spacer(Modifier.height(8.dp))
-            TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
-                Text("Закрыть")
+                    .height(400.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
+            ) {
+                AndroidView(
+                    factory = { _ -> previewView },
+                    modifier = Modifier.fillMaxWidth().height(400.dp),
+                )
             }
+            Spacer(Modifier.height(12.dp))
+            AppButton(
+                text = "Закрыть",
+                onClick = onDismiss,
+                isSecondary = true,
+            )
         }
     }
 }

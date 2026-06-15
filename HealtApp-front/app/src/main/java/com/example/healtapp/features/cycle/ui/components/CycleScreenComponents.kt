@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -29,7 +31,10 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Mood
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -59,8 +64,8 @@ import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.common.CycleCalculator
 import com.example.healtapp.core.ui.animation.AppMotion
 import com.example.healtapp.core.ui.animation.appPressScale
+import com.example.healtapp.core.common.DateRules
 import com.example.healtapp.core.ui.components.AppButton
-import com.example.healtapp.core.ui.components.DatePickerField
 import com.example.healtapp.core.ui.components.FeatureHeroBar
 import com.example.healtapp.core.ui.components.FeatureHeroChip
 import com.example.healtapp.core.ui.components.GradientFormPanel
@@ -74,6 +79,8 @@ import com.example.healtapp.core.ui.theme.contentPrimaryColor
 import com.example.healtapp.core.ui.theme.contentSecondaryColor
 import com.example.healtapp.core.ui.theme.subtleFillGradient
 import com.example.healtapp.core.ui.theme.themedCardMint
+import com.example.healtapp.core.ui.components.AppCard
+import com.example.healtapp.core.ui.components.SectionHeader
 import com.example.healtapp.data.network.dto.cycle.CycleEntryDto
 import java.time.LocalDate
 import java.time.YearMonth
@@ -185,13 +192,87 @@ fun CyclePhaseBubble(
                 textAlign = TextAlign.Center,
             )
         }
+        insight.ovulationDate?.let { ovulation ->
+            Text(
+                text = "Овуляция: ${formatCycleDate(ovulation)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.tertiary,
+                textAlign = TextAlign.Center,
+            )
+        }
+        CycleMoodBadge(mood = insight.todayMood)
     }
 }
 
 @Composable
+fun CycleMoodBadge(
+    mood: CycleCalculator.MoodInsight,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Brush.linearGradient(subtleFillGradient()))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Filled.Mood,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp),
+            )
+            Text(
+                text = "Настроение сегодня: ${mood.label}",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = contentPrimaryColor(),
+            )
+        }
+        Text(
+            text = mood.description,
+            style = MaterialTheme.typography.bodySmall,
+            color = contentSecondaryColor(),
+        )
+    }
+}
+
+@Composable
+fun CycleDayMoodCard(
+    date: LocalDate,
+    mood: CycleCalculator.MoodInsight,
+    phase: CycleCalculator.Phase,
+    cycleDay: Int?,
+    modifier: Modifier = Modifier,
+) {
+    AppCard(modifier = modifier) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            SectionHeader(
+                title = formatCycleDate(date),
+                subtitle = buildString {
+                    append(phase.labelRu)
+                    cycleDay?.let { append(" · день $it") }
+                },
+            )
+            CycleMoodBadge(mood = mood)
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
 fun CycleCalendarCard(
     month: YearMonth,
     monthDays: List<CycleCalculator.CalendarDay>,
+    selectedDate: LocalDate,
+    onSelectDate: (LocalDate) -> Unit,
+    onPreviousMonth: () -> Unit,
+    onNextMonth: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -207,16 +288,30 @@ fun CycleCalendarCard(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(
-            text = "Календарь",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Text(
-            text = month.format(DateTimeFormatter.ofPattern("LLLL yyyy", Locale("ru"))),
-            style = MaterialTheme.typography.bodySmall,
-            color = contentSecondaryColor(),
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onPreviousMonth) {
+                Icon(Icons.Filled.ChevronLeft, contentDescription = "Предыдущий месяц")
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "Календарь",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = month.format(DateTimeFormatter.ofPattern("LLLL yyyy", Locale("ru"))),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = contentSecondaryColor(),
+                )
+            }
+            IconButton(onClick = onNextMonth) {
+                Icon(Icons.Filled.ChevronRight, contentDescription = "Следующий месяц")
+            }
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly,
@@ -242,7 +337,12 @@ fun CycleCalendarCard(
                     if (day == null) {
                         Box(modifier = Modifier.weight(1f).aspectRatio(1f))
                     } else {
-                        CycleCalendarCell(day = day, modifier = Modifier.weight(1f))
+                        CycleCalendarCell(
+                            day = day,
+                            selected = day.date == selectedDate,
+                            onClick = { onSelectDate(day.date) },
+                            modifier = Modifier.weight(1f),
+                        )
                     }
                 }
                 repeat(7 - week.size) {
@@ -250,9 +350,13 @@ fun CycleCalendarCard(
                 }
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
             CycleLegendDot(color = MaterialTheme.colorScheme.error.copy(alpha = 0.75f), label = "Месячные")
             CycleLegendDot(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.55f), label = "Прогноз")
+            CycleLegendDot(color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.75f), label = "Овуляция")
             CycleLegendDot(color = SkyPrimary.copy(alpha = 0.65f), label = "Фертильность")
         }
     }
@@ -261,11 +365,14 @@ fun CycleCalendarCard(
 @Composable
 private fun CycleCalendarCell(
     day: CycleCalculator.CalendarDay,
+    selected: Boolean,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val background = when {
         day.isLoggedPeriod -> MaterialTheme.colorScheme.error.copy(alpha = 0.75f)
         day.isPredictedPeriod -> MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
+        day.isOvulation -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.65f)
         day.isFertile -> SkyPrimary.copy(alpha = 0.35f)
         day.isToday -> MintPrimary.copy(alpha = 0.25f)
         else -> MaterialTheme.colorScheme.surface.copy(alpha = 0.4f)
@@ -276,11 +383,12 @@ private fun CycleCalendarCell(
             .padding(2.dp)
             .clip(CircleShape)
             .background(background)
+            .clickable(onClick = onClick)
             .then(
-                if (day.isToday) {
-                    Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, CircleShape)
-                } else {
-                    Modifier
+                when {
+                    selected -> Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                    day.isToday -> Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                    else -> Modifier
                 },
             ),
         contentAlignment = Alignment.Center,
@@ -288,7 +396,7 @@ private fun CycleCalendarCell(
         Text(
             text = day.date.dayOfMonth.toString(),
             style = MaterialTheme.typography.labelMedium,
-            fontWeight = if (day.isToday) FontWeight.Bold else FontWeight.Medium,
+            fontWeight = if (day.isToday || selected) FontWeight.Bold else FontWeight.Medium,
         )
     }
 }
@@ -526,26 +634,21 @@ fun CycleAddSheet(
     if (!visible) return
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var startDate by remember { mutableStateOf(LocalDate.now().toString()) }
-    var endDate by remember { mutableStateOf("") }
     var symptoms by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
+    var selectedStart by remember { mutableStateOf<LocalDate?>(null) }
+    var selectedEnd by remember { mutableStateOf<LocalDate?>(null) }
 
     LaunchedEffect(visible) {
         if (visible) {
-            startDate = LocalDate.now().toString()
-            endDate = ""
             symptoms = ""
             notes = ""
+            selectedStart = null
+            selectedEnd = null
         }
     }
 
-    val parsedStart = remember(startDate) { runCatching { LocalDate.parse(startDate) }.getOrNull() }
-    val parsedEnd = remember(endDate) {
-        endDate.takeIf { it.isNotBlank() }?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
-    }
-    val endBeforeStart = parsedStart != null && parsedEnd != null && parsedEnd.isBefore(parsedStart)
-    val canSave = parsedStart != null && !endBeforeStart
+    val canSave = selectedStart != null
 
     val symptomPresets = listOf(
         "Спазмы", "Головная боль", "Усталость", "Вздутие", "Перепады настроения", "Акне",
@@ -597,7 +700,7 @@ fun CycleAddSheet(
                                 fontWeight = FontWeight.Bold,
                             )
                             Text(
-                                text = "Отметьте начало цикла, симптомы и заметки",
+                                text = "Выберите начало и конец месячных на одном календаре",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -608,103 +711,120 @@ fun CycleAddSheet(
                     }
                 }
 
+                val parsedStart = selectedStart
+                val parsedEnd = selectedEnd
+
                 if (parsedStart != null) {
-                    CycleEntryPreviewCard(
-                        startDate = parsedStart,
-                        endDate = parsedEnd,
-                        symptoms = symptoms.trim(),
-                        notes = notes.trim(),
-                    )
-                }
-
-                GradientFormPanel {
-                    Text(
-                        text = "1. Даты цикла",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    DatePickerField(label = "Начало цикла", value = startDate, onValueChange = { startDate = it })
-                    parsedStart?.let { start ->
-                        Text(
-                            text = formatCycleDate(start),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                    DatePickerField(label = "Конец (необязательно)", value = endDate, onValueChange = { endDate = it })
-                    parsedEnd?.let { end ->
-                        Text(
-                            text = formatCycleDate(end),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                    if (endBeforeStart) {
-                        Text(
-                            text = "Дата окончания не может быть раньше начала",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
+                        CycleEntryPreviewCard(
+                            startDate = parsedStart,
+                            endDate = parsedEnd,
+                            symptoms = symptoms.trim(),
+                            notes = notes.trim(),
                         )
                     }
 
-                    Text(
-                        text = "2. Симптомы",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = "Выберите из списка или напишите свои",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = contentSecondaryColor(),
-                    )
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        symptomPresets.forEach { preset ->
-                            val selected = symptoms.contains(preset, ignoreCase = true)
-                            FilterChip(
-                                selected = selected,
-                                onClick = {
-                                    symptoms = if (selected) {
-                                        symptoms.split(",")
-                                            .map { it.trim() }
-                                            .filter { it.isNotBlank() && !it.equals(preset, ignoreCase = true) }
-                                            .joinToString(", ")
-                                    } else {
-                                        listOf(symptoms.trim(), preset)
-                                            .filter { it.isNotBlank() }
-                                            .joinToString(", ")
-                                    }
-                                },
-                                label = { Text(preset) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = chipSelectedColor(themedCardMint()),
-                                ),
-                            )
+                    GradientFormPanel {
+                        Text(
+                            text = "1. Период месячных",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = "Сначала день начала, затем день окончания — всё на одном календаре",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = contentSecondaryColor(),
+                        )
+                        CyclePeriodRangeCalendar(
+                            selectedStart = parsedStart,
+                            selectedEnd = parsedEnd,
+                            onRangeChange = { start, end ->
+                                selectedStart = start
+                                selectedEnd = end
+                            },
+                        )
+                        when {
+                            parsedStart == null -> {
+                                Text(
+                                    text = "Нажмите день начала месячных",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            parsedEnd == null -> {
+                                Text(
+                                    text = "Начало: ${formatCycleDate(parsedStart)} · выберите день окончания",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                            else -> {
+                                Text(
+                                    text = "${formatCycleDate(parsedStart)} — ${formatCycleDate(parsedEnd)}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
                         }
-                    }
-                    GradientOutlinedField(
-                        value = symptoms,
-                        onValueChange = { symptoms = it },
-                        label = "Симптомы",
-                        singleLine = false,
-                        maxLines = 3,
-                    )
 
-                    Text(
-                        text = "3. Заметки",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    GradientOutlinedField(
-                        value = notes,
-                        onValueChange = { notes = it },
-                        label = "Заметки (необязательно)",
-                        singleLine = false,
-                        maxLines = 4,
-                    )
-                }
+                        Text(
+                            text = "2. Симптомы",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = "Выберите из списка или напишите свои",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = contentSecondaryColor(),
+                        )
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            symptomPresets.forEach { preset ->
+                                val selected = symptoms.contains(preset, ignoreCase = true)
+                                FilterChip(
+                                    selected = selected,
+                                    onClick = {
+                                        symptoms = if (selected) {
+                                            symptoms.split(",")
+                                                .map { it.trim() }
+                                                .filter { it.isNotBlank() && !it.equals(preset, ignoreCase = true) }
+                                                .joinToString(", ")
+                                        } else {
+                                            listOf(symptoms.trim(), preset)
+                                                .filter { it.isNotBlank() }
+                                                .joinToString(", ")
+                                        }
+                                    },
+                                    label = { Text(preset) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = chipSelectedColor(themedCardMint()),
+                                    ),
+                                )
+                            }
+                        }
+                        GradientOutlinedField(
+                            value = symptoms,
+                            onValueChange = { symptoms = it },
+                            label = "Симптомы",
+                            singleLine = false,
+                            maxLines = 3,
+                        )
+
+                        Text(
+                            text = "3. Заметки",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        GradientOutlinedField(
+                            value = notes,
+                            onValueChange = { notes = it },
+                            label = "Заметки (необязательно)",
+                            singleLine = false,
+                            maxLines = 4,
+                        )
+                    }
             }
 
             Column(
@@ -717,15 +837,15 @@ fun CycleAddSheet(
             ) {
                 AppButton(
                     text = when {
-                        endBeforeStart -> "Проверьте даты цикла"
                         !canSave -> "Укажите дату начала"
+                        selectedEnd == null -> "Сохранить (без даты окончания)"
                         else -> "Сохранить запись"
                     },
                     onClick = {
-                        val start = parsedStart ?: return@AppButton
+                        val start = selectedStart ?: return@AppButton
                         onSave(
                             start,
-                            parsedEnd,
+                            selectedEnd,
                             symptoms.trim().takeIf { it.isNotBlank() },
                             notes.trim().takeIf { it.isNotBlank() },
                         )
@@ -734,6 +854,173 @@ fun CycleAddSheet(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun CyclePeriodRangeCalendar(
+    selectedStart: LocalDate?,
+    selectedEnd: LocalDate?,
+    onRangeChange: (LocalDate?, LocalDate?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val today = remember { DateRules.today() }
+    val currentMonth = remember { YearMonth.from(today) }
+    var displayMonth by remember { mutableStateOf(currentMonth) }
+
+    LaunchedEffect(selectedStart) {
+        if (selectedStart != null) {
+            displayMonth = YearMonth.from(selectedStart)
+        }
+    }
+
+    val rangeStart = listOfNotNull(selectedStart, selectedEnd).minOrNull()
+    val rangeEnd = listOfNotNull(selectedStart, selectedEnd).maxOrNull()
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = { displayMonth = displayMonth.minusMonths(1) }) {
+                Icon(Icons.Filled.ChevronLeft, contentDescription = "Предыдущий месяц")
+            }
+            Text(
+                text = displayMonth.format(DateTimeFormatter.ofPattern("LLLL yyyy", cycleRuLocale)),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            IconButton(
+                onClick = { displayMonth = displayMonth.plusMonths(1) },
+                enabled = displayMonth.isBefore(currentMonth),
+            ) {
+                Icon(Icons.Filled.ChevronRight, contentDescription = "Следующий месяц")
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
+            listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс").forEach { label ->
+                Text(
+                    text = label,
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        val firstDay = displayMonth.atDay(1)
+        val offset = (firstDay.dayOfWeek.value + 6) % 7
+        val monthDays = (1..displayMonth.lengthOfMonth()).map { displayMonth.atDay(it) }
+        val cells = List(offset) { null as LocalDate? } + monthDays
+
+        cells.chunked(7).forEach { week ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            ) {
+                week.forEach { date ->
+                    if (date == null) {
+                        Box(modifier = Modifier.weight(1f).aspectRatio(1f))
+                    } else {
+                        val enabled = !date.isAfter(today)
+                        val inRange = rangeStart != null && rangeEnd != null &&
+                            !date.isBefore(rangeStart) && !date.isAfter(rangeEnd)
+                        val isStart = date == selectedStart
+                        val isEnd = date == selectedEnd
+                        CycleRangeDayCell(
+                            date = date,
+                            enabled = enabled,
+                            inRange = inRange,
+                            isStart = isStart,
+                            isEnd = isEnd,
+                            isToday = date == today,
+                            onClick = {
+                                if (!enabled) return@CycleRangeDayCell
+                                val (newStart, newEnd) = when {
+                                    selectedStart == null -> date to null
+                                    selectedEnd == null && date.isBefore(selectedStart) -> date to null
+                                    selectedEnd == null -> selectedStart to date
+                                    else -> date to null
+                                }
+                                onRangeChange(newStart, newEnd)
+                            },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+                repeat(7 - week.size) {
+                    Box(modifier = Modifier.weight(1f).aspectRatio(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CycleRangeDayCell(
+    date: LocalDate,
+    enabled: Boolean,
+    inRange: Boolean,
+    isStart: Boolean,
+    isEnd: Boolean,
+    isToday: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val background = when {
+        !enabled -> Color.Transparent
+        isStart || isEnd -> MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
+        inRange -> MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+        isToday -> MintPrimary.copy(alpha = 0.25f)
+        else -> MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)
+    }
+    val textColor = when {
+        !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f)
+        isStart || isEnd -> MaterialTheme.colorScheme.onPrimary
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+
+    Box(
+        modifier = modifier
+            .aspectRatio(1f)
+            .padding(2.dp)
+            .clip(CircleShape)
+            .background(background)
+            .then(
+                if (enabled) {
+                    Modifier.clickable(onClick = onClick)
+                } else {
+                    Modifier
+                },
+            )
+            .then(
+                when {
+                    isStart || isEnd -> Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                    isToday -> Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f), CircleShape)
+                    else -> Modifier
+                },
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = date.dayOfMonth.toString(),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = if (isStart || isEnd || isToday) FontWeight.Bold else FontWeight.Medium,
+            color = textColor,
+        )
     }
 }
 
@@ -813,6 +1100,72 @@ private fun CycleAvatar() {
             contentDescription = null,
             tint = Color.White,
             modifier = Modifier.size(18.dp),
+        )
+    }
+}
+
+@Composable
+fun CycleMyCyclesCard(
+    stats: CycleCalculator.CycleStats,
+    modifier: Modifier = Modifier,
+) {
+    AppCard(modifier = modifier) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            SectionHeader(
+                title = "Мои циклы",
+                subtitle = "Статистика по вашим записям",
+            )
+            CycleStatRow(
+                label = "Длина предыдущего цикла",
+                value = stats.previousCycleLength?.let { "$it дн." } ?: "—",
+            )
+            CycleStatRow(
+                label = "Длина предыдущих месячных",
+                value = stats.previousPeriodLength?.let { "$it дн." } ?: "—",
+            )
+            CycleStatRow(
+                label = "Средняя длина цикла",
+                value = "${stats.averageCycleLength} дн.",
+            )
+            CycleStatRow(
+                label = "Средняя длина месячных",
+                value = "${stats.averagePeriodLength} дн.",
+            )
+            CycleStatRow(
+                label = "Колебания длины цикла",
+                value = when {
+                    stats.cycleLengthMin != null && stats.cycleLengthMax != null -> {
+                        val spread = stats.cycleVariationDays ?: (stats.cycleLengthMax - stats.cycleLengthMin)
+                        "${stats.cycleLengthMin}–${stats.cycleLengthMax} дн. (±$spread)"
+                    }
+                    else -> "Нужно больше записей"
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun CycleStatRow(
+    label: String,
+    value: String,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = contentSecondaryColor(),
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = contentPrimaryColor(),
         )
     }
 }

@@ -1,5 +1,6 @@
 package com.example.healtapp.features.meal.ui.components
 
+import android.Manifest
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -11,14 +12,17 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,20 +47,20 @@ import coil.compose.AsyncImage
 import com.example.healtapp.core.ui.components.AppButton
 import com.example.healtapp.core.ui.components.AppCard
 import com.example.healtapp.core.ui.components.AppTextField
+import com.example.healtapp.core.ui.components.GradientFormPanel
 import com.example.healtapp.core.ui.theme.brandingGradient
 import com.example.healtapp.data.network.dto.meal.FoodCatalogItemDto
 import com.example.healtapp.features.meal.presentation.MealUiState
+import com.example.healtapp.features.meal.ui.BarcodeScannerSheet
 import com.example.healtapp.features.meal.ui.getFileFromUri
+import com.example.healtapp.features.meal.ui.hasCameraPermission
 import java.io.File
 
 @Composable
 fun MealFoodCatalogHitRow(hit: FoodCatalogItemDto, onClick: () -> Unit) {
-    AppCard {
+    AppCard(onClick = onClick) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onClick)
-                .padding(vertical = 4.dp),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -72,7 +76,7 @@ fun MealFoodCatalogHitRow(hit: FoodCatalogItemDto, onClick: () -> Unit) {
                 Box(
                     modifier = Modifier
                         .width(4.dp)
-                        .height(40.dp)
+                        .size(width = 4.dp, height = 40.dp)
                         .clip(RoundedCornerShape(2.dp))
                         .background(Brush.verticalGradient(brandingGradient())),
                 )
@@ -97,6 +101,7 @@ fun MealFoodCatalogHitRow(hit: FoodCatalogItemDto, onClick: () -> Unit) {
                 text = "Выбрать",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.SemiBold,
             )
         }
     }
@@ -122,35 +127,23 @@ fun FoodMacroCompletionSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
-                .padding(bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(bottom = 28.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Дополнить БЖУ",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text(
-                        text = item.name,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                IconButton(onClick = onDismiss) {
-                    Icon(Icons.Filled.Close, contentDescription = "Закрыть")
-                }
-            }
-            Text(
-                text = "Open Food Facts дал только калории. Укажите белки, жиры и углеводы на 100 г — при следующем поиске они подтянутся из каталога.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            MealSheetHeader(
+                title = "Дополнить БЖУ",
+                subtitle = item.name,
+                icon = Icons.Filled.Edit,
+                onDismiss = onDismiss,
             )
+            AppCard {
+                Text(
+                    text = "Open Food Facts дал только калории. Укажите белки, жиры и углеводы на 100 г — при следующем поиске они подтянутся из каталога.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             uiState.calories.takeIf { it.isNotBlank() }?.let {
                 Text(
                     text = "Калории: $it ккал / 100 г",
@@ -158,9 +151,11 @@ fun FoodMacroCompletionSheet(
                     fontWeight = FontWeight.SemiBold,
                 )
             }
-            AppTextField(uiState.macroCompletionProtein, onProteinChange, label = "Белки, г / 100 г")
-            AppTextField(uiState.macroCompletionFat, onFatChange, label = "Жиры, г / 100 г")
-            AppTextField(uiState.macroCompletionCarbs, onCarbsChange, label = "Углеводы, г / 100 г")
+            GradientFormPanel {
+                AppTextField(uiState.macroCompletionProtein, onProteinChange, label = "Белки, г / 100 г")
+                AppTextField(uiState.macroCompletionFat, onFatChange, label = "Жиры, г / 100 г")
+                AppTextField(uiState.macroCompletionCarbs, onCarbsChange, label = "Углеводы, г / 100 г")
+            }
             AppButton(
                 text = if (uiState.isCatalogSaving) "Сохраняем…" else "Сохранить в каталог",
                 onClick = onSave,
@@ -199,6 +194,13 @@ fun AddCustomFoodSheet(
     var carbs by remember(visible) { mutableStateOf("") }
     var photoFile by remember(visible) { mutableStateOf<File?>(null) }
     var photoPreview by remember(visible) { mutableStateOf<Uri?>(null) }
+    var showBarcodeScanner by remember(visible) { mutableStateOf(false) }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) showBarcodeScanner = true
+    }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
@@ -207,74 +209,116 @@ fun AddCustomFoodSheet(
         photoFile = uri?.let { getFileFromUri(context, it) }
     }
 
+    fun requestBarcodeScan() {
+        if (hasCameraPermission(context)) {
+            showBarcodeScanner = true
+        } else {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
-                .padding(bottom = 28.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(bottom = 28.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
+            MealSheetHeader(
+                title = "Свой продукт",
+                subtitle = "Сохранится в каталоге — можно найти по штрихкоду",
+                icon = Icons.Filled.Restaurant,
+                onDismiss = onDismiss,
+            )
+
+            AppCard {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (photoPreview != null) {
+                        AsyncImage(
+                            model = photoPreview,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(72.dp)
+                                .clip(RoundedCornerShape(14.dp)),
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(72.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                .clickable {
+                                    photoPickerLauncher.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                                    )
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(Icons.Filled.AddPhotoAlternate, contentDescription = "Фото")
+                        }
+                    }
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        AppTextField(name, { name = it }, label = "Название")
+                        AppTextField(brand, { brand = it }, label = "Бренд (необязательно)")
+                    }
+                }
+            }
+
+            AppCard {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "Свой продукт",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
+                        text = "Штрихкод",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        text = "Сохранится в каталоге с штрихкодом и фото",
+                        text = "Отсканируйте или введите вручную — продукт будет находиться при следующем сканировании.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                }
-                IconButton(onClick = onDismiss) {
-                    Icon(Icons.Filled.Close, contentDescription = "Закрыть")
-                }
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (photoPreview != null) {
-                    AsyncImage(
-                        model = photoPreview,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(72.dp)
-                            .clip(RoundedCornerShape(14.dp)),
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(72.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                            .clickable {
-                                photoPickerLauncher.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-                                )
-                            },
-                        contentAlignment = Alignment.Center,
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(Icons.Filled.AddPhotoAlternate, contentDescription = "Фото")
+                        AppTextField(
+                            value = barcode,
+                            onValueChange = { barcode = it },
+                            label = "Код EAN / UPC",
+                            modifier = Modifier.weight(1f),
+                        )
+                        IconButton(onClick = ::requestBarcodeScan) {
+                            Icon(
+                                Icons.Filled.QrCodeScanner,
+                                contentDescription = "Сканировать штрихкод",
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
                     }
-                }
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AppTextField(name, { name = it }, label = "Название")
-                    AppTextField(barcode, { barcode = it }, label = "Штрихкод (необязательно)")
+                    AppButton(
+                        text = "Сканировать штрихкод",
+                        onClick = ::requestBarcodeScan,
+                        isSecondary = true,
+                    )
                 }
             }
-            AppTextField(brand, { brand = it }, label = "Бренд (необязательно)")
-            AppTextField(calories, { calories = it }, label = "Калории / 100 г")
-            AppTextField(protein, { protein = it }, label = "Белки / 100 г")
-            AppTextField(fat, { fat = it }, label = "Жиры / 100 г")
-            AppTextField(carbs, { carbs = it }, label = "Углеводы / 100 г")
+
+            GradientFormPanel {
+                AppTextField(calories, { calories = it }, label = "Калории / 100 г")
+                AppTextField(protein, { protein = it }, label = "Белки / 100 г")
+                AppTextField(fat, { fat = it }, label = "Жиры / 100 г")
+                AppTextField(carbs, { carbs = it }, label = "Углеводы / 100 г")
+            }
+
             AppButton(
                 text = if (uiState.isCatalogSaving) "Сохраняем…" else "Добавить в каталог",
                 onClick = {
@@ -289,8 +333,17 @@ fun AddCustomFoodSheet(
                         photoFile,
                     )
                 },
-                enabled = !uiState.isCatalogSaving,
+                enabled = !uiState.isCatalogSaving && name.isNotBlank(),
             )
         }
     }
+
+    BarcodeScannerSheet(
+        visible = showBarcodeScanner,
+        onDismiss = { showBarcodeScanner = false },
+        onBarcode = { code ->
+            barcode = code
+            showBarcodeScanner = false
+        },
+    )
 }

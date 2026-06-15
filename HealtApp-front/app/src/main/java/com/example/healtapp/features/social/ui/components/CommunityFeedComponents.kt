@@ -100,6 +100,8 @@ import com.example.healtapp.core.ui.components.PersonAvatar
 import com.example.healtapp.core.ui.theme.brandingGradient
 import com.example.healtapp.data.network.dto.social.ChallengeLeaderboardEntryDto
 import com.example.healtapp.data.network.dto.social.ChallengeResponseDto
+import com.example.healtapp.data.network.dto.social.ClubPostResponseDto
+import com.example.healtapp.data.network.dto.social.ClubResponseDto
 import com.example.healtapp.data.network.dto.social.FeedActivityDto
 import com.example.healtapp.data.network.dto.social.FeedCommentDto
 import com.example.healtapp.data.network.dto.social.FeedPostDto
@@ -236,8 +238,10 @@ fun CommunityPostDeleteOverlay(
 fun CommunityFeedTopBar(
     onOpenFriends: () -> Unit,
     postsCount: Int,
+    clubPostsCount: Int = 0,
     modifier: Modifier = Modifier,
 ) {
+    val totalCount = postsCount + clubPostsCount
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -250,7 +254,11 @@ fun CommunityFeedTopBar(
                 fontWeight = FontWeight.Bold,
             )
             Text(
-                text = if (postsCount == 0) "Пока тихо — будьте первым" else "$postsCount публикаций",
+                text = when {
+                    totalCount == 0 -> "Пока тихо — будьте первым"
+                    clubPostsCount > 0 -> "$totalCount публикаций · друзья и клубы"
+                    else -> "$totalCount публикаций"
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -582,7 +590,7 @@ fun CommunityFeedPostCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                PersonAvatar(name = post.author.display_name, size = 44.dp, useGradient = true)
+                SocialUserAvatar(user = post.author, size = 44.dp)
                 Column(Modifier.weight(1f)) {
                     Text(
                         post.author.display_name,
@@ -1184,5 +1192,153 @@ fun CommunityCommentsSheet(
             }
         }
         Spacer(Modifier.height(16.dp))
+    }
+}
+
+@Composable
+fun CommunityClubsRail(
+    clubs: List<ClubResponseDto>,
+    onOpenClub: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (clubs.isEmpty()) return
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(
+            text = "Мои клубы",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            items(clubs, key = { it.id }) { club ->
+                AppCard(
+                    onClick = { onOpenClub(club.id) },
+                    animateEnter = false,
+                    modifier = Modifier.width(220.dp),
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        ClubAvatar(club = club, size = 44.dp)
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = club.name,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                text = "${club.members_count} участников",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CommunityClubPostCard(
+    club: ClubResponseDto,
+    post: ClubPostResponseDto,
+    onOpenClub: () -> Unit,
+    onOpenAuthor: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val typeLabel = when (post.post_type) {
+        "achievement" -> "Достижение"
+        "poll" -> "Опрос"
+        else -> "Обсуждение"
+    }
+    AppCard(
+        modifier = modifier.fillMaxWidth(),
+        onClick = onOpenClub,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f))
+                    .clickable(onClick = onOpenClub)
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                ClubAvatar(club = club, size = 36.dp)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = club.name,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = "Клуб · $typeLabel",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Filled.Groups,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onOpenAuthor),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                SocialUserAvatar(user = post.user, size = 40.dp)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = post.user.display_name,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    post.created_at?.let {
+                        Text(
+                            text = formatFeedTime(it),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+            post.body?.takeIf { it.isNotBlank() }?.let { body ->
+                Text(text = body, style = MaterialTheme.typography.bodyMedium)
+            }
+            if (post.post_type == "poll" && !post.poll_options.isNullOrEmpty()) {
+                post.poll_options.forEach { option ->
+                    val votes = post.poll_votes?.get(option) ?: 0
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(option, style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                "$votes",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }

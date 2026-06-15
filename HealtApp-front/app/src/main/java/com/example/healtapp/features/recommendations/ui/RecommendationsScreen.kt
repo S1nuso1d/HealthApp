@@ -1,112 +1,148 @@
 package com.example.healtapp.features.recommendations.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.healtapp.core.ui.components.AppButton
-import com.example.healtapp.core.ui.components.AppMessageBanner
-import com.example.healtapp.core.ui.components.AppMessageType
-import com.example.healtapp.core.ui.components.AppCard
-import com.example.healtapp.core.ui.components.AppScreen
-import com.example.healtapp.core.ui.components.CollapsibleAppCard
 import com.example.healtapp.core.ui.components.EmptyStateCard
-import com.example.healtapp.core.ui.components.SectionHeader
-import com.example.healtapp.features.dashboard.ui.components.DashboardHealthScoreBanner
-import com.example.healtapp.features.dashboard.ui.components.DashboardSkeleton
+import com.example.healtapp.core.ui.components.FeatureHeroChip
+import com.example.healtapp.core.ui.components.FeatureHighlightPanel
+import com.example.healtapp.core.ui.components.FeatureInlineNotice
+import com.example.healtapp.core.ui.components.FeatureScreenShell
+import com.example.healtapp.core.ui.components.FeatureSectionTitle
+import com.example.healtapp.core.ui.theme.contentPrimaryColor
+import com.example.healtapp.core.ui.theme.contentSecondaryColor
 import com.example.healtapp.features.recommendations.presentation.RecommendationsViewModel
 import com.example.healtapp.features.recommendations.ui.components.RecommendationCard
 
 @Composable
-fun RecommendationsScreen() {
+fun RecommendationsScreen(
+    onBack: () -> Unit = {},
+) {
     val viewModel: RecommendationsViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    AppScreen(
+    FeatureScreenShell(
         title = "Рекомендации",
-        subtitle = "Персональные предупреждения по вашему дневнику",
-        headerIcon = Icons.Filled.Lightbulb,
-        scrollable = true,
-    ) {
-        when {
-            uiState.isLoading -> {
-                DashboardSkeleton()
-            }
-
-            uiState.error != null -> {
-                AppCard {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        AppMessageBanner(
-                            text = uiState.error ?: "Ошибка загрузки",
-                            type = AppMessageType.Error,
-                            title = "Не удалось загрузить",
-                        )
-                        AppButton(
-                            text = "Повторить",
-                            onClick = { viewModel.refresh() },
-                            isSecondary = true,
-                        )
-                    }
-                }
-            }
-
-            uiState.recommendations.isEmpty() -> {
-                if (uiState.healthScore > 0) {
-                    DashboardHealthScoreBanner(
-                        healthScore = uiState.healthScore,
-                        periodDays = uiState.periodDays,
-                        recommendationsCount = 0,
-                    )
-                }
-                EmptyStateCard(
-                    title = "Нет активных рекомендаций",
-                    text = "Заполните данные за последние дни или обновите список позже.",
-                    icon = Icons.Filled.Lightbulb,
-                )
-                AppButton(
-                    text = "Обновить",
-                    onClick = { viewModel.refresh() },
-                    isSecondary = true,
-                )
-            }
-
-            else -> {
-                if (uiState.healthScore > 0) {
-                    DashboardHealthScoreBanner(
-                        healthScore = uiState.healthScore,
-                        periodDays = uiState.periodDays,
-                        recommendationsCount = uiState.recommendations.size,
-                    )
-                }
-
-                CollapsibleAppCard(
-                    title = "Список советов",
-                    subtitle = "Период: ${uiState.periodDays} дн. · ${uiState.recommendations.size} советов",
-                    initiallyExpanded = true,
+        subtitle = "Персональные советы по вашему дневнику",
+        icon = Icons.Filled.Lightbulb,
+        onBack = onBack,
+        scrollStateKey = "recommendations",
+        heroFooter = if (!uiState.isLoading) {
+            {
+                Row(
+                    modifier = Modifier.padding(start = 12.dp, top = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    uiState.recommendations.forEach { recommendation ->
-                        RecommendationCard(item = recommendation)
+                    if (uiState.healthScore > 0) {
+                        FeatureHeroChip(label = "Индекс ${uiState.healthScore}")
                     }
-                    AppButton(
-                        text = "Обновить рекомендации",
-                        onClick = { viewModel.refresh() },
-                        modifier = Modifier.fillMaxWidth(),
-                        isSecondary = true,
+                    FeatureHeroChip(
+                        label = if (uiState.recommendations.isEmpty()) {
+                            "Период ${uiState.periodDays} дн."
+                        } else {
+                            "${uiState.recommendations.size} советов · ${uiState.periodDays} дн."
+                        },
+                    )
+                }
+            }
+        } else {
+            null
+        },
+    ) {
+        if (uiState.isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 32.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator()
+            }
+            return@FeatureScreenShell
+        }
+
+        uiState.error?.let { err ->
+            FeatureInlineNotice(text = err, isError = true)
+            AppButton(
+                text = "Повторить",
+                onClick = { viewModel.refresh() },
+                isSecondary = true,
+            )
+            return@FeatureScreenShell
+        }
+
+        if (uiState.healthScore > 0) {
+            FeatureHighlightPanel {
+                Column {
+                    Text(
+                        text = "Индекс здоровья",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = contentSecondaryColor(),
+                    )
+                    Text(
+                        text = "${uiState.healthScore}",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = contentPrimaryColor(),
+                    )
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = "Активных советов",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = contentSecondaryColor(),
+                    )
+                    Text(
+                        text = "${uiState.recommendations.size}",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = contentPrimaryColor(),
                     )
                 }
             }
         }
 
+        FeatureSectionTitle(
+            title = "Советы для вас",
+            subtitle = "На основе аналитики за ${uiState.periodDays} дней",
+        )
+
+        if (uiState.recommendations.isEmpty()) {
+            EmptyStateCard(
+                title = "Нет активных рекомендаций",
+                text = "Заполните сон, воду, питание или шаги — персональные советы появятся здесь.",
+                icon = Icons.Filled.Lightbulb,
+            )
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                uiState.recommendations.forEach { recommendation ->
+                    RecommendationCard(item = recommendation)
+                }
+            }
+        }
+
+        AppButton(
+            text = "Обновить рекомендации",
+            onClick = { viewModel.refresh() },
+            modifier = Modifier.fillMaxWidth(),
+            isSecondary = true,
+        )
     }
 }

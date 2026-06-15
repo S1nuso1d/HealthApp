@@ -25,8 +25,6 @@ import com.example.healtapp.core.ui.theme.contentPrimaryColor
 import com.example.healtapp.core.ui.theme.recommendationPriorityColorHigh
 import com.example.healtapp.core.ui.theme.recommendationPriorityColorLow
 import com.example.healtapp.core.ui.theme.recommendationPriorityColorMedium
-import com.example.healtapp.core.ui.theme.subtleFillGradient
-import com.example.healtapp.core.ui.theme.tipBannerColors
 import com.example.healtapp.core.ui.theme.themedCardLavender
 import com.example.healtapp.features.recommendations.presentation.RecommendationFormatting
 import com.example.healtapp.features.recommendations.presentation.RecommendationPriorityKind
@@ -100,29 +98,12 @@ fun DashboardRecommendationCard(
                     }
                 }
 
-                Text(
-                    text = item.description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-
-                // progressLabel убран, чтобы избежать дублирования текста
-
                 item.personalizedTip?.takeIf { it.isNotBlank() }?.let { tip ->
-                    val (tipBg, tipFg) = tipBannerColors()
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(tipBg)
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                    ) {
-                        Text(
-                            text = tip,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = tipFg,
-                        )
-                    }
+                    Text(
+                        text = tip,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }

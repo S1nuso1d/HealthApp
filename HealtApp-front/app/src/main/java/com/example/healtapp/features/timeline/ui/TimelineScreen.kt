@@ -9,10 +9,12 @@ fun TimelineScreen(
     onBack: () -> Unit = {},
     onOpenFriend: (Int) -> Unit = {},
     onOpenFriends: () -> Unit = {},
+    onOpenClub: (Int) -> Unit = {},
 ) {
     CommunityFeedScreen(
         onBack = onBack,
         onOpenFriend = onOpenFriend,
         onOpenFriends = onOpenFriends,
+        onOpenClub = onOpenClub,
     )
 }

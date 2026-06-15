@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.healtapp.core.ui.components.AppButton
+import com.example.healtapp.core.ui.components.AppPasswordField
 import com.example.healtapp.core.ui.components.AppTextField
 import com.example.healtapp.features.auth.presentation.AuthEvent
 import com.example.healtapp.features.auth.presentation.AuthViewModel
@@ -67,11 +68,10 @@ fun LoginScreen(
                 leadingIcon = Icons.Outlined.Email,
                 keyboardType = KeyboardType.Email,
             )
-            AppTextField(
+            AppPasswordField(
                 value = uiState.password,
                 onValueChange = { viewModel.onEvent(AuthEvent.PasswordChanged(it)) },
                 label = "Пароль",
-                isPassword = true,
                 leadingIcon = Icons.Outlined.Lock,
             )
 

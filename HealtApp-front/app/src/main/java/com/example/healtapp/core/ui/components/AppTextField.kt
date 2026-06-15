@@ -1,6 +1,7 @@
 package com.example.healtapp.core.ui.components
 
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -35,13 +36,17 @@ fun AppTextField(
     imeAction: ImeAction = ImeAction.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
     placeholder: String? = null,
+    singleLine: Boolean = true,
+    maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
     trailingIcon: @Composable (() -> Unit)? = null,
     modifier: Modifier = Modifier.fillMaxWidth(),
 ) {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        modifier = modifier,
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = AppFormMetrics.ControlHeight),
         readOnly = readOnly,
         enabled = enabled,
         leadingIcon = leadingIcon?.let { icon ->
@@ -58,11 +63,12 @@ fun AppTextField(
         label = {
             Text(
                 text = label,
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium,
             )
         },
-        singleLine = true,
-        shape = RoundedCornerShape(18.dp),
+        singleLine = singleLine,
+        maxLines = maxLines,
+        shape = RoundedCornerShape(AppFormMetrics.FieldCornerRadius),
         visualTransformation = if (isPassword) {
             PasswordVisualTransformation()
         } else {
@@ -76,22 +82,25 @@ fun AppTextField(
             imeAction = imeAction,
         ),
         keyboardActions = keyboardActions,
-        colors = TextFieldDefaults.colors(
-            focusedContainerColor = MaterialTheme.colorScheme.surface,
-            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-            disabledContainerColor = MaterialTheme.colorScheme.surface,
-            focusedTextColor = contentPrimaryColor(),
-            unfocusedTextColor = contentPrimaryColor(),
-            disabledTextColor = contentSecondaryColor(),
-            cursorColor = contentPrimaryColor(),
-            focusedIndicatorColor = if (isAppDarkTheme()) {
-                MaterialTheme.colorScheme.onSurface
-            } else {
-                MaterialTheme.colorScheme.primary
-            },
-            unfocusedIndicatorColor = MaterialTheme.colorScheme.outline,
-            focusedLabelColor = contentPrimaryColor(),
-            unfocusedLabelColor = contentSecondaryColor(),
-        )
+        colors = appTextFieldColors(),
     )
 }
+
+@Composable
+fun appTextFieldColors() = TextFieldDefaults.colors(
+    focusedContainerColor = MaterialTheme.colorScheme.surface,
+    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+    disabledContainerColor = MaterialTheme.colorScheme.surface,
+    focusedTextColor = contentPrimaryColor(),
+    unfocusedTextColor = contentPrimaryColor(),
+    disabledTextColor = contentSecondaryColor(),
+    cursorColor = contentPrimaryColor(),
+    focusedIndicatorColor = if (isAppDarkTheme()) {
+        MaterialTheme.colorScheme.onSurface
+    } else {
+        MaterialTheme.colorScheme.primary
+    },
+    unfocusedIndicatorColor = MaterialTheme.colorScheme.outline,
+    focusedLabelColor = contentPrimaryColor(),
+    unfocusedLabelColor = contentSecondaryColor(),
+)

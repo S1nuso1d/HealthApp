@@ -144,6 +144,47 @@ def _pick_meal(
     }
 
 
+def _parse_kbju_targets(user_context: str | None) -> tuple[int, float, float, float] | None:
+    if not user_context:
+        return None
+    for line in user_context.splitlines():
+        if "цель кбжу" in line.lower():
+            nums = re.findall(r"[\d.]+", line)
+            if len(nums) >= 4:
+                return int(float(nums[0])), float(nums[1]), float(nums[2]), float(nums[3])
+    return None
+
+
+def _scale_meals_to_targets(
+    meals: list[dict],
+    target_cal: int,
+    target_prot: float,
+    target_fat: float,
+    target_carbs: float,
+) -> None:
+    total_cal = sum(m["calories"] for m in meals) or 1
+    total_prot = sum(m["protein_g"] for m in meals) or 1.0
+    total_fat = sum(m["fat_g"] for m in meals) or 1.0
+    total_carbs = sum(m["carbs_g"] for m in meals) or 1.0
+
+    cal_scale = target_cal / total_cal
+    prot_scale = target_prot / total_prot
+    fat_scale = target_fat / total_fat
+    carbs_scale = target_carbs / total_carbs
+
+    for m in meals:
+        m["calories"] = max(80, int(m["calories"] * cal_scale))
+        m["protein_g"] = round(m["protein_g"] * prot_scale, 1)
+        m["fat_g"] = round(m["fat_g"] * fat_scale, 1)
+        m["carbs_g"] = round(m["carbs_g"] * carbs_scale, 1)
+
+    # Подгоняем калории к цели на самом крупном приёме пищи
+    diff = target_cal - sum(m["calories"] for m in meals)
+    if meals and diff != 0:
+        largest = max(meals, key=lambda x: x["calories"])
+        largest["calories"] = max(80, largest["calories"] + diff)
+
+
 def build_fallback_meal_plan_json(
     analytics: AnalyticsResponse,
     days: int = 7,
@@ -152,9 +193,16 @@ def build_fallback_meal_plan_json(
     is_vegetarian, allergens = _parse_context_flags(user_context)
     day_names = DAY_NAMES[:7]
 
-    target_calories = 1800
-    if analytics.summary.nutrition_score > 0:
-        target_calories = max(1500, min(2400, int(1800 + (analytics.summary.nutrition_score - 50) * 4)))
+    kbju = _parse_kbju_targets(user_context)
+    if kbju:
+        target_calories, target_protein, target_fat, target_carbs = kbju
+    else:
+        target_calories = 1800
+        target_protein = 100.0
+        target_fat = 60.0
+        target_carbs = 200.0
+        if analytics.summary.nutrition_score > 0:
+            target_calories = max(1500, min(2400, int(1800 + (analytics.summary.nutrition_score - 50) * 4)))
 
     seed = int(hashlib.md5(date.today().isoformat().encode()).hexdigest()[:8], 16)
     rotation = seed % len(MEAL_TEMPLATES)
@@ -166,11 +214,7 @@ def build_fallback_meal_plan_json(
             _pick_meal(template_day[i], is_vegetarian, allergens, rotation + index, i)
             for i in range(min(3, len(template_day)))
         ]
-        total_cal = sum(m["calories"] for m in meals)
-        scale = target_calories / total_cal if total_cal > 0 else 1.0
-        if abs(scale - 1.0) > 0.08:
-            for m in meals:
-                m["calories"] = int(m["calories"] * scale)
+        _scale_meals_to_targets(meals, target_calories, target_protein, target_fat, target_carbs)
 
         days_payload.append(
             {

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -63,11 +64,19 @@ fun GradientOutlinedField(
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .then(
+                if (singleLine) {
+                    Modifier.heightIn(min = AppFormMetrics.ControlHeight)
+                } else {
+                    Modifier.heightIn(min = AppFormMetrics.ControlHeight * 2)
+                },
+            ),
         label = { Text(label) },
         singleLine = singleLine,
         maxLines = maxLines,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(AppFormMetrics.FieldCornerRadius),
         visualTransformation = if (isPassword) PasswordVisualTransformation() else visualTransformation,
         colors = OutlinedTextFieldDefaults.colors(
             focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
@@ -76,6 +85,8 @@ fun GradientOutlinedField(
             unfocusedTextColor = contentPrimaryColor(),
             focusedBorderColor = accentColor(),
             unfocusedBorderColor = borderColor,
+            focusedLabelColor = contentPrimaryColor(),
+            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
         ),
         keyboardOptions = KeyboardOptions(imeAction = imeAction),
         keyboardActions = if (onImeAction != null) {

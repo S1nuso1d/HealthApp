@@ -28,6 +28,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
 import com.example.healtapp.core.common.BmiHelper
 import com.example.healtapp.data.preferences.WeightEntry
 import com.example.healtapp.core.ui.components.AppCard
@@ -35,6 +37,9 @@ import com.example.healtapp.core.ui.components.SectionHeader
 import com.example.healtapp.core.ui.theme.bmiCategoryColor
 import com.example.healtapp.core.ui.theme.bmiScaleGradient
 import com.example.healtapp.core.ui.theme.brandingGradient
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun ProfileBodyStatsCard(
@@ -49,8 +54,8 @@ fun ProfileBodyStatsCard(
     val bmi = BmiHelper.calculate(height, weight)
     val range = height?.let { BmiHelper.healthyWeightRangeKg(it) }
     val recentWeights = weightHistory.takeLast(8)
-    val showTrend = recentWeights.size >= 2 &&
-        recentWeights.last().weightKg != recentWeights[recentWeights.lastIndex - 1].weightKg
+    val distinctWeights = recentWeights.map { it.weightKg }.distinct()
+    val showTrend = distinctWeights.size >= 2
 
     AppCard(modifier = modifier) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -76,7 +81,6 @@ fun ProfileBodyStatsCard(
             ) {
                 VerticalWeightBar(
                     entries = recentWeights,
-                    currentWeight = weight,
                     healthyRange = range,
                     modifier = Modifier
                         .width(56.dp)
@@ -126,7 +130,7 @@ fun ProfileBodyStatsCard(
             }
 
             if (showTrend) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
                         text = "Изменение веса",
                         style = MaterialTheme.typography.labelLarge,
@@ -136,10 +140,9 @@ fun ProfileBodyStatsCard(
                         entries = recentWeights,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(72.dp)
                             .clip(RoundedCornerShape(16.dp))
                             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
-                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                            .padding(horizontal = 10.dp, vertical = 10.dp),
                     )
                 }
             }
@@ -162,17 +165,10 @@ private fun MetricLine(label: String, value: String) {
 @Composable
 private fun VerticalWeightBar(
     entries: List<WeightEntry>,
-    currentWeight: Float?,
     healthyRange: Pair<Float, Float>?,
     modifier: Modifier = Modifier,
 ) {
-    val weights = entries.map { it.weightKg }.toMutableList()
-    if (currentWeight != null && weights.lastOrNull() != currentWeight) {
-        weights.add(currentWeight)
-    }
-    if (weights.isEmpty() && currentWeight != null) {
-        weights.add(currentWeight)
-    }
+    val weights = entries.map { it.weightKg }
     if (weights.isEmpty()) {
         Box(
             modifier = modifier
@@ -272,25 +268,125 @@ private fun WeightTrendChart(
     entries: List<WeightEntry>,
     modifier: Modifier = Modifier,
 ) {
+    if (entries.size < 2) return
+
     val weights = entries.map { it.weightKg }
     val minW = weights.minOrNull() ?: return
     val maxW = weights.maxOrNull() ?: return
+    val midW = (minW + maxW) / 2f
     val range = (maxW - minW).coerceAtLeast(0.5f)
     val lineColor = MaterialTheme.colorScheme.primary
+    val axisColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+    val labelStyle = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)
+    val dateFormatter = DateTimeFormatter.ofPattern("dd.MM", Locale("ru", "RU"))
 
-    Canvas(modifier = modifier) {
-        if (weights.size < 2) return@Canvas
-        val stepX = size.width / (weights.size - 1).coerceAtLeast(1)
-        val path = Path()
-        weights.forEachIndexed { index, w ->
-            val x = index * stepX
-            val y = size.height - ((w - minW) / range) * size.height
-            if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+    fun formatDate(iso: String): String =
+        runCatching { LocalDate.parse(iso).format(dateFormatter) }.getOrDefault(iso.takeLast(5))
+
+    val xLabels = when {
+        entries.size <= 3 -> entries.map { formatDate(it.date) }
+        else -> listOf(
+            formatDate(entries.first().date),
+            formatDate(entries[entries.size / 2].date),
+            formatDate(entries.last().date),
+        )
+    }
+
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = "Вес, кг",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(100.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(
+                modifier = Modifier
+                    .width(34.dp)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text("%.1f".format(maxW), style = labelStyle, color = axisColor, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
+                Text("%.1f".format(midW), style = labelStyle, color = axisColor, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
+                Text("%.1f".format(minW), style = labelStyle, color = axisColor, textAlign = TextAlign.End, modifier = Modifier.fillMaxWidth())
+            }
+            Canvas(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .padding(start = 4.dp),
+            ) {
+                val leftPad = 4f
+                val bottomPad = 8f
+                val chartW = size.width - leftPad
+                val chartH = size.height - bottomPad
+
+                // Оси
+                drawLine(
+                    color = axisColor,
+                    start = Offset(leftPad, 0f),
+                    end = Offset(leftPad, chartH),
+                    strokeWidth = 1.5f,
+                )
+                drawLine(
+                    color = axisColor,
+                    start = Offset(leftPad, chartH),
+                    end = Offset(size.width, chartH),
+                    strokeWidth = 1.5f,
+                )
+
+                // Горизонтальные направляющие
+                listOf(0f, 0.5f, 1f).forEach { frac ->
+                    val y = chartH * (1f - frac)
+                    drawLine(
+                        color = axisColor.copy(alpha = 0.25f),
+                        start = Offset(leftPad, y),
+                        end = Offset(size.width, y),
+                        strokeWidth = 1f,
+                    )
+                }
+
+                val stepX = chartW / (weights.size - 1).coerceAtLeast(1)
+                val path = Path()
+                weights.forEachIndexed { index, w ->
+                    val x = leftPad + index * stepX
+                    val y = chartH - ((w - minW) / range) * chartH
+                    if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                    drawCircle(
+                        color = lineColor,
+                        radius = 4.dp.toPx(),
+                        center = Offset(x, y),
+                    )
+                }
+                drawPath(
+                    path = path,
+                    color = lineColor,
+                    style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round),
+                )
+            }
         }
-        drawPath(
-            path = path,
-            color = lineColor,
-            style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round),
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 38.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            xLabels.forEach { label ->
+                Text(label, style = labelStyle, color = axisColor)
+            }
+        }
+        Text(
+            text = "Дата",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 38.dp),
+            textAlign = TextAlign.Center,
         )
     }
 }

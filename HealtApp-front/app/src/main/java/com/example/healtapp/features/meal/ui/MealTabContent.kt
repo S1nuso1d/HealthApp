@@ -50,7 +50,6 @@ import com.example.healtapp.features.meal.ui.components.MealNutritionSummaryCard
 import com.example.healtapp.features.meal.ui.components.MealNutritionTargetsSheet
 import com.example.healtapp.features.meal.ui.components.MealSlotSection
 import kotlinx.coroutines.launch
-import java.io.File
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -339,12 +338,6 @@ fun MealTabContent(
             mealViewModel.addSelectedFoodToDiary {
                 showSearchSheet = false
             }
-        },
-        onRecognizePhoto = { file ->
-            mealViewModel.recognizeFoodFromPhoto(file)
-        },
-        onRecognizeVoice = { text ->
-            mealViewModel.recognizeFoodFromText(text)
         },
         onDismissMacroCompletion = mealViewModel::dismissMacroCompletionSheet,
         onMacroProteinChange = mealViewModel::updateMacroCompletionProtein,

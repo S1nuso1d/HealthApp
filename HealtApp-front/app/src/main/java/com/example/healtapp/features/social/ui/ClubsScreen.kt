@@ -1,8 +1,6 @@
 package com.example.healtapp.features.social.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,7 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -20,6 +18,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -29,30 +28,28 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImage
 import com.example.healtapp.core.ui.components.AppButton
+import com.example.healtapp.core.ui.components.AppCard
+import com.example.healtapp.core.ui.components.AppTextField
 import com.example.healtapp.core.ui.components.EmptyStateCard
 import com.example.healtapp.core.ui.components.FeatureHeroChip
 import com.example.healtapp.core.ui.components.FeatureInlineNotice
 import com.example.healtapp.core.ui.components.FeatureScreenShell
-import com.example.healtapp.core.ui.components.FeatureSectionTitle
-import com.example.healtapp.core.ui.components.GradientFormPanel
-import com.example.healtapp.core.ui.components.GradientOutlinedField
-import com.example.healtapp.core.ui.components.PersonAvatar
 import com.example.healtapp.core.ui.components.RoundedSectionTabs
 import com.example.healtapp.core.ui.components.RoundedTabItem
+import com.example.healtapp.core.ui.components.SectionHeader
 import com.example.healtapp.core.ui.theme.contentPrimaryColor
 import com.example.healtapp.core.ui.theme.contentSecondaryColor
 import com.example.healtapp.core.ui.theme.heroContentColor
 import com.example.healtapp.data.network.dto.social.ClubResponseDto
 import com.example.healtapp.features.social.presentation.ClubsViewModel
+import com.example.healtapp.features.social.ui.components.ClubAvatar
 import com.example.healtapp.features.social.ui.components.CreateClubSheet
 
 @Composable
@@ -159,18 +156,21 @@ private fun MyClubsTab(
     onOpenClub: (Int) -> Unit,
     viewModel: ClubsViewModel,
 ) {
-    FeatureSectionTitle(
+    SectionHeader(
         title = "Мои клубы",
-        subtitle = "Всего: ${clubs.size}",
+        subtitle = if (clubs.isEmpty()) "Здесь появятся сообщества, в которых вы состоите" else "Всего: ${clubs.size}",
     )
     if (clubs.isEmpty()) {
         EmptyStateCard(
             text = "Вы ещё не состоите в клубах. Перейдите во вкладку «Найти клуб» или создайте свой.",
             icon = Icons.Filled.Groups,
+            title = "Пока пусто",
         )
     } else {
-        clubs.forEach { club ->
-            ClubListCard(club = club, onOpen = { onOpenClub(club.id) }, onJoin = { viewModel.joinClub(club.id) })
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            clubs.forEach { club ->
+                ClubListCard(club = club, onOpen = { onOpenClub(club.id) }, onJoin = { viewModel.joinClub(club.id) })
+            }
         }
     }
 }
@@ -183,37 +183,59 @@ private fun DiscoverClubsTab(
     onOpenClub: (Int) -> Unit,
     viewModel: ClubsViewModel,
 ) {
-    FeatureSectionTitle(
-        title = "Найти клуб",
-        subtitle = "Поиск по названию и описанию",
-    )
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        AppCard {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "Поиск клуба",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = contentPrimaryColor(),
+                )
+                Text(
+                    text = "Введите название или тему — список ниже обновится сразу",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                AppTextField(
+                    value = searchQuery,
+                    onValueChange = onSearchChange,
+                    label = "Название или тема",
+                    leadingIcon = Icons.Filled.Search,
+                    imeAction = ImeAction.Search,
+                )
+            }
+        }
 
-    GradientFormPanel {
-        GradientOutlinedField(
-            value = searchQuery,
-            onValueChange = onSearchChange,
-            label = "Название или тема",
-            imeAction = ImeAction.Search,
-        )
-    }
-
-    FeatureSectionTitle(
-        title = "Доступные клубы",
-        subtitle = "Всего: ${clubs.size}",
-    )
-
-    if (clubs.isEmpty()) {
-        EmptyStateCard(
-            text = if (searchQuery.isBlank()) {
-                "Пока нет клубов. Создайте первый — для обсуждений, опросов и обмена достижениями."
-            } else {
-                "Ничего не найдено. Попробуйте другой запрос."
+        SectionHeader(
+            title = "Доступные клубы",
+            subtitle = when {
+                searchQuery.isNotBlank() -> "Найдено: ${clubs.size}"
+                clubs.isEmpty() -> "Пока нет открытых сообществ"
+                else -> "Можно вступить · ${clubs.size}"
             },
-            icon = Icons.Filled.Groups,
         )
-    } else {
-        clubs.forEach { club ->
-            ClubListCard(club = club, onOpen = { onOpenClub(club.id) }, onJoin = { viewModel.joinClub(club.id) })
+
+        if (clubs.isEmpty()) {
+            EmptyStateCard(
+                title = if (searchQuery.isBlank()) "Клубов пока нет" else "Ничего не найдено",
+                text = if (searchQuery.isBlank()) {
+                    "Создайте первый клуб — для обсуждений, опросов и обмена достижениями."
+                } else {
+                    "Попробуйте другое название или сократите запрос."
+                },
+                icon = Icons.Filled.Groups,
+            )
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                clubs.forEach { club ->
+                    ClubListCard(
+                        club = club,
+                        onOpen = { onOpenClub(club.id) },
+                        onJoin = { viewModel.joinClub(club.id) },
+                    )
+                }
+            }
         }
     }
 }
@@ -224,74 +246,77 @@ private fun ClubListCard(
     onOpen: () -> Unit,
     onJoin: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(22.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .border(
-                width = 1.dp,
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f),
-                shape = RoundedCornerShape(22.dp),
-            )
-            .clickable(onClick = onOpen)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        ClubAvatar(club = club)
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(
-                club.name,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = contentPrimaryColor(),
-            )
-            club.description?.takeIf { it.isNotBlank() }?.let {
+    AppCard(onClick = onOpen) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ClubAvatar(club = club)
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
                 Text(
-                    it,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = contentSecondaryColor(),
-                    maxLines = 2,
+                    text = club.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = contentPrimaryColor(),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                club.description?.takeIf { it.isNotBlank() }?.let { description ->
+                    Text(
+                        text = description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = contentSecondaryColor(),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Groups,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        text = "${club.members_count} участников",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+            if (club.is_member) {
+                ClubMemberBadge()
+            } else {
+                AppButton(
+                    text = "Вступить",
+                    onClick = onJoin,
+                    isSecondary = true,
+                    modifier = Modifier.width(112.dp),
                 )
             }
-            Text(
-                "${club.members_count} участников",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
-            )
-        }
-        if (club.is_member) {
-            Text(
-                "Мой",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold,
-            )
-        } else {
-            AppButton(text = "Вступить", onClick = onJoin, isSecondary = true)
         }
     }
 }
 
 @Composable
-private fun ClubAvatar(club: ClubResponseDto) {
-    val avatarUrl = club.avatar_url?.takeIf { it.isNotBlank() }
-    if (avatarUrl != null) {
-        AsyncImage(
-            model = avatarUrl,
-            contentDescription = null,
-            modifier = Modifier
-                .size(52.dp)
-                .clip(CircleShape)
-                .border(
-                    1.dp,
-                    MaterialTheme.colorScheme.outline.copy(alpha = 0.12f),
-                    CircleShape,
-                ),
-            contentScale = ContentScale.Crop,
+private fun ClubMemberBadge() {
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
+    ) {
+        Text(
+            text = "В клубе",
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            fontWeight = FontWeight.SemiBold,
         )
-    } else {
-        PersonAvatar(name = club.name, size = 52.dp, useGradient = true)
     }
 }

@@ -50,14 +50,15 @@ import com.example.healtapp.core.ui.components.FeatureScreenShell
 import com.example.healtapp.core.ui.components.FeatureSectionTitle
 import com.example.healtapp.core.ui.components.GradientFormPanel
 import com.example.healtapp.core.ui.components.GradientOutlinedField
-import com.example.healtapp.core.ui.components.PersonAvatar
 import com.example.healtapp.core.ui.theme.contentPrimaryColor
 import com.example.healtapp.core.ui.theme.contentSecondaryColor
 import com.example.healtapp.core.ui.theme.heroContentColor
 import com.example.healtapp.core.ui.theme.subtleFillGradient
 import com.example.healtapp.data.network.dto.social.UserCardDto
 import com.example.healtapp.data.network.dto.social.WeeklyChallengeEntryDto
+import androidx.compose.foundation.layout.width
 import com.example.healtapp.features.social.presentation.SocialViewModel
+import com.example.healtapp.features.social.ui.components.SocialUserAvatar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -206,13 +207,34 @@ private fun FriendsTab(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        FriendAvatarRow(name = p.display_name, modifier = Modifier.weight(1f))
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            SocialUserAvatar(
+                                user = UserCardDto(
+                                    user_id = p.user_id,
+                                    display_name = p.display_name,
+                                    nickname = null,
+                                    goal = null,
+                                    has_avatar = p.has_avatar,
+                                    is_self = false,
+                                ),
+                            )
+                            Text(p.display_name, fontWeight = FontWeight.SemiBold, color = contentPrimaryColor())
+                        }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            AppButton(text = "Принять", onClick = { viewModel.acceptFriend(p.friendship_id) })
+                            AppButton(
+                                text = "Принять",
+                                onClick = { viewModel.acceptFriend(p.friendship_id) },
+                                modifier = Modifier.width(112.dp),
+                            )
                             AppButton(
                                 text = "Отклонить",
                                 onClick = { viewModel.declineFriend(p.friendship_id) },
                                 isSecondary = true,
+                                modifier = Modifier.width(112.dp),
                             )
                         }
                     }
@@ -285,7 +307,7 @@ private fun SearchTab(
             SocialListCard {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Row(
@@ -295,14 +317,31 @@ private fun SearchTab(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        FriendAvatarRow(name = user.display_name)
-                        Column {
-                            Text(user.display_name, fontWeight = FontWeight.SemiBold, color = contentPrimaryColor())
+                        SocialUserAvatar(user = user)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                user.display_name,
+                                fontWeight = FontWeight.SemiBold,
+                                color = contentPrimaryColor(),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
                             user.nickname?.let {
                                 Text(
                                     "@$it",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = contentSecondaryColor(),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            user.goal?.let {
+                                Text(
+                                    it,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
                                 )
                             }
                         }
@@ -311,6 +350,7 @@ private fun SearchTab(
                         text = "Добавить",
                         onClick = { viewModel.requestFriend(user.user_id) },
                         isSecondary = true,
+                        modifier = Modifier.width(112.dp),
                     )
                 }
             }
@@ -336,18 +376,6 @@ private fun SocialListCard(
             .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
         content()
-    }
-}
-
-@Composable
-private fun FriendAvatarRow(name: String, modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        PersonAvatar(name = name)
-        Text(name, fontWeight = FontWeight.SemiBold, color = contentPrimaryColor())
     }
 }
 
@@ -412,7 +440,7 @@ private fun UserRow(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                PersonAvatar(name = user.display_name, size = 44.dp)
+                SocialUserAvatar(user = user, size = 44.dp)
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         user.display_name,

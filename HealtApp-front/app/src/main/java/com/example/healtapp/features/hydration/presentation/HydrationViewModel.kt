@@ -5,6 +5,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.healtapp.core.common.AppRefreshBus
+import com.example.healtapp.data.preferences.HydrationPrefs
 import com.example.healtapp.data.preferences.PendingSyncStore
 import com.example.healtapp.data.preferences.WidgetSnapshot
 import com.example.healtapp.data.preferences.WidgetSnapshotStore
@@ -28,12 +29,18 @@ class HydrationViewModel @Inject constructor(
     private val pendingSyncStore: PendingSyncStore,
     private val pendingSyncFlusher: PendingSyncFlusher,
     private val widgetSnapshotStore: WidgetSnapshotStore,
+    private val hydrationPrefs: HydrationPrefs,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HydrationUiState())
     val uiState: StateFlow<HydrationUiState> = _uiState.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            hydrationPrefs.customQuickAmountsFlow.collect { custom ->
+                _uiState.update { it.copy(customQuickAmounts = custom) }
+            }
+        }
         viewModelScope.launch {
             AppRefreshBus.events.collect { load() }
         }
@@ -144,5 +151,34 @@ class HydrationViewModel @Inject constructor(
                     )
                 }
         }
+    }
+
+    fun addCustomQuickAmount(ml: Int) {
+        viewModelScope.launch {
+            val ok = hydrationPrefs.addCustomQuickAmount(ml)
+            if (!ok) {
+                _uiState.update {
+                    it.copy(
+                        error = when {
+                            ml !in HydrationPrefs.MIN_ML..HydrationPrefs.MAX_ML ->
+                                "Укажите объём от ${HydrationPrefs.MIN_ML} до ${HydrationPrefs.MAX_ML} мл"
+                            it.customQuickAmounts.size >= HydrationPrefs.MAX_CUSTOM_BUTTONS ->
+                                "Можно сохранить не больше ${HydrationPrefs.MAX_CUSTOM_BUTTONS} своих кнопок"
+                            else -> "Такая кнопка уже есть в быстром добавлении"
+                        },
+                    )
+                }
+            }
+        }
+    }
+
+    fun removeCustomQuickAmount(ml: Int) {
+        viewModelScope.launch {
+            hydrationPrefs.removeCustomQuickAmount(ml)
+        }
+    }
+
+    fun clearError() {
+        _uiState.update { it.copy(error = null) }
     }
 }

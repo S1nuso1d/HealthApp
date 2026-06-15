@@ -36,7 +36,9 @@ import com.example.healtapp.core.ui.components.PendingSyncBadge
 import com.example.healtapp.core.ui.components.SectionHeader
 import com.example.healtapp.core.ui.components.progressCelebrateEffect
 import com.example.healtapp.data.network.dto.hydration.HydrationDto
+import com.example.healtapp.data.preferences.HydrationPrefs
 import com.example.healtapp.features.hydration.presentation.HydrationViewModel
+import com.example.healtapp.features.hydration.ui.components.QuickAddWaterButtons
 
 @Composable
 fun HydrationTabContent() {
@@ -82,30 +84,20 @@ fun HydrationTabContent() {
             }
         }
 
-        SectionHeader(title = "Быстрое добавление", subtitle = "Нажмите на порцию")
-        Row(
+        SectionHeader(
+            title = "Быстрое добавление",
+            subtitle = "Стандартные порции и свои кнопки",
+        )
+        QuickAddWaterButtons(
+            defaultAmounts = uiState.defaultQuickAmounts,
+            customAmounts = uiState.customQuickAmounts,
+            onAdd = viewModel::addWater,
+            onAddCustomButton = viewModel::addCustomQuickAmount,
+            onRemoveCustomButton = viewModel::removeCustomQuickAmount,
+            canAddMoreCustom = uiState.customQuickAmounts.size < HydrationPrefs.MAX_CUSTOM_BUTTONS,
+            enabled = !uiState.isLoading,
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            AppButton(
-                text = "+200 мл",
-                onClick = { viewModel.addWater(200) },
-                isSecondary = true,
-                modifier = Modifier.weight(1f),
-            )
-            AppButton(
-                text = "+250 мл",
-                onClick = { viewModel.addWater(250) },
-                isSecondary = true,
-                modifier = Modifier.weight(1f),
-            )
-            AppButton(
-                text = "+500 мл",
-                onClick = { viewModel.addWater(500) },
-                isSecondary = true,
-                modifier = Modifier.weight(1f),
-            )
-        }
+        )
 
         SectionHeader(title = "Свой объём", subtitle = "Укажите миллилитры вручную")
         GradientFormPanel {

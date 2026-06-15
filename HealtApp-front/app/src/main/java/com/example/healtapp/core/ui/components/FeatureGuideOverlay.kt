@@ -195,15 +195,13 @@ fun FeatureGuideOverlay(
                             onClick = {
                                 if (isLast) onDismiss() else pageIndex += 1
                             },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(54.dp),
+                            modifier = Modifier.weight(1f),
                         )
 
                         IconButton(
                             onClick = { if (!isLast) pageIndex += 1 },
                             enabled = !isLast,
-                            modifier = Modifier.size(48.dp),
+                            modifier = Modifier.size(AppFormMetrics.ControlHeight),
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,

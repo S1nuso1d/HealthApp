@@ -110,6 +110,7 @@ fun ActivityScreen(
                 subtitle = "Шаги, неделя и тренировки",
                 headerIcon = Icons.AutoMirrored.Filled.DirectionsWalk,
                 scrollable = true,
+                scrollStateKey = "activity",
             ) {
                 if (uiState.isLoading) {
                     ActivityStepsSkeleton()

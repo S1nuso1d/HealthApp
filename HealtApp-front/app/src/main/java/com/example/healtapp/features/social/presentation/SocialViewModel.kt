@@ -3,6 +3,7 @@ package com.example.healtapp.features.social.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.healtapp.data.network.ApiServerConfig
+import com.example.healtapp.data.network.dto.social.ClubPostResponseDto
 import com.example.healtapp.data.network.dto.social.FeedActivityDto
 import com.example.healtapp.data.network.dto.social.FeedPostCreateDto
 import com.example.healtapp.data.network.dto.social.FeedPostDto
@@ -60,6 +61,7 @@ data class SocialUiState(
     val challenges: List<com.example.healtapp.data.network.dto.social.ChallengeResponseDto> = emptyList(),
     val challengeLeaderboards: Map<Int, List<com.example.healtapp.data.network.dto.social.ChallengeLeaderboardEntryDto>> = emptyMap(),
     val clubs: List<com.example.healtapp.data.network.dto.social.ClubResponseDto> = emptyList(),
+    val clubFeedEntries: List<ClubFeedEntry> = emptyList(),
     val clubMembers: Map<Int, List<com.example.healtapp.data.network.dto.social.ClubMemberResponseDto>> = emptyMap(),
     val isSearching: Boolean = false,
     val searchHint: String? = null,
@@ -153,6 +155,7 @@ class SocialViewModel @Inject constructor(
                     weeklyChallenge = demoWeeklyChallenge(),
                     challenges = demoChallenges(),
                     clubs = demoClubs(),
+                    clubFeedEntries = demoClubFeedEntries(),
                 )
                 return@launch
             }
@@ -187,6 +190,7 @@ class SocialViewModel @Inject constructor(
             val challenge = repository.getWeeklyChallenge().getOrNull()?.entries.orEmpty()
             val challengesList = challengesResult.getOrNull().orEmpty()
             val clubsList = clubsResult.getOrNull().orEmpty()
+            val clubFeedEntries = loadClubFeedEntries(clubsList)
             
             _uiState.value = SocialUiState(
                 isLoading = false,
@@ -199,6 +203,7 @@ class SocialViewModel @Inject constructor(
                 weeklyChallenge = challenge,
                 challenges = challengesList,
                 clubs = clubsList,
+                clubFeedEntries = clubFeedEntries,
                 profileVisibility = privacy?.profile_visibility ?: "friends",
                 feedVisibility = privacy?.feed_visibility ?: "friends",
                 showActivity = privacy?.show_activity_to_friends ?: true,
@@ -756,6 +761,56 @@ class SocialViewModel @Inject constructor(
             comments_count = 2,
         ),
     )
+
+    private suspend fun loadClubFeedEntries(
+        clubs: List<com.example.healtapp.data.network.dto.social.ClubResponseDto>,
+    ): List<ClubFeedEntry> {
+        if (tokenStorage.isGuestMode()) return demoClubFeedEntries()
+        return clubs
+            .filter { it.is_member }
+            .flatMap { club ->
+                repository.getClubPosts(club.id).getOrNull().orEmpty().take(5).map { post ->
+                    ClubFeedEntry(club, post)
+                }
+            }
+            .sortedByDescending { it.post.created_at }
+            .take(30)
+    }
+
+    private fun demoClubFeedEntries(): List<ClubFeedEntry> {
+        val club = demoClubs().firstOrNull { it.is_member } ?: return emptyList()
+        val author = demoFriends().firstOrNull() ?: return emptyList()
+        return listOf(
+            ClubFeedEntry(
+                club = club,
+                post = ClubPostResponseDto(
+                    id = 9001,
+                    club_id = club.id,
+                    user = author,
+                    post_type = "discussion",
+                    body = "Делимся идеями рецептов на неделю — присоединяйтесь к обсуждению в клубе.",
+                    poll_options = null,
+                    poll_votes = null,
+                    my_vote = null,
+                    created_at = "2026-05-26T09:00:00",
+                ),
+            ),
+            ClubFeedEntry(
+                club = club,
+                post = ClubPostResponseDto(
+                    id = 9002,
+                    club_id = club.id,
+                    user = author.copy(display_name = "Иван Петров", user_id = 102),
+                    post_type = "achievement",
+                    body = "7 дней подряд держу норму воды — мотивирует видеть прогресс клуба.",
+                    poll_options = null,
+                    poll_votes = null,
+                    my_vote = null,
+                    created_at = "2026-05-25T18:30:00",
+                ),
+            ),
+        )
+    }
 
     private fun demoChallenges() = listOf(
         com.example.healtapp.data.network.dto.social.ChallengeResponseDto(

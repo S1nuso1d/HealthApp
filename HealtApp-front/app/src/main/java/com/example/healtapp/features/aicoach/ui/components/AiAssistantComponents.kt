@@ -52,6 +52,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.ui.components.FeatureHeroBar
+import com.example.healtapp.core.ui.components.AppFormMetrics
 import com.example.healtapp.core.ui.theme.MintPrimary
 import com.example.healtapp.core.ui.theme.SkyPrimary
 import com.example.healtapp.core.ui.theme.SuccessColor
@@ -619,8 +620,8 @@ fun AiComposerDock(
             onClick = onSend,
             enabled = enabled && value.isNotBlank(),
             modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(16.dp))
+                .size(AppFormMetrics.ControlHeight)
+                .clip(RoundedCornerShape(AppFormMetrics.FieldCornerRadius))
                 .background(
                     if (enabled && value.isNotBlank()) {
                         Brush.linearGradient(brandingGradient())

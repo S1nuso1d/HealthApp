@@ -10,11 +10,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.ui.animation.appPressScale
 import com.example.healtapp.core.ui.theme.brandingGradient
 import com.example.healtapp.core.ui.theme.isAppDarkTheme
@@ -28,6 +26,9 @@ fun AppButton(
     modifier: Modifier = Modifier.fillMaxWidth(),
 ) {
     val interaction = remember { MutableInteractionSource() }
+    val shape = RoundedCornerShape(
+        if (isAppDarkTheme()) AppFormMetrics.ButtonCornerRadiusDark else AppFormMetrics.ButtonCornerRadiusLight,
+    )
 
     if (isSecondary) {
         OutlinedButton(
@@ -35,9 +36,9 @@ fun AppButton(
             enabled = enabled,
             interactionSource = interaction,
             modifier = modifier
-                .height(54.dp)
+                .height(AppFormMetrics.ControlHeight)
                 .appPressScale(interaction, pressedScale = 0.98f),
-            shape = RoundedCornerShape(if (isAppDarkTheme()) 4.dp else 18.dp),
+            shape = shape,
             border = ButtonDefaults.outlinedButtonBorder.copy(
                 brush = Brush.horizontalGradient(brandingGradient()),
             ),
@@ -54,9 +55,9 @@ fun AppButton(
             enabled = enabled,
             interactionSource = interaction,
             modifier = modifier
-                .height(54.dp)
+                .height(AppFormMetrics.ControlHeight)
                 .appPressScale(interaction, pressedScale = 0.98f),
-            shape = RoundedCornerShape(18.dp),
+            shape = shape,
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,

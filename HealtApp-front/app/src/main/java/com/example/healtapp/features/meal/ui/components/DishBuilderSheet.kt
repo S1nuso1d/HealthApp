@@ -44,6 +44,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.ui.components.AppButton
+import com.example.healtapp.core.ui.components.AppFormMetrics
 import com.example.healtapp.core.ui.components.AppTextField
 import com.example.healtapp.data.network.dto.meal.FoodCatalogItemDto
 import com.example.healtapp.features.meal.DishIngredient
@@ -226,13 +227,20 @@ fun DishBuilderSheet(
                         modifier = Modifier.weight(1f),
                     )
                     if (isActive) {
-                        IconButton(onClick = onSearchNow, enabled = !uiState.isFoodSearchLoading) {
+                        IconButton(
+                            onClick = onSearchNow,
+                            enabled = !uiState.isFoodSearchLoading,
+                            modifier = Modifier.size(AppFormMetrics.ControlHeight),
+                        ) {
                             Icon(Icons.Filled.Search, contentDescription = "Искать")
                         }
-                        IconButton(onClick = {
-                            if (hasCameraPermission(context)) showBarcode = true
-                            else cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-                        }) {
+                        IconButton(
+                            onClick = {
+                                if (hasCameraPermission(context)) showBarcode = true
+                                else cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                            },
+                            modifier = Modifier.size(AppFormMetrics.ControlHeight),
+                        ) {
                             Icon(Icons.Filled.QrCode2, contentDescription = "Штрихкод")
                         }
                     }

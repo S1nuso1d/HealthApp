@@ -2,6 +2,7 @@ package com.example.healtapp.features.auth.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.MaterialTheme
@@ -13,7 +14,7 @@ import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.ui.components.AppButton
 import com.example.healtapp.core.ui.components.AppMessageBanner
 import com.example.healtapp.core.ui.components.AppMessageType
-import com.example.healtapp.core.ui.components.AppTextField
+import com.example.healtapp.core.ui.components.AppPasswordField
 
 @Composable
 fun ChangePasswordForm(
@@ -31,29 +32,29 @@ fun ChangePasswordForm(
     modifier: Modifier = Modifier,
     hint: String = "После сброса по письму укажите код из email как текущий пароль.",
 ) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
         AppMessageBanner(text = hint, type = AppMessageType.Info)
-        AppTextField(
+        AppPasswordField(
             value = currentPassword,
             onValueChange = onCurrentChange,
             label = "Текущий пароль",
-            isPassword = true,
             leadingIcon = Icons.Outlined.Lock,
             enabled = enabled,
         )
-        AppTextField(
+        AppPasswordField(
             value = newPassword,
             onValueChange = onNewChange,
             label = "Новый пароль",
-            isPassword = true,
             leadingIcon = Icons.Outlined.Lock,
             enabled = enabled,
         )
-        AppTextField(
+        AppPasswordField(
             value = confirmPassword,
             onValueChange = onConfirmChange,
             label = "Подтверждение",
-            isPassword = true,
             leadingIcon = Icons.Outlined.Lock,
             enabled = enabled,
         )
