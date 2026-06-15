@@ -37,21 +37,22 @@ class Settings:
 
     # LLM / Ollama
     LLM_ENABLED: bool = os.getenv("LLM_ENABLED", "true").lower() == "true"
-    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "ollama")
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "openai")
     LLM_BASE_URL: str = os.getenv(
         "LLM_BASE_URL",
-        "http://localhost:11434/api/generate"
+        "https://api.openai.com/v1"
     )
-    LLM_MODEL_NAME: str = os.getenv("LLM_MODEL_NAME", "gemma:2b")
+    LLM_MODEL_NAME: str = os.getenv("LLM_MODEL_NAME", "gpt-4o-mini")
     LLM_TIMEOUT_SECONDS: int = int(os.getenv("LLM_TIMEOUT_SECONDS", "120"))
     LLM_TEMPERATURE: float = float(os.getenv("LLM_TEMPERATURE", "0.3"))
+    LLM_API_KEY: str = _env_strip("LLM_API_KEY")
 
     # AI Safety / fallback
     AI_FALLBACK_ENABLED: bool = os.getenv(
         "AI_FALLBACK_ENABLED",
         "true"
     ).lower() == "true"
-    AI_MAX_PROMPT_CHARS: int = int(os.getenv("AI_MAX_PROMPT_CHARS", "12000"))
+    AI_MAX_PROMPT_CHARS: int = int(os.getenv("AI_MAX_PROMPT_CHARS", "16000"))
 
     # FatSecret Platform (OAuth 1.0) — ключи приложения с https://platform.fatsecret.com/api/
     # Публичные методы (foods.search и т.д.) подписываются только consumer key/secret.
@@ -74,6 +75,9 @@ class Settings:
         os.getenv("AVATAR_DIR", str(_BACKEND_ROOT / "uploads" / "avatars"))
     )
     AVATAR_MAX_BYTES: int = int(os.getenv("AVATAR_MAX_BYTES", str(5 * 1024 * 1024)))
+    FOOD_IMAGES_DIR_PATH: Path = Path(
+        os.getenv("FOOD_IMAGES_DIR", str(_BACKEND_ROOT / "uploads" / "food_images"))
+    )
 
 
 settings = Settings()

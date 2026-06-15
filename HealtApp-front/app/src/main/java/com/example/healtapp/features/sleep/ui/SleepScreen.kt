@@ -1,6 +1,13 @@
 package com.example.healtapp.features.sleep.ui
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import androidx.activity.result.ActivityResultLauncher
 import androidx.compose.foundation.layout.Arrangement
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,11 +32,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.healtapp.core.ui.components.AppScreen
 import com.example.healtapp.core.ui.components.CollapsibleAppCard
+import com.example.healtapp.core.ui.components.FeatureGuideContent
+import com.example.healtapp.core.ui.components.FeatureGuideOverlay
+import com.example.healtapp.core.ui.components.FeatureGuidePrefs
+import com.example.healtapp.core.ui.components.FeatureGuideScreen
+import com.example.healtapp.core.ui.components.SectionHeader
 import com.example.healtapp.core.ui.components.AppDialogMessage
 import com.example.healtapp.core.ui.components.AppMessageBanner
 import com.example.healtapp.core.ui.components.AppMessageType
@@ -41,8 +55,10 @@ import com.example.healtapp.features.sleep.presentation.SleepViewModel
 import com.example.healtapp.features.sleep.ui.components.SleepFormFields
 import com.example.healtapp.features.sleep.ui.components.SleepHeroCard
 import com.example.healtapp.features.sleep.ui.components.SleepHistoryRow
+import com.example.healtapp.features.sleep.ui.components.SleepSoundRecorderCard
 import com.example.healtapp.features.sleep.ui.components.SleepScreenSkeleton
 import com.example.healtapp.features.sleep.ui.components.WeeklySleepBarChart
+import com.example.healtapp.notifications.HealthNotificationHelper
 
 @Composable
 fun SleepScreen(
@@ -50,7 +66,48 @@ fun SleepScreen(
 ) {
     val viewModel: SleepViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
+    var pendingTrackingStart by remember { mutableStateOf(false) }
+    var showGuide by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        showGuide = FeatureGuidePrefs.shouldShow(context, FeatureGuideScreen.Sleep)
+    }
+
+    val micPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            viewModel.startSleepSoundTracking()
+        }
+        pendingTrackingStart = false
+    }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            launchMicPermissionOrStart(context, micPermissionLauncher) {
+                viewModel.startSleepSoundTracking()
+            }
+        }
+        pendingTrackingStart = false
+    }
+
+    fun requestTrackingStart() {
+        pendingTrackingStart = true
+        val needsNotification = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            !HealthNotificationHelper.canPost(context)
+        if (needsNotification) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            return
+        }
+        launchMicPermissionOrStart(context, micPermissionLauncher) {
+            viewModel.startSleepSoundTracking()
+            pendingTrackingStart = false
+        }
+    }
     var recordToDelete by remember { mutableStateOf<SleepRecordUi?>(null) }
     var recordToEdit by remember { mutableStateOf<SleepRecordUi?>(null) }
     var editDate by remember { mutableStateOf("") }
@@ -98,6 +155,21 @@ fun SleepScreen(
                         goalHours = uiState.targetSleepHours,
                     )
                 }
+
+                SectionHeader("Умный диктофон (Сон)", "Анализ звуков во время сна")
+                SleepSoundRecorderCard(
+                    isTracking = uiState.isSoundTracking,
+                    clipsThisSession = uiState.soundClipsThisSession,
+                    isRecordingClip = uiState.isRecordingSoundClip,
+                    clips = uiState.soundClips,
+                    playingClipId = uiState.playingSoundClipId,
+                    aiSummary = uiState.aiSummary,
+                    isGeneratingSummary = uiState.isGeneratingSummary,
+                    onStartClick = { requestTrackingStart() },
+                    onStopClick = viewModel::stopSleepSoundTracking,
+                    onPlayClick = viewModel::toggleSleepSoundPlayback,
+                    onDeleteClick = viewModel::deleteSleepSoundClip,
+                )
 
                 CollapsibleAppCard(
                     title = "Добавить ночь",
@@ -157,7 +229,6 @@ fun SleepScreen(
                     }
                 }
 
-                Spacer(Modifier.height(72.dp))
             }
 
             recordToDelete?.let { rec ->
@@ -236,6 +307,30 @@ fun SleepScreen(
                     },
                 )
             }
+
+            FeatureGuideOverlay(
+                visible = showGuide,
+                pages = FeatureGuideContent.sleep,
+                sectionLabel = "Сон",
+                onDismiss = {
+                    FeatureGuidePrefs.markSeen(context, FeatureGuideScreen.Sleep)
+                    showGuide = false
+                },
+            )
         }
+    }
+}
+
+private fun launchMicPermissionOrStart(
+    context: Context,
+    micLauncher: ActivityResultLauncher<String>,
+    onGranted: () -> Unit,
+) {
+    if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+        PackageManager.PERMISSION_GRANTED
+    ) {
+        onGranted()
+    } else {
+        micLauncher.launch(Manifest.permission.RECORD_AUDIO)
     }
 }

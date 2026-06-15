@@ -1,14 +1,16 @@
 package com.example.healtapp.features.meal.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material3.Icon
@@ -24,19 +26,27 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.healtapp.core.ui.components.AppButton
 import com.example.healtapp.core.ui.components.AppCard
+import com.example.healtapp.core.ui.components.EmptyStateCard
+import com.example.healtapp.core.ui.components.SectionHeader
+import com.example.healtapp.core.ui.theme.cardHeaderGradient
+import com.example.healtapp.core.ui.theme.themedCardMint
 import com.example.healtapp.data.network.dto.meal.SavedDishDto
 import com.example.healtapp.features.meal.DishIngredient
 import com.example.healtapp.features.meal.DishIngredientsJson
 import com.example.healtapp.features.meal.DishIngredientsPayload
 import com.example.healtapp.features.meal.presentation.MealViewModel
 import com.example.healtapp.features.meal.ui.components.DishBuilderSheet
+import com.example.healtapp.features.meal.ui.components.SavedDishApplyDialog
 
 @Composable
 fun MyDishesTab(
@@ -46,11 +56,12 @@ fun MyDishesTab(
 ) {
     val viewModel: MealViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
 
     var showBuilder by remember { mutableStateOf(false) }
+    var editingDishId by remember { mutableStateOf<Int?>(null) }
     var dishName by remember { mutableStateOf("") }
     var builderIngredients by remember { mutableStateOf<List<DishIngredient>>(emptyList()) }
+    var savedDishToApply by remember { mutableStateOf<SavedDishDto?>(null) }
 
     LaunchedEffect(uiState.snackMessage) {
         uiState.snackMessage?.let { msg ->
@@ -63,6 +74,7 @@ fun MyDishesTab(
         if (openBuilderRequest) {
             dishName = ""
             builderIngredients = emptyList()
+            editingDishId = null
             viewModel.clearMealSearchSelection()
             viewModel.updateFoodSearchQuery("")
             showBuilder = true
@@ -72,42 +84,30 @@ fun MyDishesTab(
 
     Column(modifier = Modifier.fillMaxWidth()) {
         if (uiState.savedDishes.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height((screenHeight * 0.52f).coerceAtLeast(320.dp)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.padding(horizontal = 24.dp),
-                ) {
-                    Icon(
-                        Icons.Filled.MenuBook,
-                        contentDescription = null,
-                        modifier = Modifier.size(56.dp),
-                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                    )
-                    Text(
-                        text = "Пока нет своих блюд",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        textAlign = TextAlign.Center,
-                    )
-                    Text(
-                        text = "Нажмите + внизу, чтобы собрать блюдо из продуктов",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                    )
-                }
-            }
+            EmptyStateCard(
+                title = "Пока нет своих блюд",
+                text = "Нажмите + внизу, чтобы собрать блюдо из каталога продуктов или по штрихкоду",
+                icon = Icons.Filled.MenuBook,
+            )
         } else {
+            SectionHeader(
+                title = "Мои блюда",
+                subtitle = "${uiState.savedDishes.size} блюд · «В дневник» — быстрый приём пищи",
+            )
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 uiState.savedDishes.forEach { dish ->
                     SavedDishListCard(
                         dish = dish,
+                        onAddToDiary = { savedDishToApply = dish },
+                        onEdit = {
+                            dishName = dish.name
+                            builderIngredients = DishIngredientsJson.decode(dish.notes)
+                            editingDishId = dish.id
+                            viewModel.clearMealSearchSelection()
+                            viewModel.updateFoodSearchQuery("")
+                            showBuilder = true
+                        },
+                        onDuplicate = { viewModel.duplicateSavedDish(dish) },
                         onDelete = { viewModel.deleteSavedDish(dish.id) },
                     )
                 }
@@ -115,11 +115,26 @@ fun MyDishesTab(
         }
     }
 
+    savedDishToApply?.let { dish ->
+        val ings = DishIngredientsJson.decode(dish.notes)
+        SavedDishApplyDialog(
+            dishName = dish.name,
+            initialIngredients = ings,
+            mealSlotLabel = "Обед",
+            onDismiss = { savedDishToApply = null },
+            onConfirm = { cleaned, slot ->
+                viewModel.addSavedDishToDiaryFromIngredients(dish.name, slot, cleaned)
+                savedDishToApply = null
+            },
+        )
+    }
+
     DishBuilderSheet(
         visible = showBuilder,
         uiState = uiState,
         ingredients = builderIngredients,
         dishName = dishName,
+        isEditing = editingDishId != null,
         onDismiss = { showBuilder = false },
         onDishNameChange = { dishName = it },
         onIngredientsChange = { builderIngredients = it },
@@ -133,19 +148,26 @@ fun MyDishesTab(
         onSave = {
             val name = dishName.trim().ifBlank { "Моё блюдо" }
             if (builderIngredients.isEmpty()) return@DishBuilderSheet
-            viewModel.saveDishWithIngredients(name, null, builderIngredients)
+            if (editingDishId != null) {
+                viewModel.updateDishWithIngredients(editingDishId!!, name, null, builderIngredients)
+            } else {
+                viewModel.saveDishWithIngredients(name, null, builderIngredients)
+            }
             showBuilder = false
             dishName = ""
             builderIngredients = emptyList()
+            editingDishId = null
         },
     )
 
-    Spacer(Modifier.height(88.dp))
 }
 
 @Composable
 private fun SavedDishListCard(
     dish: SavedDishDto,
+    onAddToDiary: () -> Unit,
+    onEdit: () -> Unit,
+    onDuplicate: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val ings = DishIngredientsJson.decode(dish.notes)
@@ -161,28 +183,72 @@ private fun SavedDishListCard(
     }
 
     AppCard {
-        Column(
-            modifier = Modifier.padding(4.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top,
         ) {
-            Text(dish.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            Text(
-                text = "${ref.calories.toInt()} ккал · $subtitle",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            ings.take(4).forEach { ing ->
-                Text(
-                    text = "· ${ing.name}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Brush.linearGradient(cardHeaderGradient(themedCardMint(), 0.45f))),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Filled.MenuBook,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
                 )
             }
-            if (ings.size > 4) {
-                Text("… ещё ${ings.size - 4}", style = MaterialTheme.typography.labelSmall)
-            }
-            TextButton(onClick = onDelete) {
-                Text("Удалить", color = MaterialTheme.colorScheme.error)
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(dish.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(
+                    text = "${ref.calories.toInt()} ккал · Б ${ref.protein.toInt()} · Ж ${ref.fat.toInt()} · У ${ref.carbs.toInt()}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                ings.take(3).forEach { ing ->
+                    Text(
+                        text = "· ${ing.name}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (ings.size > 3) {
+                    Text("… ещё ${ings.size - 3}", style = MaterialTheme.typography.labelSmall)
+                }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(top = 4.dp),
+                ) {
+                    AppButton(
+                        text = "В дневник",
+                        onClick = onAddToDiary,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(top = 4.dp),
+                ) {
+                    TextButton(onClick = onEdit) {
+                        Text("Изменить")
+                    }
+                    TextButton(onClick = onDuplicate) {
+                        Text("Копия")
+                    }
+                    TextButton(onClick = onDelete) {
+                        Text("Удалить", color = MaterialTheme.colorScheme.error)
+                    }
+                }
             }
         }
     }

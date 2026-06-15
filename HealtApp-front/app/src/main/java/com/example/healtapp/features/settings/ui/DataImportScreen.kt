@@ -20,6 +20,7 @@ import com.example.healtapp.core.ui.components.AppCard
 import com.example.healtapp.core.ui.components.AppMessageBanner
 import com.example.healtapp.core.ui.components.AppMessageType
 import com.example.healtapp.core.ui.components.AppScreen
+import com.example.healtapp.core.ui.components.SectionHeader
 import com.example.healtapp.features.settings.presentation.ImportViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -57,6 +58,10 @@ fun DataImportScreen(
         onNavigateBack = onBack,
         scrollable = true,
     ) {
+        SectionHeader(
+            title = "Формат CSV",
+            subtitle = "UTF-8, поля через точку с запятой",
+        )
         Text(
             text = "Подготовь UTF-8 файл (или выбери его из памяти телефона). Каждая строка — одна запись, поля через точку с запятой. Строки с # в начале считаются комментариями.",
             style = MaterialTheme.typography.bodyMedium,
@@ -77,6 +82,7 @@ fun DataImportScreen(
             }
         }
 
+        SectionHeader(title = "Импорт", subtitle = "Выберите файл на устройстве")
         AppButton(
             text = if (uiState.isLoading) "Импортируем…" else "Выбрать CSV-файл",
             onClick = { pickFile.launch("text/*") },

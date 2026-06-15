@@ -12,7 +12,12 @@ import retrofit2.http.Field
 import retrofit2.http.FormUrlEncoded
 import retrofit2.http.POST
 
+import com.example.healtapp.data.network.dto.auth.RefreshTokenRequestDto
+
 interface AuthApi {
+
+    @POST("auth/refresh")
+    suspend fun refreshToken(@Body body: RefreshTokenRequestDto): TokenResponseDto
 
     @POST("auth/delete-account")
     suspend fun deleteAccount(@Body body: PasswordConfirmDto): Map<String, String>

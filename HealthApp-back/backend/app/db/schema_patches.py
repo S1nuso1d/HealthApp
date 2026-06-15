@@ -5,11 +5,10 @@
 
 from sqlalchemy import inspect, text
 
-from app.db.database import engine
+from app.db.database import engine, Base
 
 
 def apply_lightweight_schema_patches() -> None:
-    """Добавляет недостающие колонки, которые есть в моделях SQLAlchemy, но отсутствуют в БД."""
     insp = inspect(engine)
     tables = set(insp.get_table_names())
 
@@ -98,6 +97,16 @@ def apply_lightweight_schema_patches() -> None:
                             "BOOLEAN NOT NULL DEFAULT 0"
                         )
                     )
+            if "first_name" not in prof_cols:
+                conn.execute(text("ALTER TABLE user_profiles ADD COLUMN first_name VARCHAR(64)"))
+            if "last_name" not in prof_cols:
+                conn.execute(text("ALTER TABLE user_profiles ADD COLUMN last_name VARCHAR(64)"))
+            if "nickname" not in prof_cols:
+                conn.execute(text("ALTER TABLE user_profiles ADD COLUMN nickname VARCHAR(32)"))
+            if "current_streak" not in prof_cols:
+                conn.execute(text("ALTER TABLE user_profiles ADD COLUMN current_streak INTEGER NOT NULL DEFAULT 0"))
+            if "last_active_date" not in prof_cols:
+                conn.execute(text("ALTER TABLE user_profiles ADD COLUMN last_active_date VARCHAR(10)"))
 
     if "user_achievements" in tables:
         ach_cols = {c["name"] for c in insp.get_columns("user_achievements")}
@@ -129,3 +138,7 @@ def apply_lightweight_schema_patches() -> None:
                     conn.execute(text("ALTER TABLE user_achievements ADD COLUMN record_value REAL"))
             if "record_label" not in ach_cols:
                 conn.execute(text("ALTER TABLE user_achievements ADD COLUMN record_label VARCHAR(128)"))
+
+    if "challenges" not in tables:
+        Base.metadata.create_all(bind=engine, tables=[Base.metadata.tables["challenges"], Base.metadata.tables["challenge_participants"]])
+

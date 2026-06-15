@@ -32,6 +32,8 @@ import com.example.healtapp.core.ui.components.AppCard
 import com.example.healtapp.core.ui.components.AppMessageBanner
 import com.example.healtapp.core.ui.components.AppMessageType
 import com.example.healtapp.core.ui.components.AppScreen
+import com.example.healtapp.core.ui.components.EmptyStateCard
+import com.example.healtapp.core.ui.components.SectionHeader
 import com.example.healtapp.features.actionplan.presentation.ActionPlanViewModel
 import com.example.healtapp.features.dashboard.presentation.ActionPlanItemUi
 
@@ -65,18 +67,15 @@ fun ActionPlanScreen(
                 text = if (uiState.isGenerating) "Генерируем…" else "Обновить план",
                 onClick = viewModel::generate,
                 enabled = !uiState.isGenerating && !uiState.isLoading,
+                isSecondary = true,
             )
+
+            SectionHeader(title = "Задачи", subtitle = "Отмечайте выполненные пункты")
 
             if (uiState.isLoading) {
                 CircularProgressIndicator()
             } else if (uiState.items.isEmpty()) {
-                AppCard {
-                    Text(
-                        "План пуст. Нажмите «Обновить план», чтобы создать задачи из ваших рекомендаций.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                EmptyStateCard("План пуст. Нажмите «Обновить план», чтобы создать задачи из ваших рекомендаций.")
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     uiState.items.forEach { item ->

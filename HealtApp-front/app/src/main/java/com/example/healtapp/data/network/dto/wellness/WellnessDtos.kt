@@ -52,9 +52,15 @@ data class AIBriefDto(
     val source: String = "llm",
 )
 
+data class ChatHistoryMessageDto(
+    val role: String,
+    val content: String,
+)
+
 data class AIChatRequestDto(
     val question: String,
-    @SerializedName("period_days") val periodDays: Int = 7,
+    @SerializedName("period_days") val periodDays: Int = 14,
+    val history: List<ChatHistoryMessageDto> = emptyList(),
 )
 
 data class AIExplainInsightRequestDto(

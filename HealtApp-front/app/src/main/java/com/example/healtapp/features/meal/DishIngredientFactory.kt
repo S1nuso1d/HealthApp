@@ -1,5 +1,6 @@
 package com.example.healtapp.features.meal
 
+import com.example.healtapp.data.network.dto.meal.FoodCatalogItemDto
 import com.example.healtapp.features.meal.util.FatSecretParse
 import com.example.healtapp.features.meal.util.FatSecretServingOption
 import com.google.gson.JsonObject
@@ -10,6 +11,18 @@ object DishIngredientFactory {
         val parsed = FatSecretParse.parseFoodDetail(detailJson) ?: return null
         val serving = parsed.servings.firstOrNull() ?: return null
         return fromServing(parsed.foodName, serving, foodId)
+    }
+
+    fun fromCatalogItem(item: FoodCatalogItemDto): DishIngredient {
+        return DishIngredient(
+            name = item.name,
+            foodId = item.id?.toString(),
+            caloriesPer100g = item.calories100g ?: 0f,
+            proteinPer100g = item.proteinG100g ?: 0f,
+            fatPer100g = item.fatG100g ?: 0f,
+            carbsPer100g = item.carbsG100g ?: 0f,
+            grams = 0f,
+        )
     }
 
     fun fromServing(name: String, serving: FatSecretServingOption, foodId: String? = null): DishIngredient {

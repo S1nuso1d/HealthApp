@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.healtapp.core.ui.animation.AppAnimatedVisibility
 
 @Composable
 fun GlobalPendingSyncBanner(
@@ -22,38 +23,39 @@ fun GlobalPendingSyncBanner(
     onTap: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    if (count <= 0) return
     val label = when {
         isFlushing -> "Отправляем записи на сервер…"
         count == 1 -> "1 запись ждёт синхронизации · нажмите, чтобы отправить"
         count in 2..4 -> "$count записи ждут синхронизации · нажмите, чтобы отправить"
         else -> "$count записей ждут синхронизации · нажмите, чтобы отправить"
     }
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(enabled = !isFlushing, onClick = onTap),
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.75f),
-    ) {
-        androidx.compose.foundation.layout.Row(
+    AppAnimatedVisibility(visible = count > 0, modifier = modifier) {
+        Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp),
-            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                .clickable(enabled = !isFlushing, onClick = onTap),
+            shape = RoundedCornerShape(14.dp),
+            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.75f),
         ) {
-            Icon(
-                imageVector = Icons.Filled.CloudUpload,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
-            )
+            androidx.compose.foundation.layout.Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.CloudUpload,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+            }
         }
     }
 }

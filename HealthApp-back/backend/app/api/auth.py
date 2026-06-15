@@ -5,12 +5,14 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.core.config import settings
 from app.core.security import (
     create_access_token,
+    create_refresh_token,
     get_password_hash,
     verify_password,
 )
@@ -22,16 +24,21 @@ from app.schemas.user import (
     ChangePasswordBody,
     ForgotPasswordBody,
     PasswordConfirmBody,
+    RegisterProfileDraft,
     RegisterStartResponse,
     RegisterVerify,
     Token,
     UserCreate,
+    RefreshTokenRequest,
 )
 from app.services.account_deletion import delete_user_and_related_data
 from app.services.registration_email import (
     send_password_reset_email,
     send_registration_verification_email,
 )
+from app.services.profile_display import validate_nickname
+
+from jose import JWTError, jwt
 
 logger = logging.getLogger(__name__)
 
@@ -202,12 +209,48 @@ def register_complete(body: RegisterVerify, db: Session = Depends(get_db)):
     db.refresh(new_user)
 
     profile = UserProfile(user_id=new_user.id)
+    draft: RegisterProfileDraft | None = body.profile
+    if draft is not None:
+        nickname_raw = (draft.nickname or "").strip() or None
+        nickname = None
+        if nickname_raw:
+            try:
+                nickname = validate_nickname(nickname_raw)
+            except ValueError as exc:
+                db.delete(new_user)
+                db.commit()
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=str(exc),
+                ) from exc
+            taken = (
+                db.query(UserProfile)
+                .filter(func.lower(UserProfile.nickname) == nickname.lower())
+                .first()
+            )
+            if taken:
+                db.delete(new_user)
+                db.commit()
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Этот никнейм уже занят",
+                )
+        profile.first_name = (draft.first_name or "").strip() or None
+        profile.last_name = (draft.last_name or "").strip() or None
+        profile.nickname = nickname
+        profile.age = draft.age
+        profile.is_vegetarian = draft.is_vegetarian
+        profile.has_allergies = draft.has_allergies
+        profile.allergies_text = (draft.allergies_text or "").strip() or None
+    profile.onboarding_completed = True
     db.add(profile)
     db.commit()
 
     access_token = create_access_token(data={"sub": str(new_user.id)})
+    refresh_token = create_refresh_token(data={"sub": str(new_user.id)})
     return {
         "access_token": access_token,
+        "refresh_token": refresh_token,
         "token_type": "bearer",
     }
 
@@ -223,7 +266,8 @@ def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
 ):
-    user = db.query(User).filter(User.email == form_data.username).first()
+    email = form_data.username.lower().strip()
+    user = db.query(User).filter(User.email == email).first()
 
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
@@ -232,9 +276,57 @@ def login(
         )
 
     access_token = create_access_token(data={"sub": str(user.id)})
+    refresh_token = create_refresh_token(data={"sub": str(user.id)})
 
     return {
         "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+    }
+
+
+@router.post(
+    "/refresh",
+    response_model=Token,
+    summary="Обновить токен",
+    description="Обновление access токена с помощью refresh токена",
+    response_description="Новые JWT токены",
+)
+def refresh_token(
+    body: RefreshTokenRequest,
+    db: Session = Depends(get_db),
+):
+    invalid_token = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Недействительный или просроченный refresh токен",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    try:
+        payload = jwt.decode(
+            body.refresh_token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM]
+        )
+        
+        user_id = payload.get("sub")
+        if user_id is None:
+            raise invalid_token
+            
+        user_id = int(user_id)
+    except (JWTError, ValueError):
+        raise invalid_token
+        
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        raise invalid_token
+        
+    new_access_token = create_access_token(data={"sub": str(user.id)})
+    new_refresh_token = create_refresh_token(data={"sub": str(user.id)})
+    
+    return {
+        "access_token": new_access_token,
+        "refresh_token": new_refresh_token,
         "token_type": "bearer",
     }
 

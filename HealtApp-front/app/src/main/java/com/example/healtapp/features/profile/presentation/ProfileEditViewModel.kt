@@ -4,9 +4,11 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.healtapp.core.common.AvatarJpegBytes
 import com.example.healtapp.core.common.AgeUtils
 import com.example.healtapp.core.common.AppRefreshBus
-import com.example.healtapp.core.common.AvatarJpegBytes
+import com.example.healtapp.core.common.Constants
+import com.example.healtapp.core.common.NutritionTargetsCalculator
 import com.example.healtapp.core.export.HealthReportExporter
 import com.example.healtapp.data.network.dto.profile.ProfileDto
 import com.example.healtapp.core.ui.theme.ThemeMode
@@ -27,14 +29,21 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
+import com.example.healtapp.domain.usecase.profile.GetProfileUseCase
+import com.example.healtapp.domain.usecase.profile.UpdateProfileUseCase
+import com.example.healtapp.data.healthconnect.HealthConnectManager
+
 @HiltViewModel
 class ProfileEditViewModel @Inject constructor(
+    private val getProfileUseCase: GetProfileUseCase,
+    private val updateProfileUseCase: UpdateProfileUseCase,
     private val profileRepository: ProfileRepository,
     private val authRepository: AuthRepository,
     private val tokenStorage: TokenStorage,
     private val themePreferences: ThemePreferences,
     @ApplicationContext private val appContext: Context,
     private val weightHistoryStore: WeightHistoryStore,
+    private val healthConnectManager: HealthConnectManager,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileEditUiState())
@@ -69,13 +78,48 @@ class ProfileEditViewModel @Inject constructor(
 
             _uiState.value = _uiState.value.copy(isLoading = true, error = null, success = null, guestMode = false)
 
-            val result = profileRepository.getMyProfile()
+            val result = getProfileUseCase()
             result.onSuccess { profile ->
                 cachedProfile = profile
+                
+                var tCalories = profile.target_daily_calories?.toString()
+                var tProtein = profile.target_protein_g?.let { "%.0f".format(it) }
+                var tFat = profile.target_fat_g?.let { "%.0f".format(it) }
+                var tCarbs = profile.target_carbs_g?.let { "%.0f".format(it) }
+                
+                if (tCalories == null || tProtein == null || tFat == null || tCarbs == null) {
+                    val age = profile.age ?: 30
+                    val height = profile.height_cm ?: 170f
+                    val weight = profile.weight_kg ?: 70f
+                    val sex = profile.sex ?: Constants.Sex.MALE
+                    val activity = profile.activity_level ?: Constants.ActivityLevel.MEDIUM
+                    val goal = profile.goal ?: Constants.Goals.IMPROVE_ENERGY
+                    
+                    val computed = NutritionTargetsCalculator.calculate(
+                        age = age,
+                        sex = sex,
+                        heightCm = height,
+                        weightKg = weight,
+                        activityLevel = activity,
+                        goal = goal
+                    )
+                    
+                    if (computed != null) {
+                        tCalories = tCalories ?: computed.calories.toString()
+                        tProtein = tProtein ?: "%.0f".format(computed.proteinG)
+                        tFat = tFat ?: "%.0f".format(computed.fatG)
+                        tCarbs = tCarbs ?: "%.0f".format(computed.carbsG)
+                    }
+                }
+                
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     guestMode = false,
                     error = null,
+                    firstName = profile.first_name.orEmpty(),
+                    lastName = profile.last_name.orEmpty(),
+                    nickname = profile.nickname.orEmpty(),
+                    publicDisplayName = profile.display_name.orEmpty(),
                     birthDate = profile.age?.let { AgeUtils.estimatedBirthDateFromAge(it) }.orEmpty(),
                     age = profile.age?.toString().orEmpty(),
                     sex = profile.sex ?: _uiState.value.sex,
@@ -86,10 +130,10 @@ class ProfileEditViewModel @Inject constructor(
                     targetSleep = profile.target_sleep_hours?.toString() ?: _uiState.value.targetSleep,
                     targetWater = profile.target_water_ml?.toInt()?.toString() ?: _uiState.value.targetWater,
                     targetSteps = profile.target_steps?.toString() ?: _uiState.value.targetSteps,
-                    targetCalories = profile.target_daily_calories?.toString() ?: _uiState.value.targetCalories,
-                    targetProtein = profile.target_protein_g?.let { "%.0f".format(it) }.orEmpty(),
-                    targetFat = profile.target_fat_g?.let { "%.0f".format(it) }.orEmpty(),
-                    targetCarbs = profile.target_carbs_g?.let { "%.0f".format(it) }.orEmpty(),
+                    targetCalories = tCalories ?: _uiState.value.targetCalories,
+                    targetProtein = tProtein.orEmpty(),
+                    targetFat = tFat.orEmpty(),
+                    targetCarbs = tCarbs.orEmpty(),
                     isVegetarian = profile.is_vegetarian == true,
                     hasAllergies = profile.has_allergies == true,
                     allergiesText = profile.allergies_text.orEmpty(),
@@ -199,6 +243,10 @@ class ProfileEditViewModel @Inject constructor(
         }
     }
 
+    fun updateFirstName(value: String) = update { copy(firstName = value, error = null, success = null) }
+    fun updateLastName(value: String) = update { copy(lastName = value, error = null, success = null) }
+    fun updateNickname(value: String) = update { copy(nickname = value, error = null, success = null) }
+
     fun updateBirthDate(value: String) {
         val age = AgeUtils.ageFromBirthDate(value)
         update {
@@ -256,7 +304,10 @@ class ProfileEditViewModel @Inject constructor(
             val ageYears = AgeUtils.ageFromBirthDate(state.birthDate)
                 ?: state.age.toIntOrNull()
 
-            val result = profileRepository.updateMyProfile(
+            val result = updateProfileUseCase(
+                firstName = state.firstName.trim().ifBlank { null },
+                lastName = state.lastName.trim().ifBlank { null },
+                nickname = state.nickname.trim().ifBlank { null },
                 age = ageYears,
                 sex = state.sex,
                 heightCm = state.height.toFloatOrNull(),
@@ -285,6 +336,10 @@ class ProfileEditViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,
                     success = "Профиль успешно сохранён",
+                    firstName = profile.first_name.orEmpty(),
+                    lastName = profile.last_name.orEmpty(),
+                    nickname = profile.nickname.orEmpty(),
+                    publicDisplayName = profile.display_name.orEmpty(),
                     age = ageStr,
                     weightHistory = weightHistoryStore.loadEntries(),
                     weightWeeklyReminder = null,
@@ -341,5 +396,40 @@ class ProfileEditViewModel @Inject constructor(
 
     private inline fun update(block: ProfileEditUiState.() -> ProfileEditUiState) {
         _uiState.value = _uiState.value.block()
+    }
+
+    val healthConnectPermissions = healthConnectManager.permissions
+
+    fun onSyncHealthConnectClicked(onRequestPermissions: (Set<String>) -> Unit) {
+        viewModelScope.launch {
+            if (healthConnectManager.isSupported()) {
+                if (healthConnectManager.hasAllPermissions()) {
+                    syncHealthConnect()
+                } else {
+                    onRequestPermissions(healthConnectPermissions)
+                }
+            } else {
+                _uiState.value = _uiState.value.copy(error = "Health Connect не поддерживается на этом устройстве")
+            }
+        }
+    }
+
+    fun syncHealthConnect() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null, success = null)
+            val result = healthConnectManager.syncTodaySteps()
+            if (result.isSuccess) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    success = "Шаги синхронизированы с Health Connect"
+                )
+                AppRefreshBus.notifyDataChanged()
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "Ошибка синхронизации: ${result.exceptionOrNull()?.message}"
+                )
+            }
+        }
     }
 }

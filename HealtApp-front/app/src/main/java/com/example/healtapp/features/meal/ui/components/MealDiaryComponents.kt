@@ -273,16 +273,16 @@ fun MealServingPicker(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Slider(
-                value = portionMultiplier,
-                onValueChange = onMultiplierChange,
-                valueRange = 0.25f..4f,
-                steps = 14,
-                colors = SliderDefaults.colors(
-                    thumbColor = sliderAccentColor(),
-                    activeTrackColor = sliderAccentColor(),
-                ),
-            )
+                Slider(
+                    value = portionMultiplier,
+                    onValueChange = onMultiplierChange,
+                    valueRange = 0.1f..10f,
+                    steps = 98,
+                    colors = SliderDefaults.colors(
+                        thumbColor = sliderAccentColor(),
+                        activeTrackColor = sliderAccentColor(),
+                    ),
+                )
         }
     }
 }

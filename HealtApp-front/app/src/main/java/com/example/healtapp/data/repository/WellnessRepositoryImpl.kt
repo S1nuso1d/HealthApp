@@ -86,8 +86,18 @@ class WellnessRepositoryImpl @Inject constructor(
         Unit
     }
 
-    override suspend fun aiChat(question: String, periodDays: Int) = runCatching {
-        aiApi.chat(AIChatRequestDto(question = question, periodDays = periodDays))
+    override suspend fun aiChat(
+        question: String,
+        periodDays: Int,
+        history: List<com.example.healtapp.data.network.dto.wellness.ChatHistoryMessageDto>,
+    ) = runCatching {
+        aiApi.chat(
+            AIChatRequestDto(
+                question = question,
+                periodDays = periodDays,
+                history = history,
+            ),
+        )
     }
 
     override suspend fun dailyBrief(days: Int) = runCatching { aiApi.dailyBrief(days) }

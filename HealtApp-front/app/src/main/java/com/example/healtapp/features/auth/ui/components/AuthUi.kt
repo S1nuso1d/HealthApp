@@ -1,6 +1,15 @@
 package com.example.healtapp.features.auth.ui.components
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
+import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,11 +46,19 @@ import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.ui.components.AppCard
 import com.example.healtapp.core.ui.components.AppMessageBanner
 import com.example.healtapp.core.ui.components.AppMessageType
-import com.example.healtapp.core.ui.theme.heroBlockGradient
+import com.example.healtapp.core.ui.components.BrandedFilterChip
+import com.example.healtapp.core.ui.theme.brandingGradient
+import com.example.healtapp.core.ui.theme.metricIconGradient
+import com.example.healtapp.core.ui.theme.themedCardBlue
+import com.example.healtapp.core.ui.theme.themedCardLavender
+import com.example.healtapp.core.ui.theme.themedCardMint
 import com.example.healtapp.core.ui.theme.heroContentColor
 import com.example.healtapp.core.ui.theme.heroIconBackdrop
-import com.example.healtapp.core.ui.theme.isAppDarkTheme
+import com.example.healtapp.core.ui.theme.heroBlockGradient
 import com.example.healtapp.core.ui.theme.screenBackgroundGradient
+import com.example.healtapp.core.ui.theme.isAppDarkTheme
+import com.example.healtapp.features.auth.presentation.DietaryExclusionOption
+import com.example.healtapp.features.auth.presentation.RegisterStep
 
 @Composable
 fun AuthScaffold(
@@ -55,40 +72,192 @@ fun AuthScaffold(
         modifier = modifier
             .fillMaxSize()
             .background(Brush.verticalGradient(gradient))
-            .statusBarsPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp)
-            .padding(top = 8.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+            .statusBarsPadding(),
     ) {
-        if (onBack != null) {
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)),
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Назад",
-                    tint = MaterialTheme.colorScheme.primary,
-                )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .padding(top = 8.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            if (onBack != null) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)),
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Назад",
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
             }
+
+            content()
+
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "HealthApp",
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Medium,
+            )
         }
+    }
+}
 
-        content()
+@Composable
+fun AuthWizardProgress(
+    currentStep: RegisterStep,
+    modifier: Modifier = Modifier,
+) {
+    if (currentStep == RegisterStep.Verify) return
 
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = "HealthApp",
+    val index = RegisterStep.wizardSteps.indexOf(currentStep).coerceAtLeast(0)
+    val progress = (index + 1).toFloat() / RegisterStep.totalWizardSteps.toFloat()
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = FontWeight.Medium,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Шаг ${index + 1} из ${RegisterStep.totalWizardSteps}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = currentStep.title,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+        LinearProgressIndicator(
+            progress = { progress },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(6.dp)
+                .clip(RoundedCornerShape(3.dp)),
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
         )
     }
+}
+
+@Composable
+fun AuthFeatureStrip(modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        AuthFeaturePill(Icons.Filled.Bedtime, "Сон", metricIconGradient(themedCardLavender()), Modifier.weight(1f))
+        AuthFeaturePill(Icons.Filled.Restaurant, "Питание", metricIconGradient(themedCardMint()), Modifier.weight(1f))
+        AuthFeaturePill(
+            Icons.AutoMirrored.Filled.DirectionsWalk,
+            "Активность",
+            metricIconGradient(themedCardBlue(), mintTint = true),
+            Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun AuthFeaturePill(
+    icon: ImageVector,
+    label: String,
+    gradient: List<Color>,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(Brush.linearGradient(gradient))
+            .padding(vertical = 12.dp, horizontal = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Icon(imageVector = icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+        Text(text = label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+    }
+}
+
+@Composable
+fun AuthInfoStepsCard(modifier: Modifier = Modifier) {
+    AuthFormCard(modifier = modifier, sectionTitle = "Как это работает", sectionSubtitle = "Безопасный сброс доступа") {
+        AuthInfoStep(1, "Укажите email аккаунта")
+        AuthInfoStep(2, "Получите временный пароль из 8 цифр")
+        AuthInfoStep(3, "Войдите и смените пароль в профиле")
+    }
+}
+
+@Composable
+private fun AuthInfoStep(number: Int, text: String) {
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier.size(28.dp).clip(CircleShape).background(Brush.linearGradient(brandingGradient())),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(text = number.toString(), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
+        }
+        Text(text = text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+fun AuthStepHint(text: String, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f))
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Filled.Favorite, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+        Text(text = text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun AuthDietaryExclusionGroup(
+    title: String,
+    options: List<DietaryExclusionOption>,
+    selected: Set<String>,
+    onToggle: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        AuthSectionLabel(text = title)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            options.forEach { option ->
+                BrandedFilterChip(selected = option.id in selected, onClick = { onToggle(option.id) }, label = option.label)
+            }
+        }
+    }
+}
+
+@Composable
+fun <T> AuthStepAnimatedContent(
+    targetState: T,
+    modifier: Modifier = Modifier,
+    label: String = "authStep",
+    content: @Composable (T) -> Unit,
+) {
+    AnimatedContent(targetState = targetState, modifier = modifier, label = label, content = { state -> content(state) })
 }
 
 @Composable

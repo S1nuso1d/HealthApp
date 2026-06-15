@@ -1,5 +1,6 @@
 package com.example.healtapp.features.activity.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,11 +26,16 @@ import androidx.compose.runtime.setValue
 import java.time.LocalDate
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.healtapp.core.ui.components.AppScreen
 import com.example.healtapp.core.ui.components.CollapsibleAppCard
+import com.example.healtapp.core.ui.components.FeatureGuideContent
+import com.example.healtapp.core.ui.components.FeatureGuideOverlay
+import com.example.healtapp.core.ui.components.FeatureGuidePrefs
+import com.example.healtapp.core.ui.components.FeatureGuideScreen
 import com.example.healtapp.core.ui.components.AppDialogMessage
 import com.example.healtapp.core.ui.components.AppMessageBanner
 import com.example.healtapp.core.ui.components.AppMessageType
@@ -39,11 +45,13 @@ import com.example.healtapp.core.ui.components.SectionHeader
 import com.example.healtapp.data.network.dto.activity.ActivityDto
 import com.example.healtapp.features.activity.presentation.ActivityViewModel
 import com.example.healtapp.features.activity.presentation.activityTitleFromApi
-import com.example.healtapp.features.activity.presentation.trainingActivityTypes
 import com.example.healtapp.features.activity.ui.components.ActivityStepsHeroCard
 import com.example.healtapp.features.activity.ui.components.ActivityStepsSkeleton
-import com.example.healtapp.features.activity.ui.components.ActivityTrainingFormCard
 import com.example.healtapp.features.activity.ui.components.ActivityTrainingHistoryRow
+import com.example.healtapp.features.activity.ui.components.ActivityTrainingCatalogScreen
+import com.example.healtapp.features.activity.ui.components.ActivityTrainingLogScreen
+import com.example.healtapp.features.activity.ui.components.ActivityTrainingPane
+import com.example.healtapp.features.activity.ui.components.ActivityTrainingSection
 import com.example.healtapp.features.activity.ui.components.WeeklyStepsBarChart
 
 @Composable
@@ -52,7 +60,14 @@ fun ActivityScreen(
 ) {
     val viewModel: ActivityViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
+    var showGuide by remember { mutableStateOf(false) }
+    var trainingPane by remember { mutableStateOf(ActivityTrainingPane.Hub) }
+
+    LaunchedEffect(Unit) {
+        showGuide = FeatureGuidePrefs.shouldShow(context, FeatureGuideScreen.Activity)
+    }
 
     val intensityTypes = listOf("Низкая", "Средняя", "Высокая")
 
@@ -65,8 +80,11 @@ fun ActivityScreen(
     var editType by remember { mutableStateOf("") }
 
     LaunchedEffect(uiState.snackMessage) {
-        uiState.snackMessage?.let {
-            snackbarHostState.showSnackbar(it)
+        uiState.snackMessage?.let { msg ->
+            snackbarHostState.showSnackbar(msg)
+            if (msg == "Тренировка сохранена" && trainingPane == ActivityTrainingPane.Form) {
+                trainingPane = ActivityTrainingPane.Hub
+            }
             viewModel.clearSnackMessage()
         }
     }
@@ -120,74 +138,117 @@ fun ActivityScreen(
                     )
                 }
 
-                CollapsibleAppCard(
-                    title = "Новая тренировка",
-                    subtitle = "Ручной ввод",
-                    initiallyExpanded = false,
-                ) {
-                    ActivityTrainingFormCard(
-                        embeddedInCard = true,
-                        activityType = uiState.activityType,
-                        activityTypes = trainingActivityTypes,
-                        onActivityTypeSelected = viewModel::updateActivityType,
-                        durationMinutes = uiState.durationMinutes,
-                        onDurationChange = viewModel::updateDuration,
-                        calories = uiState.caloriesBurned,
-                        onCaloriesChange = viewModel::updateCalories,
-                        distanceKm = uiState.distanceKm,
-                        onDistanceChange = viewModel::updateDistance,
-                        intensity = uiState.intensity,
-                        intensityOptions = intensityTypes,
-                        onIntensitySelected = viewModel::updateIntensity,
-                        notes = uiState.trainingNotes,
-                        onNotesChange = viewModel::updateTrainingNotes,
-                        perceivedExertion = uiState.perceivedExertion,
-                        onPerceivedExertionChange = viewModel::updatePerceivedExertion,
-                        isSaving = uiState.isSaving,
-                        onSave = viewModel::saveTraining,
-                    )
-                }
+                ActivityTrainingSection(
+                    minutesToday = uiState.trainingMinutesToday,
+                    countToday = uiState.trainingCountToday,
+                    caloriesToday = uiState.trainingCaloriesToday,
+                    minutesWeek = uiState.trainingMinutesWeek,
+                    countWeek = uiState.trainingCountWeek,
+                    caloriesWeek = uiState.trainingCaloriesWeek,
+                    quickPicks = uiState.quickPickTrainings,
+                    favoriteSlugs = uiState.favoriteTrainingSlugs,
+                    onSelectType = { type ->
+                        viewModel.beginTraining(type.titleRu)
+                        trainingPane = ActivityTrainingPane.Form
+                    },
+                    onOpenCatalog = { trainingPane = ActivityTrainingPane.Catalog },
+                    historyContent = {
+                        CollapsibleAppCard(
+                            title = "История",
+                            subtitle = if (uiState.trainingHistory.isEmpty()) {
+                                "Пока нет ручных записей"
+                            } else {
+                                "${uiState.trainingHistory.size} записей"
+                            },
+                            initiallyExpanded = false,
+                        ) {
+                            if (uiState.trainingHistory.isEmpty() && !uiState.isLoading) {
+                                Text(
+                                    text = "Добавьте тренировку — она появится здесь.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            } else {
+                                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    uiState.trainingHistory.forEach { activity ->
+                                        ActivityTrainingHistoryRow(
+                                            activity = activity,
+                                            onEdit = {
+                                                activityToEdit = activity
+                                                editDuration = activity.duration_minutes.toString()
+                                                editCal = activity.calories_burned?.toString().orEmpty()
+                                                editDist = activity.distance_km?.toString().orEmpty()
+                                                editIntensity = activity.intensity.orEmpty()
+                                                editType = activityTitleFromApi(activity.activity_type)
+                                            },
+                                            onDelete = { activityToDelete = activity },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    },
+                )
 
                 uiState.error?.let {
                     AppMessageBanner(text = it, type = AppMessageType.Error)
                 }
+            }
 
-                CollapsibleAppCard(
-                    title = "История",
-                    subtitle = if (uiState.trainingHistory.isEmpty()) {
-                        "Пока нет ручных записей"
-                    } else {
-                        "${uiState.trainingHistory.size} записей"
-                    },
-                    initiallyExpanded = false,
+            if (trainingPane == ActivityTrainingPane.Catalog) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background),
                 ) {
-                    if (uiState.trainingHistory.isEmpty() && !uiState.isLoading) {
-                        Text(
-                            text = "Добавьте тренировку вручную — она появится здесь.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    AppScreen(scrollable = true) {
+                        ActivityTrainingCatalogScreen(
+                            favoriteSlugs = uiState.favoriteTrainingSlugs,
+                            onBack = {
+                                viewModel.resetTrainingForm()
+                                trainingPane = ActivityTrainingPane.Hub
+                            },
+                            onSelectType = { type ->
+                                viewModel.beginTraining(type.titleRu)
+                                trainingPane = ActivityTrainingPane.Form
+                            },
+                            onToggleFavorite = viewModel::toggleTrainingFavorite,
                         )
-                    } else {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            uiState.trainingHistory.forEach { activity ->
-                                ActivityTrainingHistoryRow(
-                                    activity = activity,
-                                    onEdit = {
-                                        activityToEdit = activity
-                                        editDuration = activity.duration_minutes.toString()
-                                        editCal = activity.calories_burned?.toString().orEmpty()
-                                        editDist = activity.distance_km?.toString().orEmpty()
-                                        editIntensity = activity.intensity.orEmpty()
-                                        editType = activityTitleFromApi(activity.activity_type)
-                                    },
-                                    onDelete = { activityToDelete = activity },
-                                )
-                            }
-                        }
                     }
                 }
+            }
 
-                Spacer(Modifier.height(72.dp))
+            if (trainingPane == ActivityTrainingPane.Form) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background),
+                ) {
+                    AppScreen(scrollable = true) {
+                        ActivityTrainingLogScreen(
+                            activityType = uiState.activityType,
+                            durationMinutes = uiState.durationMinutes,
+                            onDurationChange = viewModel::updateDuration,
+                            calories = uiState.caloriesBurned,
+                            onCaloriesChange = viewModel::updateCalories,
+                            distanceKm = uiState.distanceKm,
+                            onDistanceChange = viewModel::updateDistance,
+                            intensity = uiState.intensity,
+                            intensityOptions = intensityTypes,
+                            onIntensitySelected = viewModel::updateIntensity,
+                            notes = uiState.trainingNotes,
+                            onNotesChange = viewModel::updateTrainingNotes,
+                            perceivedExertion = uiState.perceivedExertion,
+                            onPerceivedExertionChange = viewModel::updatePerceivedExertion,
+                            isSaving = uiState.isSaving,
+                            onBack = {
+                                viewModel.resetTrainingForm()
+                                trainingPane = ActivityTrainingPane.Hub
+                            },
+                            onSave = viewModel::saveTraining,
+                        )
+                    }
+                }
             }
 
             activityToDelete?.let { act ->
@@ -250,6 +311,16 @@ fun ActivityScreen(
                     },
                 )
             }
+
+            FeatureGuideOverlay(
+                visible = showGuide,
+                pages = FeatureGuideContent.activity,
+                sectionLabel = "Активность",
+                onDismiss = {
+                    FeatureGuidePrefs.markSeen(context, FeatureGuideScreen.Activity)
+                    showGuide = false
+                },
+            )
         }
     }
 }

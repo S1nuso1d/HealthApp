@@ -13,6 +13,7 @@ from app.api.profile import router as profile_router
 from app.api.sleep import router as sleep_router
 from app.api.hydration import router as hydration_router
 from app.api.meal import router as meal_router
+from app.api.food_catalog import router as food_catalog_router
 from app.api.activity import router as activity_router
 from app.api.states import router as states_router
 from app.api.ai import router as ai_router
@@ -26,11 +27,14 @@ from app.api.integrations import router as integrations_router
 from app.api.health import router as health_router
 from app.api.gamification import router as gamification_router
 from app.api.social import router as social_router
+from app.api.pills import router as pills_router
+from app.api.cycle import router as cycle_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings.AVATAR_DIR_PATH.mkdir(parents=True, exist_ok=True)
+    settings.FOOD_IMAGES_DIR_PATH.mkdir(parents=True, exist_ok=True)
     apply_lightweight_schema_patches()
     yield
 
@@ -53,6 +57,7 @@ app.include_router(profile_router)
 app.include_router(sleep_router)
 app.include_router(hydration_router)
 app.include_router(meal_router)
+app.include_router(food_catalog_router)
 app.include_router(activity_router)
 app.include_router(states_router)
 app.include_router(ai_router)
@@ -66,6 +71,8 @@ app.include_router(integrations_router)
 app.include_router(health_router)
 app.include_router(gamification_router)
 app.include_router(social_router)
+app.include_router(pills_router)
+app.include_router(cycle_router)
 
 
 @app.get("/")

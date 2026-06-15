@@ -5,6 +5,10 @@ import com.google.gson.annotations.SerializedName
 data class ProfileDto(
     val id: Int,
     val user_id: Int,
+    val first_name: String? = null,
+    val last_name: String? = null,
+    val nickname: String? = null,
+    val display_name: String? = null,
     val age: Int? = null,
     val sex: String? = null,
     val height_cm: Float? = null,
@@ -22,6 +26,7 @@ data class ProfileDto(
     val has_allergies: Boolean? = null,
     val allergies_text: String? = null,
     val onboarding_completed: Boolean = false,
+    val current_streak: Int = 0,
     @SerializedName("has_avatar")
     val hasAvatar: Boolean = false,
 )

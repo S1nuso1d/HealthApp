@@ -81,11 +81,15 @@ fun OnboardingScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(brush = Brush.verticalGradient(screenBackgroundGradient()))
-            .statusBarsPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+            .statusBarsPadding(),
     ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
                 text = "Короткий опрос",
@@ -165,6 +169,7 @@ fun OnboardingScreen(
                     )
                 }
             }
+        }
         }
     }
 }

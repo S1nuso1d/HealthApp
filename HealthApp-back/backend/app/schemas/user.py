@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -43,10 +45,28 @@ class ChangePasswordBody(BaseModel):
     )
 
 
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str = Field(..., description="Refresh токен")
+
+
 class RegisterVerify(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=6, max_length=128)
     code: str = Field(..., min_length=4, max_length=16, description="Код из письма")
+    profile: Optional["RegisterProfileDraft"] = None
+
+
+class RegisterProfileDraft(BaseModel):
+    first_name: Optional[str] = Field(None, max_length=64)
+    last_name: Optional[str] = Field(None, max_length=64)
+    nickname: Optional[str] = Field(None, max_length=32)
+    age: Optional[int] = Field(None, ge=1, le=120)
+    is_vegetarian: Optional[bool] = None
+    has_allergies: Optional[bool] = None
+    allergies_text: Optional[str] = Field(None, max_length=500)
+
+
+RegisterVerify.model_rebuild()
 
 
 class RegisterStartResponse(BaseModel):
@@ -55,4 +75,5 @@ class RegisterStartResponse(BaseModel):
 
 class Token(BaseModel):
     access_token: str = Field(description="JWT токен доступа")
+    refresh_token: str = Field(description="JWT токен обновления")
     token_type: str = Field(description="Тип токена, обычно bearer")

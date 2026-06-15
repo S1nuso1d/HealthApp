@@ -28,6 +28,10 @@ object HealthNotificationHelper {
     const val ID_STEPS_BEHIND = 5004
     const val ID_SLEEP_EVENING = 1002
     const val ID_WEIGHT_UPDATE = 1003
+    const val ID_SOCIAL_FRIEND_REQUEST = 6001
+    const val ID_PILL_REMINDER_BASE = 7000
+
+    const val ID_AI_COACH = 7001
 
     fun canPost(context: Context): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
@@ -43,6 +47,7 @@ object HealthNotificationHelper {
         title: String,
         body: String,
         navRoute: String? = null,
+        channelId: String = HealthNotificationChannels.REMINDERS,
     ) {
         if (!canPost(context)) return
         val launch = Intent(context, MainActivity::class.java).apply {
@@ -55,7 +60,7 @@ object HealthNotificationHelper {
             launch,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val notification = NotificationCompat.Builder(context, HealthNotificationChannels.REMINDERS)
+        val notification = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_stat_notification)
             .setContentTitle(title)
             .setContentText(body)
@@ -169,6 +174,39 @@ object HealthNotificationHelper {
             title = "Обновите вес",
             body = "Раз в неделю полезно зафиксировать вес в профиле — так точнее КБЖУ и динамика.",
             navRoute = "profile",
+        )
+    }
+
+    fun friendRequestReminder(context: Context, username: String, userId: Int) {
+        show(
+            context = context,
+            notificationId = ID_SOCIAL_FRIEND_REQUEST + userId,
+            title = "Новая заявка в друзья",
+            body = "Новая заявка в друзья от $username!",
+            navRoute = "friends",
+            channelId = HealthNotificationChannels.SOCIAL,
+        )
+    }
+
+    fun pillReminder(context: Context, pillId: Int, name: String, dosage: String) {
+        show(
+            context = context,
+            notificationId = ID_PILL_REMINDER_BASE + pillId,
+            title = "Напоминание о приеме",
+            body = "Time to take $name $dosage",
+            navRoute = "pills",
+            channelId = HealthNotificationChannels.REMINDERS,
+        )
+    }
+
+    fun aiCoachReminder(context: Context, tip: String) {
+        show(
+            context = context,
+            notificationId = ID_AI_COACH,
+            title = "Совет от AI Тренера",
+            body = tip,
+            navRoute = "dashboard",
+            channelId = HealthNotificationChannels.REMINDERS,
         )
     }
 }

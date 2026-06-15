@@ -59,11 +59,6 @@ fun ProfileGoalsStrip(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
-                    Text(
-                        text = "Нажмите, чтобы изменить",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 }
                 IconButton(onClick = onEditClick) {
                     Icon(Icons.Outlined.Edit, contentDescription = "Изменить цели")

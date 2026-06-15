@@ -7,9 +7,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarViewWeek
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.MonitorHeart
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +35,8 @@ import com.example.healtapp.core.ui.components.AppCard
 import com.example.healtapp.core.ui.components.AppMessageBanner
 import com.example.healtapp.core.ui.components.AppMessageType
 import com.example.healtapp.core.ui.components.AppScreen
+import com.example.healtapp.core.ui.components.RoundedSectionTabs
+import com.example.healtapp.core.ui.components.RoundedTabItem
 import com.example.healtapp.core.ui.components.SectionHeader
 import com.example.healtapp.core.ui.theme.brandingGradient
 import com.example.healtapp.data.network.dto.activity.ActivityDto
@@ -67,49 +69,33 @@ fun HealthVitalsScreen(
         subtitle = "Health Connect и импорт — шкала времени и зоны нормы",
         headerIcon = Icons.Filled.MonitorHeart,
         onNavigateBack = onBack,
-        scrollable = false,
+        scrollable = true,
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            uiState.error?.let { err ->
-                AppMessageBanner(text = err, type = AppMessageType.Error)
-            }
-            if (uiState.isLoading) {
-                CircularProgressIndicator()
-            }
+        uiState.error?.let { err ->
+            AppMessageBanner(text = err, type = AppMessageType.Error)
+        }
+        if (uiState.isLoading) {
+            CircularProgressIndicator()
+        }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                AppButton(
-                    text = "7 дней",
-                    onClick = { viewModel.setChartPeriod(7) },
-                    enabled = !uiState.isLoading && uiState.chartDays != 7,
-                    isSecondary = uiState.chartDays != 7,
-                    modifier = Modifier.weight(1f),
-                )
-                AppButton(
-                    text = "30 дней",
-                    onClick = { viewModel.setChartPeriod(30) },
-                    enabled = !uiState.isLoading && uiState.chartDays != 30,
-                    isSecondary = uiState.chartDays != 30,
-                    modifier = Modifier.weight(1f),
-                )
-            }
+        RoundedSectionTabs(
+            tabs = listOf(
+                RoundedTabItem(7, "7 дней", Icons.Filled.CalendarViewWeek),
+                RoundedTabItem(30, "30 дней", Icons.Filled.DateRange),
+            ),
+            selected = uiState.chartDays,
+            onSelect = { if (!uiState.isLoading) viewModel.setChartPeriod(it) },
+        )
 
-            AppButton(
-                text = "Обновить",
-                enabled = !uiState.isLoading,
-                onClick = viewModel::refresh,
-            )
+        SectionHeader(title = "Графики", subtitle = "Последние ${uiState.chartDays} дней")
 
-            val order = listOf(
+        AppButton(
+            text = "Обновить",
+            enabled = !uiState.isLoading,
+            onClick = viewModel::refresh,
+        )
+
+        val order = listOf(
                 "weight_kg" to "Вес, кг",
                 "heart_rate_bpm" to "Пульс",
                 "blood_pressure_mmhg" to "Давление (сист./диаст.)",
@@ -124,52 +110,51 @@ fun HealthVitalsScreen(
                 "body_fat_percent" to "% жира",
                 "bmr_kcal" to "Базовый обмен, ккал/сут",
                 "height_cm" to "Рост, см",
-            )
+        )
 
-            for ((metric, title) in order) {
-                val series = byMetric[metric] ?: emptyList()
-                if (series.isEmpty()) continue
-                SectionHeader(title = title, subtitle = "${series.size} записей · ${uiState.chartDays} дн.")
-                AppCard {
-                    Column(Modifier.padding(4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TimeSeriesChart(
-                            samples = series,
-                            dualValues = metric == "blood_pressure_mmhg",
-                            chartDays = uiState.chartDays,
-                            metric = metric,
-                            secondaryLineColor = MaterialTheme.colorScheme.tertiary,
+        for ((metric, title) in order) {
+            val series = byMetric[metric] ?: emptyList()
+            if (series.isEmpty()) continue
+            SectionHeader(title = title, subtitle = "${series.size} записей · ${uiState.chartDays} дн.")
+            AppCard {
+                Column(Modifier.padding(4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TimeSeriesChart(
+                        samples = series,
+                        dualValues = metric == "blood_pressure_mmhg",
+                        chartDays = uiState.chartDays,
+                        metric = metric,
+                        secondaryLineColor = MaterialTheme.colorScheme.tertiary,
+                    )
+                    ZoneLegend(metric = metric)
+                    val last = series.lastOrNull()
+                    if (last != null) {
+                        Text(
+                            text = formatSampleSummary(metric, last),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        ZoneLegend(metric = metric)
-                        val last = series.lastOrNull()
-                        if (last != null) {
-                            Text(
-                                text = formatSampleSummary(metric, last),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
                     }
                 }
             }
+        }
 
-            SectionHeader(
-                title = "Тренировки",
-                subtitle = if (uiState.activities.isEmpty()) "Нет записей за период" else "${uiState.activities.size} за ${uiState.chartDays} дн.",
-            )
-            if (uiState.activities.isNotEmpty()) {
-                for (act in uiState.activities.take(25)) {
-                    ActivityRow(act)
-                }
+        SectionHeader(
+            title = "Тренировки",
+            subtitle = if (uiState.activities.isEmpty()) "Нет записей за период" else "${uiState.activities.size} за ${uiState.chartDays} дн.",
+        )
+        if (uiState.activities.isNotEmpty()) {
+            for (act in uiState.activities.take(25)) {
+                ActivityRow(act)
             }
+        }
 
-            if (!uiState.isLoading && uiState.samples.isEmpty()) {
-                AppCard {
-                    Text(
-                        text = "Пока нет выборок. Синхронизируйте Health Connect в разделе «Интеграции».",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+        if (!uiState.isLoading && uiState.samples.isEmpty()) {
+            AppCard {
+                Text(
+                    text = "Пока нет выборок. Синхронизируйте Health Connect в разделе «Интеграции».",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }

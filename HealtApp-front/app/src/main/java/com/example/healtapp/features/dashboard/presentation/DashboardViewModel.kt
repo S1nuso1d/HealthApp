@@ -17,13 +17,13 @@ import com.example.healtapp.domain.repository.SleepRepository
 import com.example.healtapp.core.common.ActionPlanAutoComplete
 import com.example.healtapp.core.common.CalorieBurnCalculator
 import com.example.healtapp.core.common.DailyAdviceBuilder
+import com.example.healtapp.core.common.HealthScoreCalculator
 import com.example.healtapp.data.network.api.DashboardApi
 import com.example.healtapp.data.network.api.HealthApi
 import com.example.healtapp.data.network.dto.ai.AIRecommendationDto
 import com.example.healtapp.domain.repository.AiRepository
 import com.example.healtapp.data.preferences.DashboardCache
 import com.example.healtapp.data.preferences.ProfileCache
-import com.example.healtapp.data.preferences.WidgetSnapshot
 import com.example.healtapp.data.preferences.WidgetSnapshotStore
 import com.example.healtapp.features.recommendations.presentation.RecommendationUiItem
 import com.example.healtapp.data.network.dto.dashboard.GoalsCalendarDayDto
@@ -32,7 +32,8 @@ import com.example.healtapp.features.activity.presentation.ActivityStepsHelper
 import com.example.healtapp.features.activity.presentation.isWalkLikeApi
 import com.example.healtapp.features.sleep.presentation.SleepHelper
 import com.example.healtapp.features.profile.ProfileRus
-import com.example.healtapp.widget.refreshHealthWidget
+import com.example.healtapp.widget.refreshAllWidgets
+import com.example.healtapp.widget.toWidgetSnapshot
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import android.content.Context
@@ -90,7 +91,9 @@ class DashboardViewModel @Inject constructor(
     }
 
     fun shiftGoalsCalendarMonth(delta: Int) {
+        val currentMonth = java.time.YearMonth.now()
         val next = _uiState.value.goalsCalendarMonth.plusMonths(delta.toLong())
+        if (delta > 0 && next.isAfter(currentMonth)) return
         _uiState.update { it.copy(goalsCalendarMonth = next, goalsCalendarSelectedDate = null) }
         loadGoalsCalendar(next)
     }
@@ -188,6 +191,7 @@ class DashboardViewModel @Inject constructor(
 
                 launch { loadDashboardHome() }
                 launch { loadAiRecommendations() }
+                launch { loadDashboardHints() }
                 launch { refreshStepsFromHealthConnect() }
                 launch { loadDashboardExtras(phase1.profileResult.getOrNull()) }
                 loadGoalsCalendar(_uiState.value.goalsCalendarMonth)
@@ -264,8 +268,15 @@ class DashboardViewModel @Inject constructor(
         val stepsFromDb = ActivityStepsHelper.sumStepsForDate(activityHistory, todayKey)
         val stepsToday = _uiState.value.stepsToday.takeIf { it > 0 && stepsFromDb == 0 } ?: stepsFromDb
 
-        val waterTarget = profile?.target_water_ml?.toInt() ?: 2500
-        val stepsGoal = profile?.target_steps?.takeIf { it > 0 } ?: 10_000
+        val waterTargetBase = profile?.target_water_ml?.toInt() ?: 2500
+        val stepsGoalBase = profile?.target_steps?.takeIf { it > 0 } ?: 10_000
+        val caloriesTargetBase = profile?.target_daily_calories?.takeIf { it > 0 } ?: 2200
+        val sleepTarget = profile?.target_sleep_hours?.takeIf { it > 0f } ?: 8f
+
+        val waterTarget = waterTargetBase
+        val stepsGoal = stepsGoalBase
+        val caloriesTarget = caloriesTargetBase
+
         val burnGoal = CalorieBurnCalculator.dailyBurnGoal(stepsGoal, profile?.goal)
         val caloriesBurned = CalorieBurnCalculator.totalBurnedToday(todayActivities, stepsToday)
         val plan = ActionPlanAutoComplete.apply(
@@ -279,7 +290,7 @@ class DashboardViewModel @Inject constructor(
             sleepHours = _uiState.value.sleepHours,
             sleepTargetHours = profile?.target_sleep_hours?.takeIf { it > 0f } ?: 8f,
             caloriesToday = (meal?.calories ?: 0f).toInt(),
-            caloriesTarget = profile?.target_daily_calories?.takeIf { it > 0 } ?: 2200,
+            caloriesTarget = caloriesTarget,
             mealCount = 0,
             activityMinutesToday = todayActivities
                 .filter { !isWalkLikeApi(it.activity_type) }
@@ -302,13 +313,14 @@ class DashboardViewModel @Inject constructor(
             isOfflineCache = previous.isOfflineCache,
             greetingText = DashboardGreeting.forNow(),
             headerSubtitle = "Сводка за сегодня",
+            currentStreak = profile?.current_streak ?: 0,
             sleepHours = previous.sleepHours,
-            sleepTargetHours = profile?.target_sleep_hours?.takeIf { it > 0f } ?: 8f,
+            sleepTargetHours = sleepTarget,
             sleepQuality = previous.sleepQuality,
             waterMl = hydration?.total_ml ?: 0,
             waterTargetMl = waterTarget,
             caloriesToday = (meal?.calories ?: 0f).toInt(),
-            caloriesTarget = profile?.target_daily_calories?.takeIf { it > 0 } ?: 2200,
+            caloriesTarget = caloriesTarget,
             caffeineToday = meal?.caffeine_mg ?: 0f,
             stepsToday = stepsToday,
             stepsGoal = stepsGoal,
@@ -321,11 +333,11 @@ class DashboardViewModel @Inject constructor(
             dailyBrief = buildDailyBrief(
                 home = null,
                 sleepHours = previous.sleepHours,
-                sleepTargetHours = profile?.target_sleep_hours?.takeIf { it > 0f } ?: 8f,
+                sleepTargetHours = sleepTarget,
                 waterMl = hydration?.total_ml ?: 0,
                 waterTargetMl = waterTarget,
                 caloriesToday = (meal?.calories ?: 0f).toInt(),
-                caloriesTarget = profile?.target_daily_calories?.takeIf { it > 0 } ?: 2200,
+                caloriesTarget = caloriesTarget,
                 stepsToday = stepsToday,
                 stepsGoal = stepsGoal,
             ),
@@ -345,16 +357,15 @@ class DashboardViewModel @Inject constructor(
             recommendations = filterAchievedRecommendations(previous.recommendations),
             recommendationsLoading = previous.recommendations.isEmpty(),
             recommendationsError = previous.recommendationsError,
+            dashboardHints = previous.dashboardHints,
+            hintsLoading = previous.hintsLoading,
         )
-        widgetSnapshotStore.save(
-            WidgetSnapshot(
-                stepsToday = stepsToday,
-                stepsGoal = stepsGoal,
-                waterMl = hydration?.total_ml ?: 0,
-                waterGoalMl = waterTarget,
-            ),
-        )
-        refreshHealthWidget(appContext)
+        syncWidgetsFromState(_uiState.value)
+    }
+
+    private suspend fun syncWidgetsFromState(state: DashboardUiState) {
+        widgetSnapshotStore.save(state.toWidgetSnapshot())
+        refreshAllWidgets(appContext)
     }
 
     private suspend fun loadDashboardHome() {
@@ -421,6 +432,7 @@ class DashboardViewModel @Inject constructor(
                     topInsights = insights,
                 )
             }
+            syncWidgetsFromState(_uiState.value)
         }.onFailure { e ->
             _uiState.update { current ->
                 current.copy(
@@ -540,6 +552,7 @@ class DashboardViewModel @Inject constructor(
                 dailyBrief = current.dailyBrief,
             )
         }
+        syncWidgetsFromState(_uiState.value)
     }
 
     private suspend fun refreshStepsFromHealthConnect() {
@@ -548,15 +561,7 @@ class DashboardViewModel @Inject constructor(
         val current = _uiState.value
         if (hcSteps <= current.stepsToday) return
         _uiState.update { it.copy(stepsToday = hcSteps) }
-        widgetSnapshotStore.save(
-            WidgetSnapshot(
-                stepsToday = hcSteps,
-                stepsGoal = current.stepsGoal,
-                waterMl = current.waterMl,
-                waterGoalMl = current.waterTargetMl,
-            ),
-        )
-        refreshHealthWidget(appContext)
+        syncWidgetsFromState(_uiState.value)
     }
 
     private suspend fun loadAiRecommendations(days: Int = 7) {
@@ -582,6 +587,23 @@ class DashboardViewModel @Inject constructor(
                     recommendationsLoading = false,
                     recommendationsError = e.message?.takeIf { current.recommendations.isEmpty() },
                 )
+            }
+        }
+    }
+
+    private suspend fun loadDashboardHints() {
+        if (tokenStorage.isGuestMode()) return
+        _uiState.update { it.copy(hintsLoading = it.dashboardHints.isEmpty()) }
+        aiRepository.getDashboardHints().onSuccess { hints ->
+            _uiState.update { current ->
+                current.copy(
+                    dashboardHints = hints,
+                    hintsLoading = false,
+                )
+            }
+        }.onFailure {
+            _uiState.update { current ->
+                current.copy(hintsLoading = false)
             }
         }
     }
@@ -662,8 +684,27 @@ class DashboardViewModel @Inject constructor(
                 focus = null,
                 notes = null,
             ).onSuccess {
-                _uiState.update {
-                    it.copy(moodCheckIn = it.moodCheckIn.copy(isSaving = false, savedToday = true))
+                val stateScore = HealthScoreCalculator.computeStateScore(
+                    mood = check.mood,
+                    energy = check.energy,
+                    stress = check.stress,
+                )
+                _uiState.update { current ->
+                    current.copy(
+                        moodCheckIn = current.moodCheckIn.copy(isSaving = false, savedToday = true),
+                        scores = HealthScoreCalculator.recomputeHealthScore(
+                            scores = current.scores,
+                            stateScore = stateScore,
+                            sleepHours = current.sleepHours,
+                            waterMl = current.waterMl,
+                            waterTargetMl = current.waterTargetMl,
+                            stepsToday = current.stepsToday,
+                            stepsGoal = current.stepsGoal,
+                            caloriesToday = current.caloriesToday,
+                            caloriesTarget = current.caloriesTarget,
+                            moodSavedToday = true,
+                        ),
+                    )
                 }
                 loadDashboard(showFullLoading = false)
             }.onFailure { e ->

@@ -15,3 +15,4 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     profile = relationship("UserProfile", back_populates="user", uselist=False)
+    pill_reminders = relationship("PillReminder", back_populates="user", cascade="all, delete-orphan")

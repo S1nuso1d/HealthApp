@@ -4,6 +4,7 @@ import com.example.healtapp.data.network.api.AuthApi
 import com.example.healtapp.data.network.dto.auth.ChangePasswordRequestDto
 import com.example.healtapp.data.network.dto.auth.ForgotPasswordRequestDto
 import com.example.healtapp.data.network.dto.auth.PasswordConfirmDto
+import com.example.healtapp.data.network.dto.auth.RegisterProfileDraftDto
 import com.example.healtapp.data.network.dto.auth.RegisterRequestDto
 import com.example.healtapp.data.network.dto.auth.RegisterVerifyDto
 import com.example.healtapp.data.network.realtime.RealtimeUpdatesClient
@@ -27,7 +28,7 @@ class AuthRepositoryImpl @Inject constructor(
                 username = email,
                 password = password
             )
-            tokenStorage.saveToken(response.access_token)
+            tokenStorage.saveTokens(response.access_token, response.refresh_token)
             realtimeUpdatesClient.start()
         }
     }
@@ -43,16 +44,22 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun confirmRegistration(email: String, password: String, code: String): Result<Unit> {
+    override suspend fun confirmRegistration(
+        email: String,
+        password: String,
+        code: String,
+        profile: RegisterProfileDraftDto?,
+    ): Result<Unit> {
         return runCatching {
             val response = authApi.registerComplete(
                 RegisterVerifyDto(
                     email = email,
                     password = password,
                     code = code.trim(),
+                    profile = profile,
                 ),
             )
-            tokenStorage.saveToken(response.access_token)
+            tokenStorage.saveTokens(response.access_token, response.refresh_token)
             realtimeUpdatesClient.start()
         }
     }

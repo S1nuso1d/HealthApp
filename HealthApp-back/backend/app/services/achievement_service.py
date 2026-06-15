@@ -103,13 +103,40 @@ ACHIEVEMENT_DEFS: dict[str, dict[str, Any]] = {
         "unit": "тренировок",
     },
     "active_minutes_300": {
-        "title": "300 активных минут",
-        "description": "Накопите 300 минут тренировок и прогулок.",
-        "icon_key": "fire",
+        "title": "300 минут активности",
+        "description": "Суммарно наберите 300 минут активности за всё время.",
+        "icon_key": "workout",
         "points": 55,
         "kind": "journey",
         "target": 300,
         "unit": "мин",
+    },
+    "nutrition_perfect_day": {
+        "title": "Идеальное питание",
+        "description": "Попали в цель по КБЖУ с минимальной погрешностью.",
+        "icon_key": "apple",
+        "points": 35,
+        "kind": "daily",
+        "target": 1,
+        "unit": "день",
+    },
+    "water_streak_7": {
+        "title": "Водный марафон (7 дней)",
+        "description": "Пили свою норму воды 7 дней подряд.",
+        "icon_key": "water",
+        "points": 60,
+        "kind": "journey",
+        "target": 7,
+        "unit": "дней",
+    },
+    "early_bird": {
+        "title": "Ранняя пташка",
+        "description": "Легли спать до 23:00 и проснулись полными сил.",
+        "icon_key": "moon",
+        "points": 25,
+        "kind": "daily",
+        "target": 1,
+        "unit": "раз",
     },
     "water_total_25l": {
         "title": "25 литров воды",
@@ -395,6 +422,8 @@ def evaluate_and_unlock(db: Session, user_id: int) -> list[UA]:
     }
 
     for code, value in progress.items():
+        if code not in ACHIEVEMENT_DEFS:
+            continue
         d = ACHIEVEMENT_DEFS[code]
         target = float(dynamic_targets.get(code, d.get("target", 1)))
         if value >= target:

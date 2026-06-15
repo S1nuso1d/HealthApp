@@ -2,43 +2,44 @@ package com.example.healtapp.core.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val MintPrimary = Color(0xFF66D19E)
-val MintPrimaryDark = Color(0xFF45B97C)
-val SkyPrimary = Color(0xFF72B8FF)
-val SkyPrimaryDark = Color(0xFF4A9AF2)
+// Modern Premium Palette
+val MintPrimary = Color(0xFF1DD1A1)
+val MintPrimaryDark = Color(0xFF10AC84)
+val SkyPrimary = Color(0xFF54A0FF)
+val SkyPrimaryDark = Color(0xFF2E86DE)
 
-val AppBackgroundTop = Color(0xFFEFFFFA)
-val AppBackgroundBottom = Color(0xFFEAF6FF)
-val AppBackground = Color(0xFFF7FBFF)
+val AppBackgroundTop = Color(0xFFF2F2F7)
+val AppBackgroundBottom = Color(0xFFF2F2F7)
+val AppBackground = Color(0xFFF2F2F7)
 
-/** Тёмная брутальная тема: чёрный → серый → белый. */
-val AppBackgroundTopDark = Color(0xFF0A0A0A)
-val AppBackgroundBottomDark = Color(0xFF141414)
-val AppBackgroundDark = Color(0xFF0A0A0A)
+/** Тёмная премиальная тема: глубокий черный и темно-серый. */
+val AppBackgroundTopDark = Color(0xFF000000)
+val AppBackgroundBottomDark = Color(0xFF000000)
+val AppBackgroundDark = Color(0xFF000000)
 
 val AppSurface = Color(0xFFFFFFFF)
-val AppSurfaceSoft = Color(0xFFFDFEFE)
+val AppSurfaceSoft = Color(0xFFFAFAFA)
 
-val AppSurfaceDark = Color(0xFF1A1A1A)
-val AppSurfaceSoftDark = Color(0xFF242424)
+val AppSurfaceDark = Color(0xFF1C1C1E)
+val AppSurfaceSoftDark = Color(0xFF2C2C2E)
 
-val TextPrimary = Color(0xFF16324F)
-val TextSecondary = Color(0xFF6B7A90)
-val TextHint = Color(0xFF9AA8BA)
+val TextPrimary = Color(0xFF1C1C1E)
+val TextSecondary = Color(0xFF8E8E93)
+val TextHint = Color(0xFFC7C7CC)
 
-val TextPrimaryDark = Color(0xFFF5F5F5)
-val TextSecondaryDark = Color(0xFF9CA3AF)
+val TextPrimaryDark = Color(0xFFFFFFFF)
+val TextSecondaryDark = Color(0xFFEBEBF5).copy(alpha = 0.6f)
 
-val BorderSoft = Color(0x1F16324F)
-val DividerSoft = Color(0x14000000)
+val BorderSoft = Color(0x14000000)
+val DividerSoft = Color(0x0F000000)
 
-val BorderSoftDark = Color(0xFF404040)
-val DividerSoftDark = Color(0xFF333333)
+val BorderSoftDark = Color(0x26FFFFFF)
+val DividerSoftDark = Color(0x1FFFFFFF)
 
-val ErrorColor = Color(0xFFE85D75)
-val SuccessColor = Color(0xFF3DBE7A)
-val WarningColor = Color(0xFFFFB84D)
+val ErrorColor = Color(0xFFFF3B30)
+val SuccessColor = Color(0xFF34C759)
+val WarningColor = Color(0xFFFF9500)
 
-val CardBlue = Color(0xFFF2F8FF)
-val CardMint = Color(0xFFF1FFF8)
-val CardLavender = Color(0xFFF7F5FF)
+val CardBlue = Color(0xFFEAF5FF)
+val CardMint = Color(0xFFEBFFF5)
+val CardLavender = Color(0xFFF4F0FF)

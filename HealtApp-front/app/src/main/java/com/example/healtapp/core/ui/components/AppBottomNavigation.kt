@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -44,23 +45,23 @@ fun AppBottomNavigation(
     onItemClick: (BottomNavItem) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val shape = RoundedCornerShape(
-        topStart = if (isAppDarkTheme()) 8.dp else 26.dp,
-        topEnd = if (isAppDarkTheme()) 8.dp else 26.dp,
-    )
+    val shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
     val borderColor = MaterialTheme.colorScheme.outline.copy(
-        alpha = if (isAppDarkTheme()) 0.5f else 0.18f,
+        alpha = if (isAppDarkTheme()) 0.2f else 0.05f,
     )
 
     Box(
         modifier = modifier
             .fillMaxWidth()
             .clip(shape)
-            .border(1.dp, borderColor, shape)
-            .background(
-                MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f))
+            .border(
+                width = 1.dp,
+                color = borderColor,
+                shape = shape,
             )
-            .padding(horizontal = 8.dp, vertical = 10.dp),
+            .navigationBarsPadding()
+            .padding(horizontal = 10.dp, vertical = 10.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

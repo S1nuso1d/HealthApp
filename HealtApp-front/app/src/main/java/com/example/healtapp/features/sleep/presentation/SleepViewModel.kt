@@ -3,10 +3,19 @@ package com.example.healtapp.features.sleep.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.healtapp.core.common.AppRefreshBus
+import com.example.healtapp.core.common.DateRules
+import com.example.healtapp.core.common.UserFacingMessages
+import android.media.MediaPlayer
 import com.example.healtapp.data.healthconnect.HealthConnectForegroundSync
 import com.example.healtapp.data.network.dto.sleep.CreateSleepRequestDto
+import com.example.healtapp.data.network.dto.ai.SleepSoundRecordDto
+import com.example.healtapp.data.network.dto.ai.SleepSummaryRequestDto
+import com.example.healtapp.domain.repository.AiRepository
 import com.example.healtapp.domain.repository.ProfileRepository
 import com.example.healtapp.domain.repository.SleepRepository
+import com.example.healtapp.features.sleep.audio.SleepSoundClip
+import com.example.healtapp.features.sleep.audio.SleepSoundStorage
+import com.example.healtapp.features.sleep.audio.SleepSoundTracker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,16 +23,22 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @HiltViewModel
 class SleepViewModel @Inject constructor(
     private val repository: SleepRepository,
     private val profileRepository: ProfileRepository,
+    private val aiRepository: AiRepository,
     private val healthConnectForegroundSync: HealthConnectForegroundSync,
+    private val sleepSoundTracker: SleepSoundTracker,
+    private val sleepSoundStorage: SleepSoundStorage,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -33,11 +48,122 @@ class SleepViewModel @Inject constructor(
     )
     val uiState: StateFlow<SleepUiState> = _uiState.asStateFlow()
 
+    private var mediaPlayer: MediaPlayer? = null
+
     init {
+        sleepSoundTracker.syncWithPersistedState()
         load()
         viewModelScope.launch {
             AppRefreshBus.events.collect { load() }
         }
+        viewModelScope.launch {
+            sleepSoundTracker.state.collect { trackerState ->
+                _uiState.update {
+                    it.copy(
+                        isSoundTracking = trackerState.isTracking,
+                        soundClipsThisSession = trackerState.clipsThisSession,
+                        isRecordingSoundClip = trackerState.isRecordingClip,
+                        soundClips = trackerState.clips.map(::toClipUi),
+                    )
+                }
+            }
+        }
+    }
+
+    override fun onCleared() {
+        stopPlayback()
+        super.onCleared()
+    }
+
+    fun startSleepSoundTracking() {
+        sleepSoundTracker.startTracking()
+        _uiState.update { it.copy(snackMessage = "Отслеживание звуков запущено") }
+    }
+
+    fun stopSleepSoundTracking() {
+        val currentClips = _uiState.value.soundClips.take(10) // Take recent clips for summary to avoid huge payload
+        sleepSoundTracker.stopTracking()
+        stopPlayback()
+        _uiState.update { it.copy(snackMessage = "Отслеживание остановлено") }
+        if (currentClips.isNotEmpty()) {
+            generateSummary(currentClips)
+        }
+    }
+
+    private fun generateSummary(clips: List<SleepSoundClipUi>) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isGeneratingSummary = true, aiSummary = null) }
+            val request = SleepSummaryRequestDto(
+                sounds = clips.map { clip ->
+                    SleepSoundRecordDto(
+                        time = clip.timeLabel,
+                        label = clip.label,
+                        peakRms = null // Optional, we don't have it easily accessible in UI
+                    )
+                }
+            )
+            aiRepository.getSleepSummary(request)
+                .onSuccess { res ->
+                    _uiState.update { it.copy(isGeneratingSummary = false, aiSummary = res.summary) }
+                }
+                .onFailure {
+                    _uiState.update { it.copy(isGeneratingSummary = false) }
+                }
+        }
+    }
+
+    fun deleteSleepSoundClip(id: String) {
+        if (_uiState.value.playingSoundClipId == id) stopPlayback()
+        if (sleepSoundTracker.deleteClip(id)) {
+            _uiState.update { it.copy(snackMessage = "Фрагмент удалён") }
+        }
+    }
+
+    fun toggleSleepSoundPlayback(clipId: String) {
+        val current = _uiState.value
+        if (current.playingSoundClipId == clipId) {
+            stopPlayback()
+            return
+        }
+        val clip = current.soundClips.find { it.id == clipId } ?: return
+        stopPlayback()
+        runCatching {
+            mediaPlayer = MediaPlayer().apply {
+                setDataSource(clip.filePath)
+                setOnCompletionListener { stopPlayback() }
+                prepare()
+                start()
+            }
+            _uiState.update { it.copy(playingSoundClipId = clipId) }
+        }.onFailure {
+            _uiState.update {
+                it.copy(error = "Не удалось воспроизвести запись")
+            }
+        }
+    }
+
+    private fun stopPlayback() {
+        mediaPlayer?.runCatching {
+            stop()
+            release()
+        }
+        mediaPlayer = null
+        _uiState.update { it.copy(playingSoundClipId = null) }
+    }
+
+    private fun toClipUi(clip: SleepSoundClip): SleepSoundClipUi {
+        val time = Instant.ofEpochMilli(clip.recordedAtEpochMs)
+            .atZone(ZoneId.systemDefault())
+            .toLocalTime()
+            .format(DateTimeFormatter.ofPattern("HH:mm", Locale("ru", "RU")))
+        val seconds = (clip.durationMs / 1000).coerceAtLeast(1)
+        return SleepSoundClipUi(
+            id = clip.id,
+            timeLabel = time,
+            durationLabel = "${seconds} сек",
+            label = clip.label,
+            filePath = sleepSoundStorage.clipFile(clip).absolutePath,
+        )
     }
 
     fun clearSnackMessage() {
@@ -45,6 +171,13 @@ class SleepViewModel @Inject constructor(
     }
 
     fun updateSleepDate(value: String) {
+        val date = runCatching { LocalDate.parse(value.trim()) }.getOrNull() ?: return
+        if (DateRules.isFuture(date)) {
+            _uiState.update {
+                it.copy(error = UserFacingMessages.FUTURE_DATE_NOT_ALLOWED)
+            }
+            return
+        }
         _uiState.update { it.copy(sleepDateInput = value, error = null) }
     }
 
@@ -173,6 +306,12 @@ class SleepViewModel @Inject constructor(
     fun saveSleepRecord() {
         viewModelScope.launch {
             val current = _uiState.value
+            if (DateRules.isFutureDateString(current.sleepDateInput)) {
+                _uiState.update {
+                    it.copy(error = UserFacingMessages.FUTURE_DATE_NOT_ALLOWED)
+                }
+                return@launch
+            }
             val quality = current.qualityInput.toIntOrNull()?.coerceIn(0, 100) ?: 80
             val (sleepStartIso, sleepEndIso) = buildSleepStartEndIso()
 
@@ -222,6 +361,12 @@ class SleepViewModel @Inject constructor(
         note: String?,
     ) {
         viewModelScope.launch {
+            if (DateRules.isFutureDateString(sleepDate)) {
+                _uiState.update {
+                    it.copy(error = UserFacingMessages.FUTURE_DATE_NOT_ALLOWED)
+                }
+                return@launch
+            }
             val (startIso, endIso) = buildSleepStartEndIso(sleepDate, sleepStart, sleepEnd)
             _uiState.update { it.copy(isSaving = true, error = null) }
             val request = CreateSleepRequestDto(
@@ -280,6 +425,7 @@ class SleepViewModel @Inject constructor(
     ): Pair<String, String> {
         val day = runCatching { LocalDate.parse(sleepDate.trim()) }
             .getOrElse { LocalDate.now().minusDays(1) }
+            .let(DateRules::clampToTodayOrPast)
         val startTime = parseTime(sleepStart)
         val endTime = parseTime(sleepEnd)
         val startLdt = LocalDateTime.of(day, startTime)

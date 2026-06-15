@@ -22,6 +22,8 @@ import com.example.healtapp.domain.repository.MealRepository
 import com.example.healtapp.domain.repository.ProfileRepository
 import com.example.healtapp.domain.repository.SleepRepository
 import com.example.healtapp.domain.repository.WellnessRepository
+import com.example.healtapp.data.repository.HealthRepositoryImpl
+import com.example.healtapp.domain.repository.HealthRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -75,5 +77,9 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindSocialRepository(impl: SocialRepositoryImpl): SocialRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindHealthRepository(impl: HealthRepositoryImpl): HealthRepository
 }
 

@@ -1,28 +1,21 @@
 package com.example.healtapp.features.aicoach.presentation
 
 import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.healtapp.data.healthconnect.HealthConnectReader
+import com.example.healtapp.data.network.dto.wellness.ChatHistoryMessageDto
+import com.example.healtapp.data.preferences.AiChatHistoryStore
+import com.example.healtapp.data.preferences.StoredChatMessage
 import com.example.healtapp.data.preferences.TokenStorage
-import com.example.healtapp.domain.repository.ActivityRepository
-import com.example.healtapp.domain.repository.HydrationRepository
-import com.example.healtapp.domain.repository.MealRepository
-import com.example.healtapp.domain.repository.ProfileRepository
-import com.example.healtapp.domain.repository.SleepRepository
-import com.example.healtapp.domain.repository.WellnessRepository
-import com.example.healtapp.features.activity.presentation.ActivityStepsHelper
+import com.example.healtapp.domain.repository.AiRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.LocalDate
 
 data class ChatMessageUi(
     val id: Long,
@@ -30,200 +23,214 @@ data class ChatMessageUi(
     val text: String,
 )
 
-data class AiMetricChipUi(
-    val label: String,
-    val value: String,
-    val progress: Float?,
-)
-
 data class AiAssistantUiState(
     val messages: List<ChatMessageUi> = emptyList(),
     val input: String = "",
     val isLoading: Boolean = false,
-    val metricChips: List<AiMetricChipUi> = emptyList(),
-    val contextHint: String? = null,
     val isGuestMode: Boolean = false,
     val error: String? = null,
+    val info: String? = null,
+    val contextReady: Boolean = false,
+    val llmAvailable: Boolean? = null,
+    val llmStatusMessage: String? = null,
 )
+
+val AiSuggestedPrompts = listOf(
+    "Что улучшить сегодня до вечера?",
+    "Почему мало энергии и что сделать?",
+    "Как добрать воду и шаги?",
+    "Разбор моего сна за неделю",
+    "Что поесть с учётом моих целей?",
+)
+
+private const val FALLBACK_MARKER = "не удалось связаться с языковой моделью"
 
 @HiltViewModel
 class AiAssistantViewModel @Inject constructor(
-    @ApplicationContext private val appContext: Context,
-    private val wellnessRepository: WellnessRepository,
+    private val aiRepository: AiRepository,
     private val tokenStorage: TokenStorage,
-    private val profileRepository: ProfileRepository,
-    private val sleepRepository: SleepRepository,
-    private val hydrationRepository: HydrationRepository,
-    private val activityRepository: ActivityRepository,
-    private val mealRepository: MealRepository,
+    @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
+
+    private val chatHistoryStore = AiChatHistoryStore(appContext)
 
     private val _uiState = MutableStateFlow(AiAssistantUiState())
     val uiState: StateFlow<AiAssistantUiState> = _uiState.asStateFlow()
     private var messageId = 0L
-    private var todayContextLine: String? = null
 
     init {
-        loadContextAndWelcome()
+        viewModelScope.launch {
+            if (tokenStorage.isGuestMode()) {
+                _uiState.value = AiAssistantUiState(
+                    isGuestMode = true,
+                    contextReady = true,
+                )
+                addBotMessage(
+                    "Войдите в аккаунт — тогда я увижу ваш дневник (сон, воду, питание, шаги, настроение) и смогу отвечать персонально.",
+                )
+            } else {
+                val saved = chatHistoryStore.load()
+                if (!saved.isNullOrEmpty()) {
+                    messageId = saved.maxOf { it.id }
+                    _uiState.value = AiAssistantUiState(
+                        contextReady = true,
+                        messages = saved.map { ChatMessageUi(it.id, it.isUser, it.text) },
+                    )
+                } else {
+                    _uiState.value = AiAssistantUiState(contextReady = true)
+                    addBotMessage(
+                        "Здравствуйте! Я ваш AI-помощник HealthApp. Вижу данные из дневника и отвечаю на вопросы о здоровье, сне, питании и активности. Чем помочь?",
+                    )
+                }
+                refreshLlmStatus()
+            }
+        }
+    }
+
+    fun refreshLlmStatus() {
+        if (_uiState.value.isGuestMode) return
+        viewModelScope.launch {
+            aiRepository.getAiStatus()
+                .onSuccess { status ->
+                    _uiState.update {
+                        it.copy(
+                            llmAvailable = status.llm_available,
+                            llmStatusMessage = status.message,
+                            info = if (!status.llm_available) {
+                                "LLM офлайн (${status.llm_provider}): ${status.message}. Ответы будут по данным дневника без нейросети."
+                            } else {
+                                null
+                            },
+                        )
+                    }
+                }
+        }
     }
 
     fun updateInput(value: String) {
         _uiState.update { it.copy(input = value, error = null) }
     }
 
-    fun sendMessage() {
-        val question = _uiState.value.input.trim()
+    fun sendMessage(text: String? = null) {
+        val question = (text ?: _uiState.value.input).trim()
         if (question.isBlank() || _uiState.value.isLoading || _uiState.value.isGuestMode) return
+
         addUserMessage(question)
         _uiState.update { it.copy(input = "", isLoading = true, error = null) }
-        val payload = buildQuestionWithContext(question)
-        viewModelScope.launch {
-            wellnessRepository.aiChat(payload).onSuccess { response ->
-                addBotMessage(response.answer.trim())
-                _uiState.update { it.copy(isLoading = false) }
-            }.onFailure { e ->
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        error = e.message ?: "Не удалось получить ответ. Проверьте сервер и LLM.",
-                    )
-                }
+
+        val history = _uiState.value.messages
+            .dropLast(1)
+            .takeLast(20)
+            .map { msg ->
+                ChatHistoryMessageDto(
+                    role = if (msg.isUser) "user" else "assistant",
+                    content = msg.text,
+                )
             }
+
+        viewModelScope.launch {
+            val request = com.example.healtapp.data.network.dto.wellness.AIChatRequestDto(
+                question = question,
+                periodDays = 14,
+                history = history,
+            )
+            aiRepository.streamChat(request)
+                .onSuccess { flow ->
+                    _uiState.update { it.copy(isLoading = false) }
+                    messageId++
+                    val currentMessageId = messageId
+                    _uiState.update { it.copy(messages = it.messages + ChatMessageUi(currentMessageId, false, "")) }
+
+                    try {
+                        flow.collect { chunk ->
+                            _uiState.update { state ->
+                                val updatedMessages = state.messages.map { msg ->
+                                    if (msg.id == currentMessageId) {
+                                        msg.copy(text = msg.text + chunk)
+                                    } else {
+                                        msg
+                                    }
+                                }
+                                val lastText = updatedMessages.lastOrNull()?.text.orEmpty()
+                                val fallbackInfo = if (lastText.contains(FALLBACK_MARKER, ignoreCase = true)) {
+                                    "Ответ сформирован без LLM — по данным дневника. Запустите Ollama для полноценного диалога."
+                                } else {
+                                    state.info
+                                }
+                                state.copy(messages = updatedMessages, info = fallbackInfo)
+                            }
+                        }
+                        persistMessages()
+                    } catch (e: Exception) {
+                        _uiState.update {
+                            it.copy(
+                                error = e.message?.takeIf { m -> m.isNotBlank() }
+                                    ?: "Ошибка потока ответа от сервера.",
+                            )
+                        }
+                    }
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = e.message?.takeIf { m -> m.isNotBlank() }
+                                ?: "Не удалось получить ответ от сервера. Проверьте, что бэкенд запущен и Ollama включена.",
+                        )
+                    }
+                }
         }
     }
 
-    private fun loadContextAndWelcome() {
-        viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) {
-                _uiState.update {
-                    it.copy(
-                        isGuestMode = true,
-                        contextHint = "Демо-режим: войдите в аккаунт, чтобы советник видел ваш дневник.",
-                    )
-                }
-                addBotMessage(
-                    "Войдите в аккаунт и добавьте записи сна, воды, питания и шагов — тогда смогу давать персональные советы по вашим данным.",
-                )
-                return@launch
-            }
-            val ctx = runCatching { buildTodayContext() }.getOrNull()
-            if (ctx != null) {
-                todayContextLine = ctx.contextLine
-                _uiState.update {
-                    it.copy(
-                        metricChips = ctx.chips,
-                        contextHint = ctx.hint,
-                    )
-                }
-                addBotMessage(ctx.welcome)
-            } else {
-                addBotMessage(
-                    "Задайте вопрос о сне, питании, воде или активности — отвечу на основе данных из вашего дневника HealthApp.",
-                )
-            }
-        }
+    fun sendSuggestedPrompt(prompt: String) {
+        sendMessage(prompt)
     }
 
-    private data class TodayContext(
-        val contextLine: String,
-        val chips: List<AiMetricChipUi>,
-        val hint: String?,
-        val welcome: String,
-    )
+    fun clearError() {
+        _uiState.update { it.copy(error = null) }
+    }
 
-    private suspend fun buildTodayContext(): TodayContext = coroutineScope {
-        val today = LocalDate.now().toString()
-        val profile = profileRepository.getMyProfile().getOrNull()
-        val sleep = async { sleepRepository.getSleepHistory().getOrNull().orEmpty() }
-        val water = async { hydrationRepository.getTodayHydrationSummary().getOrNull() }
-        val activity = async { activityRepository.getActivityHistory().getOrNull().orEmpty() }
-        val meals = async { mealRepository.getMealHistory().getOrNull().orEmpty() }
-
-        val sleepTarget = profile?.target_sleep_hours?.takeIf { it > 0f } ?: 8f
-        val waterTarget = profile?.target_water_ml?.toInt()?.takeIf { it > 0 } ?: 2500
-        val stepsTarget = profile?.target_steps?.takeIf { it > 0 } ?: 10_000
-        val calTarget = profile?.target_daily_calories?.takeIf { it > 0 } ?: 2200
-
-        val sleepH = sleep.await()
-            .filter { it.sleep_end.take(10) == today }
-            .sumOf { it.duration_hours.toDouble() }
-            .toFloat()
-        val waterMl = water.await()?.total_ml ?: 0
-        val stepsDb = ActivityStepsHelper.sumStepsForDate(activity.await(), today)
-        val stepsHc = HealthConnectReader(appContext)
-            .takeIf { it.canRequestPermissions() }
-            ?.let { runCatching { it.readTodaySteps() }.getOrNull() }
-        val steps = stepsHc?.takeIf { it > 0 } ?: stepsDb
-        val kcal = meals.await()
-            .filter { it.meal_time.take(10) == today }
-            .sumOf { (it.calories ?: 0f).toDouble() }
-            .toInt()
-
-        val chips = listOf(
-            AiMetricChipUi(
-                label = "Сон",
-                value = if (sleepH > 0f) "%.1f ч".format(sleepH) else "—",
-                progress = if (sleepTarget > 0f) (sleepH / sleepTarget).coerceIn(0f, 1f) else null,
-            ),
-            AiMetricChipUi(
-                label = "Вода",
-                value = "$waterMl мл",
-                progress = if (waterTarget > 0) waterMl.toFloat() / waterTarget else null,
-            ),
-            AiMetricChipUi(
-                label = "Шаги",
-                value = "%,d".format(steps).replace(',', ' '),
-                progress = if (stepsTarget > 0) steps.toFloat() / stepsTarget else null,
-            ),
-            AiMetricChipUi(
-                label = "Ккал",
-                value = "$kcal",
-                progress = if (calTarget > 0) kcal.toFloat() / calTarget else null,
-            ),
-        )
-
-        val gaps = buildList {
-            if (sleepH < sleepTarget * 0.85f) add("сон")
-            if (waterMl < waterTarget * 0.7f) add("вода")
-            if (steps < stepsTarget * 0.6f) add("шаги")
-            if (kcal < calTarget * 0.5f) add("питание")
-        }
-        val hint = when {
-            gaps.isEmpty() -> "Сегодня основные цели близки к норме — можно уточнить детали."
-            gaps.size == 1 -> "Сфокусируйтесь на: ${gaps.first()}."
-            else -> "Сегодня отстаём: ${gaps.joinToString(", ")}."
-        }
-
-        val line = buildString {
-            append("Контекст на сегодня ($today): ")
-            append("сон ${"%.1f".format(sleepH)} / $sleepTarget ч, ")
-            append("вода $waterMl / $waterTarget мл, ")
-            append("шаги $steps / $stepsTarget, ")
-            append("калории $kcal / $calTarget ккал.")
-        }
-
-        val welcome = if (gaps.isNotEmpty()) {
-            "Вижу ваш дневник за сегодня: ${gaps.joinToString(" и ")} пока ниже цели. " +
-                "Спросите, что сделать до вечера — отвечу с опорой на ваши цифры."
+    fun clearChat() {
+        messageId = 0L
+        viewModelScope.launch { chatHistoryStore.clear() }
+        if (_uiState.value.isGuestMode) {
+            _uiState.value = AiAssistantUiState(isGuestMode = true, contextReady = true)
+            addBotMessage(
+                "Войдите в аккаунт — тогда я увижу ваш дневник (сон, воду, питание, шаги, настроение) и смогу отвечать персонально.",
+            )
         } else {
-            "По сегодняшним записям цели выглядят хорошо. Спросите, что улучшить дальше или как удержать ритм."
+            val info = _uiState.value.info
+            val llmAvailable = _uiState.value.llmAvailable
+            val llmStatus = _uiState.value.llmStatusMessage
+            _uiState.value = AiAssistantUiState(
+                contextReady = true,
+                info = info,
+                llmAvailable = llmAvailable,
+                llmStatusMessage = llmStatus,
+            )
+            addBotMessage(
+                "Новый диалог. Я ваш AI-помощник HealthApp — спрашивайте о сне, питании, воде и активности.",
+            )
         }
-
-        TodayContext(line, chips, hint, welcome)
-    }
-
-    private fun buildQuestionWithContext(question: String): String {
-        val ctx = todayContextLine ?: return question
-        return "$ctx\n\nВопрос пользователя: $question"
     }
 
     private fun addUserMessage(text: String) {
         messageId++
         _uiState.update { it.copy(messages = it.messages + ChatMessageUi(messageId, true, text)) }
+        persistMessages()
     }
 
     private fun addBotMessage(text: String) {
         messageId++
         _uiState.update { it.copy(messages = it.messages + ChatMessageUi(messageId, false, text)) }
+        persistMessages()
+    }
+
+    private fun persistMessages() {
+        if (_uiState.value.isGuestMode) return
+        val snapshot = _uiState.value.messages.map {
+            StoredChatMessage(id = it.id, isUser = it.isUser, text = it.text)
+        }
+        viewModelScope.launch { chatHistoryStore.save(snapshot) }
     }
 }

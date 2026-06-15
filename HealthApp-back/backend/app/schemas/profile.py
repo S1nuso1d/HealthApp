@@ -3,6 +3,24 @@ from pydantic import BaseModel, Field
 
 
 class ProfileCreate(BaseModel):
+    first_name: Optional[str] = Field(
+        None,
+        max_length=64,
+        description="Имя (видно друзьям в сообществе)",
+        examples=["Анна"],
+    )
+    last_name: Optional[str] = Field(
+        None,
+        max_length=64,
+        description="Фамилия",
+        examples=["Иванова"],
+    )
+    nickname: Optional[str] = Field(
+        None,
+        max_length=32,
+        description="Никнейм для поиска (уникальный)",
+        examples=["anna_fit"],
+    )
     age: Optional[int] = Field(
         None,
         ge=1,
@@ -83,6 +101,13 @@ class ProfileCreate(BaseModel):
 class ProfileResponse(BaseModel):
     id: int = Field(description="ID профиля")
     user_id: int = Field(description="ID владельца профиля")
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    nickname: Optional[str] = None
+    display_name: Optional[str] = Field(
+        None,
+        description="Как вас видят в сообществе",
+    )
     age: Optional[int] = None
     sex: Optional[str] = None
     height_cm: Optional[float] = None
@@ -100,6 +125,7 @@ class ProfileResponse(BaseModel):
     has_allergies: Optional[bool] = None
     allergies_text: Optional[str] = None
     onboarding_completed: bool = False
+    current_streak: int = 0
     has_avatar: bool = Field(False, description="Есть загруженное фото профиля")
 
     class Config:

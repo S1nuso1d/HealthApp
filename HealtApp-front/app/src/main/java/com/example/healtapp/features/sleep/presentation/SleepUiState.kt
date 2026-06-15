@@ -38,4 +38,20 @@ data class SleepUiState(
 
     val isHcImporting: Boolean = false,
     val hcImportMessage: String? = null,
+
+    val isSoundTracking: Boolean = false,
+    val soundClipsThisSession: Int = 0,
+    val isRecordingSoundClip: Boolean = false,
+    val soundClips: List<SleepSoundClipUi> = emptyList(),
+    val playingSoundClipId: String? = null,
+    val aiSummary: String? = null,
+    val isGeneratingSummary: Boolean = false,
+)
+
+data class SleepSoundClipUi(
+    val id: String,
+    val timeLabel: String,
+    val durationLabel: String,
+    val label: String,
+    val filePath: String,
 )

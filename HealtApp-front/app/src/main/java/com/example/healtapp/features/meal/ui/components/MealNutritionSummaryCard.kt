@@ -25,11 +25,11 @@ fun MealNutritionSummaryCard(
     caloriesConsumed: Int,
     caloriesTarget: Int,
     proteinConsumed: Float,
-    proteinTarget: Float?,
+    proteinTarget: Float,
     fatConsumed: Float,
-    fatTarget: Float?,
+    fatTarget: Float,
     carbsConsumed: Float,
-    carbsTarget: Float?,
+    carbsTarget: Float,
     caffeine: Float,
     kcalProgress: Float,
     targetsHint: String? = null,
@@ -60,21 +60,21 @@ fun MealNutritionSummaryCard(
                 MacroProgressRow(
                     "Белки",
                     proteinConsumed.toInt(),
-                    proteinTarget?.toInt(),
+                    proteinTarget.toInt(),
                     "г",
                     progressRatio(proteinConsumed, proteinTarget),
                 )
                 MacroProgressRow(
                     "Жиры",
                     fatConsumed.toInt(),
-                    fatTarget?.toInt(),
+                    fatTarget.toInt(),
                     "г",
                     progressRatio(fatConsumed, fatTarget),
                 )
                 MacroProgressRow(
                     "Углеводы",
                     carbsConsumed.toInt(),
-                    carbsTarget?.toInt(),
+                    carbsTarget.toInt(),
                     "г",
                     progressRatio(carbsConsumed, carbsTarget),
                 )
@@ -144,8 +144,7 @@ private fun MacroProgressRow(
     }
 }
 
-private fun progressRatio(consumed: Float, target: Float?): Float {
-    val t = target ?: return 0f
-    if (t <= 0f) return 0f
-    return (consumed / t).coerceIn(0f, 1.15f)
+private fun progressRatio(consumed: Float, target: Float): Float {
+    if (target <= 0f) return 0f
+    return (consumed / target).coerceIn(0f, 1.15f)
 }

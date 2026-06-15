@@ -8,6 +8,7 @@ from app.models.user import User
 from app.schemas.sleep import SleepCreate, SleepResponse
 from app.services.analytics_sync import rebuild_user_analytics
 from app.services.realtime_manager import realtime_manager
+from app.services.date_validation import ensure_datetime_not_future
 from app.services.smart_trigger_service import generate_smart_triggers_and_reminders
 
 router = APIRouter(prefix="/sleep", tags=["Sleep"])
@@ -36,6 +37,9 @@ def create_sleep_record(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Время окончания сна должно быть позже времени начала сна"
         )
+
+    ensure_datetime_not_future(sleep_data.sleep_start)
+    ensure_datetime_not_future(sleep_data.sleep_end)
 
     sleep_efficiency = None
     if sleep_data.time_in_bed_minutes and sleep_data.awake_time_minutes is not None:
@@ -196,6 +200,9 @@ def update_sleep_record(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Время окончания сна должно быть позже времени начала сна"
         )
+
+    ensure_datetime_not_future(sleep_data.sleep_start)
+    ensure_datetime_not_future(sleep_data.sleep_end)
 
     sleep_efficiency = None
     if sleep_data.time_in_bed_minutes and sleep_data.awake_time_minutes is not None:

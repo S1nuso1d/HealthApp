@@ -6,6 +6,7 @@ import com.example.healtapp.core.common.AppRefreshBus
 import com.example.healtapp.core.common.CalorieBurnCalculator
 import com.example.healtapp.data.healthconnect.HealthConnectForegroundSync
 import com.example.healtapp.data.healthconnect.HealthConnectReader
+import com.example.healtapp.data.preferences.TrainingPrefs
 import com.example.healtapp.data.network.dto.activity.ActivityCreateRequestDto
 import com.example.healtapp.data.network.dto.activity.ActivityDto
 import com.example.healtapp.domain.repository.ActivityRepository
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -26,6 +28,7 @@ class ActivityViewModel @Inject constructor(
     private val profileRepository: ProfileRepository,
     private val healthConnectReader: HealthConnectReader,
     private val healthConnectForegroundSync: HealthConnectForegroundSync,
+    private val trainingPrefs: TrainingPrefs,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ActivityUiState())
@@ -34,7 +37,35 @@ class ActivityViewModel @Inject constructor(
     init {
         loadAll()
         viewModelScope.launch {
+            trainingPrefs.favoritesFlow.collect { refreshQuickPicks() }
+        }
+        viewModelScope.launch {
+            trainingPrefs.usageFlow.collect { refreshQuickPicks() }
+        }
+        viewModelScope.launch {
             AppRefreshBus.events.collect { loadAll() }
+        }
+    }
+
+    private fun refreshQuickPicks() {
+        viewModelScope.launch {
+            val state = _uiState.value
+            val favorites = trainingPrefs.favoritesSnapshot()
+            val usage = trainingPrefs.usageSnapshot()
+            val historySlugs = state.trainingHistory.map { it.activity_type.lowercase() }
+            val slugs = computeQuickPickSlugs(favorites, usage, historySlugs)
+            _uiState.update {
+                it.copy(
+                    favoriteTrainingSlugs = favorites,
+                    quickPickTrainings = slugs.mapNotNull { slug -> trainingTypeBySlug(slug) },
+                )
+            }
+        }
+    }
+
+    fun toggleTrainingFavorite(slug: String) {
+        viewModelScope.launch {
+            trainingPrefs.toggleFavorite(slug)
         }
     }
 
@@ -86,6 +117,17 @@ class ActivityViewModel @Inject constructor(
                 .filter { ActivityStepsHelper.activityDateKey(it.start_time) == todayKey }
             val trainingMinutes = trainingToday.sumOf { it.duration_minutes.toLong() }.toInt()
             val trainingKcal = trainingToday.sumOf { (it.calories_burned ?: 0f).toDouble() }.toInt()
+            val trainingCountToday = trainingToday.size
+
+            val weekStart = LocalDate.now().minusDays(6)
+            val weekTrainings = ActivityStepsHelper.trainingHistory(all).filter { act ->
+                runCatching { LocalDate.parse(ActivityStepsHelper.activityDateKey(act.start_time)) }
+                    .getOrNull()
+                    ?.let { !it.isBefore(weekStart) } == true
+            }
+            val trainingMinutesWeek = weekTrainings.sumOf { it.duration_minutes.toLong() }.toInt()
+            val trainingCaloriesWeek = weekTrainings.sumOf { (it.calories_burned ?: 0f).toDouble() }.toInt()
+            val trainingCountWeek = weekTrainings.size
             val totalBurned = CalorieBurnCalculator.totalBurnedToday(all, stepsToday)
 
             val weeklySteps = ActivityStepsHelper.weeklySteps(all).map { day ->
@@ -103,12 +145,44 @@ class ActivityViewModel @Inject constructor(
                     healthConnectWorkouts = ActivityStepsHelper.syncedFromHealthConnect(all),
                     trainingMinutesToday = trainingMinutes,
                     trainingCaloriesToday = trainingKcal,
+                    trainingCountToday = trainingCountToday,
+                    trainingMinutesWeek = trainingMinutesWeek,
+                    trainingCaloriesWeek = trainingCaloriesWeek,
+                    trainingCountWeek = trainingCountWeek,
                     caloriesBurnedToday = totalBurned,
                     caloriesBurnGoal = burnGoal,
                     todayWalkRecordId = ActivityStepsHelper.findTodayWalkRecord(all)?.id,
                     error = null,
                 )
             }
+            refreshQuickPicks()
+        }
+    }
+
+    fun beginTraining(typeTitleRu: String) {
+        _uiState.update {
+            it.copy(
+                activityType = typeTitleRu,
+                durationMinutes = "",
+                caloriesBurned = "",
+                distanceKm = "",
+                trainingNotes = "",
+                perceivedExertion = "",
+                error = null,
+            )
+        }
+    }
+
+    fun resetTrainingForm() {
+        _uiState.update {
+            it.copy(
+                durationMinutes = "",
+                caloriesBurned = "",
+                distanceKm = "",
+                trainingNotes = "",
+                perceivedExertion = "",
+                error = null,
+            )
         }
     }
 
@@ -264,6 +338,7 @@ class ActivityViewModel @Inject constructor(
             _uiState.update { it.copy(isSaving = true, error = null) }
             repository.createActivity(request)
                 .onSuccess {
+                    trainingPrefs.recordUsage(apiType)
                     _uiState.update {
                         it.copy(
                             isSaving = false,

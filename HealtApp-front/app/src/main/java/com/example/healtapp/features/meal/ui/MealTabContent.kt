@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -22,6 +23,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -45,8 +49,8 @@ import com.example.healtapp.features.meal.ui.components.MealDiaryRowCompact
 import com.example.healtapp.features.meal.ui.components.MealNutritionSummaryCard
 import com.example.healtapp.features.meal.ui.components.MealNutritionTargetsSheet
 import com.example.healtapp.features.meal.ui.components.MealSlotSection
-import com.example.healtapp.features.meal.ui.components.MealSummarySkeleton
 import kotlinx.coroutines.launch
+import java.io.File
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -64,6 +68,7 @@ private val diarySlotApiTypes = mealTypeOrder.map { it.first }.toSet()
 @Composable
 fun MealTabContent(
     snackbarHostState: SnackbarHostState,
+    onOpenPlanner: () -> Unit = {}
 ) {
     val mealViewModel: MealViewModel = hiltViewModel()
     val mealUiState by mealViewModel.uiState.collectAsStateWithLifecycle()
@@ -165,30 +170,46 @@ fun MealTabContent(
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         PendingSyncBadge(count = mealUiState.pendingSyncCount)
 
-        if (mealUiState.isLoading) {
-            MealSummarySkeleton()
-        } else {
-            MealNutritionSummaryCard(
-                caloriesConsumed = mealUiState.dayCaloriesTotal,
-                caloriesTarget = mealUiState.caloriesTarget,
-                proteinConsumed = mealUiState.dayProteinTotal,
-                proteinTarget = mealUiState.targetProteinG,
-                fatConsumed = mealUiState.dayFatTotal,
-                fatTarget = mealUiState.targetFatG,
-                carbsConsumed = mealUiState.dayCarbsTotal,
-                carbsTarget = mealUiState.targetCarbsG,
-                caffeine = mealUiState.dayCaffeineTotal,
-                kcalProgress = kcalProgress,
-                targetsHint = mealUiState.nutritionTargetsHint,
-                celebrateToken = mealUiState.progressCelebrateToken,
-                onEditTargets = {
-                    editTargetCalories = mealUiState.caloriesTarget.toString()
-                    editTargetProtein = mealUiState.targetProteinG?.let { "%.0f".format(it) }.orEmpty()
-                    editTargetFat = mealUiState.targetFatG?.let { "%.0f".format(it) }.orEmpty()
-                    editTargetCarbs = mealUiState.targetCarbsG?.let { "%.0f".format(it) }.orEmpty()
-                    showTargetsSheet = true
-                },
-            )
+        MealNutritionSummaryCard(
+            caloriesConsumed = mealUiState.dayCaloriesTotal,
+            caloriesTarget = mealUiState.caloriesTarget,
+            proteinConsumed = mealUiState.dayProteinTotal,
+            proteinTarget = mealUiState.targetProteinG,
+            fatConsumed = mealUiState.dayFatTotal,
+            fatTarget = mealUiState.targetFatG,
+            carbsConsumed = mealUiState.dayCarbsTotal,
+            carbsTarget = mealUiState.targetCarbsG,
+            caffeine = mealUiState.dayCaffeineTotal,
+            kcalProgress = kcalProgress,
+            targetsHint = mealUiState.nutritionTargetsHint,
+            celebrateToken = mealUiState.progressCelebrateToken,
+            onEditTargets = {
+                editTargetCalories = mealUiState.caloriesTarget.toString()
+                editTargetProtein = "%.0f".format(mealUiState.targetProteinG)
+                editTargetFat = "%.0f".format(mealUiState.targetFatG)
+                editTargetCarbs = "%.0f".format(mealUiState.targetCarbsG)
+                showTargetsSheet = true
+            },
+        )
+
+        Spacer(Modifier.height(16.dp))
+        SectionHeader(title = "AI и дневник", subtitle = "План питания и записи за сегодня")
+        AppCard(onClick = onOpenPlanner) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(
+                    Icons.Filled.AutoAwesome,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("AI План питания", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("Сгенерировать меню и список покупок", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
         }
 
         CollapsibleAppCard(
@@ -277,8 +298,6 @@ fun MealTabContent(
                 }
             }
         }
-
-        Spacer(Modifier.height(72.dp))
     }
 
     val matchingSavedDishes = remember(mealUiState.foodSearchQuery, mealUiState.savedDishes) {
@@ -312,12 +331,29 @@ fun MealTabContent(
                 cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
             }
         },
+        onOpenAddCustomFood = mealViewModel::openAddCustomFoodSheet,
+        onOpenMacroCompletion = mealViewModel::openMacroCompletionSheet,
         onSelectServing = mealViewModel::selectServing,
         onMultiplierChange = mealViewModel::updatePortionMultiplier,
         onAddToDiary = {
             mealViewModel.addSelectedFoodToDiary {
                 showSearchSheet = false
             }
+        },
+        onRecognizePhoto = { file ->
+            mealViewModel.recognizeFoodFromPhoto(file)
+        },
+        onRecognizeVoice = { text ->
+            mealViewModel.recognizeFoodFromText(text)
+        },
+        onDismissMacroCompletion = mealViewModel::dismissMacroCompletionSheet,
+        onMacroProteinChange = mealViewModel::updateMacroCompletionProtein,
+        onMacroFatChange = mealViewModel::updateMacroCompletionFat,
+        onMacroCarbsChange = mealViewModel::updateMacroCompletionCarbs,
+        onSaveMacroCompletion = mealViewModel::saveMacroCompletion,
+        onDismissAddCustomFood = mealViewModel::dismissAddCustomFoodSheet,
+        onSaveCustomFood = { name, barcode, brand, cal, pro, fat, carb, photo ->
+            mealViewModel.saveCustomFood(name, barcode, brand, cal, pro, fat, carb, photo)
         },
     )
 

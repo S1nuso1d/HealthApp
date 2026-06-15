@@ -65,6 +65,8 @@ fun DashboardGoalsCalendarBlock(
     onDismissDetail: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val currentMonth = YearMonth.now()
+    val canGoNextMonth = yearMonth.isBefore(currentMonth)
     val monthTitle = yearMonth.month.getDisplayName(TextStyle.FULL_STANDALONE, Locale("ru"))
         .replaceFirstChar { it.uppercase() }
     val byDate = days.associateBy { it.date }
@@ -92,7 +94,7 @@ fun DashboardGoalsCalendarBlock(
                         fontWeight = FontWeight.SemiBold,
                         color = dayNumberColor,
                     )
-                    IconButton(onClick = onNextMonth) {
+                    IconButton(onClick = onNextMonth, enabled = canGoNextMonth) {
                         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Следующий месяц")
                     }
                 }

@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">HealthApp</string>
-    <string name="widget_health_description">Сводка: health score, вода и активность</string>
+    <string name="widget_health_description">Сводка дня: индекс здоровья, сон, вода, шаги и калории</string>
+    <string name="widget_water_description">Вода: прогресс за день и быстрое добавление +200 / +250 / +500 мл</string>
+    <string name="widget_quick_actions_description">Быстрые действия: вода, питание, шаги и главная</string>
+    <string name="widget_health_label">HealthApp · Сводка</string>
+    <string name="widget_water_label">HealthApp · Вода</string>
+    <string name="widget_quick_actions_label">HealthApp · Действия</string>
 </resources>

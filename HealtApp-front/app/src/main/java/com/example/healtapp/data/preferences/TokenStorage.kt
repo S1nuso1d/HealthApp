@@ -16,7 +16,20 @@ class TokenStorage(
 ) {
     companion object {
         private val TOKEN_KEY = stringPreferencesKey("token")
+        private val REFRESH_TOKEN_KEY = stringPreferencesKey("refresh_token")
         private val GUEST_MODE_KEY = booleanPreferencesKey("guest_mode")
+    }
+
+    suspend fun saveTokens(accessToken: String, refreshToken: String?) {
+        context.dataStore.edit { prefs ->
+            prefs[TOKEN_KEY] = accessToken
+            if (refreshToken != null) {
+                prefs[REFRESH_TOKEN_KEY] = refreshToken
+            } else {
+                prefs.remove(REFRESH_TOKEN_KEY)
+            }
+            prefs[GUEST_MODE_KEY] = false
+        }
     }
 
     suspend fun saveToken(token: String) {
@@ -31,6 +44,7 @@ class TokenStorage(
         context.dataStore.edit { prefs ->
             if (enabled) {
                 prefs.remove(TOKEN_KEY)
+                prefs.remove(REFRESH_TOKEN_KEY)
                 prefs[GUEST_MODE_KEY] = true
             } else {
                 prefs[GUEST_MODE_KEY] = false
@@ -45,13 +59,22 @@ class TokenStorage(
         return context.dataStore.data.map { prefs -> prefs[TOKEN_KEY] }
     }
 
+    fun refreshTokenFlow(): Flow<String?> {
+        return context.dataStore.data.map { prefs -> prefs[REFRESH_TOKEN_KEY] }
+    }
+
     suspend fun getToken(): String? {
         return tokenFlow().first()
+    }
+
+    suspend fun getRefreshToken(): String? {
+        return refreshTokenFlow().first()
     }
 
     suspend fun clearToken() {
         context.dataStore.edit { prefs ->
             prefs.remove(TOKEN_KEY)
+            prefs.remove(REFRESH_TOKEN_KEY)
             prefs[GUEST_MODE_KEY] = false
         }
     }

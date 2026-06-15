@@ -21,6 +21,7 @@ import com.example.healtapp.core.ui.components.AppMessageType
 import com.example.healtapp.core.ui.components.AppCard
 import com.example.healtapp.core.ui.components.AppScreen
 import com.example.healtapp.core.ui.components.CollapsibleAppCard
+import com.example.healtapp.core.ui.components.EmptyStateCard
 import com.example.healtapp.core.ui.components.SectionHeader
 import com.example.healtapp.features.dashboard.ui.components.DashboardHealthScoreBanner
 import com.example.healtapp.features.dashboard.ui.components.DashboardSkeleton
@@ -68,24 +69,16 @@ fun RecommendationsScreen() {
                         recommendationsCount = 0,
                     )
                 }
-                AppCard {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = "Нет активных рекомендаций",
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                        Text(
-                            text = "Заполните данные за последние дни или обновите список позже.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        AppButton(
-                            text = "Обновить",
-                            onClick = { viewModel.refresh() },
-                            isSecondary = true,
-                        )
-                    }
-                }
+                EmptyStateCard(
+                    title = "Нет активных рекомендаций",
+                    text = "Заполните данные за последние дни или обновите список позже.",
+                    icon = Icons.Filled.Lightbulb,
+                )
+                AppButton(
+                    text = "Обновить",
+                    onClick = { viewModel.refresh() },
+                    isSecondary = true,
+                )
             }
 
             else -> {
@@ -115,6 +108,5 @@ fun RecommendationsScreen() {
             }
         }
 
-        Spacer(Modifier.height(72.dp))
     }
 }

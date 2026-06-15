@@ -7,6 +7,7 @@ from app.models.user import User
 from app.models.user_state import UserState
 from app.schemas.user_state import UserStateCreate, UserStateResponse
 from app.services.analytics_sync import rebuild_user_analytics
+from app.services.date_validation import ensure_datetime_not_future
 
 router = APIRouter(prefix="/states", tags=["User States"])
 
@@ -23,6 +24,8 @@ def create_user_state(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    if state_data.record_time is not None:
+        ensure_datetime_not_future(state_data.record_time)
     new_state = UserState(
         user_id=current_user.id,
         mood=state_data.mood,

@@ -8,9 +8,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material.icons.filled.Watch
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -19,17 +24,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.healtapp.core.ui.components.AppButton
-import com.example.healtapp.core.ui.components.AppCard
-import com.example.healtapp.core.ui.components.AppMessageBanner
-import com.example.healtapp.core.ui.components.AppMessageType
-import com.example.healtapp.core.ui.components.AppScreen
-import com.example.healtapp.core.ui.components.AppTextField
-import com.example.healtapp.core.ui.components.SectionHeader
+import com.example.healtapp.core.ui.components.FeatureCardDivider
+import com.example.healtapp.core.ui.components.FeatureGlassCard
+import com.example.healtapp.core.ui.components.FeatureHeroChip
+import com.example.healtapp.core.ui.components.FeatureInlineNotice
+import com.example.healtapp.core.ui.components.FeatureScreenShell
+import com.example.healtapp.core.ui.components.FeatureSectionTitle
+import com.example.healtapp.core.ui.components.GradientFormPanel
+import com.example.healtapp.core.ui.components.GradientOutlinedField
+import com.example.healtapp.core.ui.theme.contentSecondaryColor
 import com.example.healtapp.features.miband.presentation.MiBandConnectionViewModel
+import com.example.healtapp.features.settings.ui.components.SettingsCapabilityPanel
+import com.example.healtapp.features.settings.ui.components.SettingsInfoText
 import com.example.healtapp.miband.MiBandConnectionPhase
 
 @Composable
@@ -43,75 +54,89 @@ fun MiBandConnectionScreen(
         ActivityResultContracts.RequestMultiplePermissions(),
     ) { viewModel.refreshPermissions() }
 
-    AppScreen(
-        title = "Mi Band 8 (BLE)",
+    val phase = uiState.device?.phase ?: MiBandConnectionPhase.Idle
+    val statusLabel = phaseLabel(phase)
+
+    FeatureScreenShell(
+        title = "Умные часы и трекеры",
         subtitle = "Прямое подключение по Bluetooth Low Energy",
-        headerIcon = Icons.Filled.Watch,
-        onNavigateBack = onBack,
-        scrollable = true,
+        icon = Icons.Filled.Watch,
+        onBack = onBack,
+        heroFooter = {
+            Spacer(Modifier.height(10.dp))
+            FeatureHeroChip(
+                label = statusLabel,
+                modifier = Modifier.padding(start = 12.dp),
+            )
+        },
     ) {
-        uiState.error?.let {
-            AppMessageBanner(text = it, type = AppMessageType.Error)
-        }
-        uiState.message?.let {
-            AppMessageBanner(text = it, type = AppMessageType.Info)
-        }
+        uiState.error?.let { FeatureInlineNotice(text = it, isError = true) }
+        uiState.message?.let { FeatureInlineNotice(text = it) }
+
+        SettingsCapabilityPanel(
+            title = "Mi Band 8 по BLE",
+            subtitle = "Прямое подключение без Health Connect — шаги и пульс с браслета Xiaomi.",
+            items = listOf(
+                Triple(Icons.Filled.VpnKey, "Auth key", "Из Mi Fitness"),
+                Triple(Icons.Filled.Bluetooth, "BLE", "Сканирование"),
+                Triple(Icons.Filled.Sync, "Синхронизация", "На сервер"),
+            ),
+        )
 
         if (!uiState.permissionsOk) {
-            AppCard {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = "Для сканирования BLE нужны разрешения Bluetooth" +
-                            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) " и геолокации" else "",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    AppButton(
-                        text = "Выдать разрешения",
-                        onClick = {
-                            permissionLauncher.launch(MiBandConnectionViewModel.requiredBlePermissions())
-                        },
-                    )
-                }
+            FeatureGlassCard {
+                SettingsInfoText(
+                    text = "Для сканирования BLE нужны разрешения Bluetooth" +
+                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) " и геолокации" else "",
+                )
+                AppButton(
+                    text = "Выдать разрешения",
+                    onClick = {
+                        permissionLauncher.launch(MiBandConnectionViewModel.requiredBlePermissions())
+                    },
+                )
             }
         }
 
-        SectionHeader(
+        FeatureSectionTitle(
             title = "Auth key из Mi Fitness",
-            subtitle = "Сначала привяжите браслет в Mi Fitness, затем извлеките ключ (см. подсказку ниже)",
-        )
-        AppTextField(
-            value = uiState.draftAuthKey,
-            onValueChange = viewModel::onAuthKeyChange,
-            label = "auth_key (32 hex)",
-            isPassword = true,
-            modifier = Modifier.fillMaxWidth(),
+            subtitle = "Сначала привяжите браслет в Mi Fitness",
         )
 
-        AppCard {
-            Text(
-                text = "На телефоне с root/adb: в базе com.xiaomi.wearable поле auth_key в JSON device. " +
-                    "Без ключа Mi Band 8 не примет стороннее приложение — это ограничение Xiaomi, не HealthApp.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+        GradientFormPanel {
+            GradientOutlinedField(
+                value = uiState.draftAuthKey,
+                onValueChange = viewModel::onAuthKeyChange,
+                label = "auth_key (32 hex)",
+                isPassword = true,
             )
         }
 
-        SectionHeader(title = "Поиск и подключение")
-        AppCard {
+        FeatureGlassCard {
+            SettingsInfoText(
+                text = "На телефоне с root/adb: в базе com.xiaomi.wearable поле auth_key в JSON device. " +
+                    "Без ключа Mi Band 8 не примет стороннее приложение — это ограничение Xiaomi, не HealthApp.",
+            )
+        }
+
+        FeatureSectionTitle(title = "Поиск и подключение")
+
+        FeatureGlassCard {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = "Статус: ${phaseLabel(uiState.device?.phase ?: MiBandConnectionPhase.Idle)}",
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = "Статус: $statusLabel",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
                 )
                 uiState.device?.statusMessage?.let {
                     Text(
                         text = it,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = contentSecondaryColor(),
                     )
                 }
                 AppButton(
-                    text = if (uiState.device?.phase == MiBandConnectionPhase.Scanning) {
+                    text = if (phase == MiBandConnectionPhase.Scanning) {
                         "Сканирование…"
                     } else {
                         "Сканировать BLE"
@@ -129,10 +154,11 @@ fun MiBandConnectionScreen(
         }
 
         if (uiState.scanned.isNotEmpty()) {
-            SectionHeader(title = "Найденные устройства")
-            AppCard {
+            FeatureSectionTitle(title = "Найденные устройства")
+            FeatureGlassCard {
                 Column {
-                    uiState.scanned.forEach { dev ->
+                    uiState.scanned.forEachIndexed { index, dev ->
+                        if (index > 0) FeatureCardDivider()
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -149,7 +175,7 @@ fun MiBandConnectionScreen(
                                 Text(
                                     text = "${dev.address} · ${dev.rssi} dBm",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = contentSecondaryColor(),
                                 )
                             }
                         }
@@ -164,14 +190,14 @@ fun MiBandConnectionScreen(
         }
 
         uiState.device?.let { saved ->
-            SectionHeader(title = "Сохранённое устройство")
-            AppCard {
+            FeatureSectionTitle(title = "Сохранённое устройство")
+            FeatureGlassCard {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(text = saved.name, style = MaterialTheme.typography.titleMedium)
+                    Text(text = saved.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text(
                         text = saved.address,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = contentSecondaryColor(),
                     )
                     if (saved.lastSteps > 0) {
                         Text(
@@ -184,6 +210,7 @@ fun MiBandConnectionScreen(
                             text = "Сейчас с браслета: $it шагов, пульс ${saved.liveHeartRate}",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold,
                         )
                     }
                 }
@@ -211,6 +238,21 @@ fun MiBandConnectionScreen(
                 enabled = !uiState.isBusy,
                 onClick = viewModel::clearPairing,
             )
+        }
+
+        FeatureSectionTitle(title = "Другие устройства", subtitle = "Через Health Connect")
+
+        FeatureGlassCard {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Garmin, Apple Watch, Samsung, Huawei",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                SettingsInfoText(
+                    text = "Эти часы синхронизируются автоматически через Google Health Connect (Android) или Apple Health (iOS). Дополнительное сопряжение по Bluetooth в HealthApp не требуется.",
+                )
+            }
         }
     }
 }

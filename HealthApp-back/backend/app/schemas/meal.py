@@ -3,6 +3,15 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
+class BarcodeFoodResponse(BaseModel):
+    name: str
+    calories: float | None = None
+    protein_g: float | None = None
+    fat_g: float | None = None
+    carbs_g: float | None = None
+    brand: str | None = None
+    image_url: str | None = None
+
 class MealCreate(BaseModel):
     meal_type: str
     name: str

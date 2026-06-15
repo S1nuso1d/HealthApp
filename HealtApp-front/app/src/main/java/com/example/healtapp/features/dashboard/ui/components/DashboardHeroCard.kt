@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MonitorHeart
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -46,6 +47,7 @@ fun DashboardHeroCard(
     subtitle: String,
     healthScore: Int?,
     isRecommendationsLoading: Boolean,
+    streak: Int = 0,
 ) {
     val dateLabel = LocalDate.now()
         .format(DateTimeFormatter.ofPattern("d MMMM", Locale("ru", "RU")))
@@ -78,6 +80,20 @@ fun DashboardHeroCard(
                     style = MaterialTheme.typography.labelLarge,
                     color = heroContentColor().copy(alpha = 0.85f),
                 )
+                if (streak > 0) {
+                    Text(
+                        text = "🔥 $streak",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = heroContentColor(),
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .background(
+                                color = Color.White.copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
             }
             Text(
                 text = greeting,
@@ -101,9 +117,9 @@ fun DashboardHeroCard(
                         .background(heroIconBackdrop()),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(
-                        text = "…",
-                        style = MaterialTheme.typography.headlineSmall,
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(32.dp),
+                        strokeWidth = 3.dp,
                         color = heroContentColor(),
                     )
                 }

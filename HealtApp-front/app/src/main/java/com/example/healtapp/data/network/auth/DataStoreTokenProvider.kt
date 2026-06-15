@@ -18,10 +18,18 @@ class DataStoreTokenProvider @Inject constructor(
     @Volatile
     private var token: String? = null
 
+    @Volatile
+    private var refreshToken: String? = null
+
     init {
         appScope.launch {
             tokenStorage.tokenFlow().collectLatest { value ->
                 token = value
+            }
+        }
+        appScope.launch {
+            tokenStorage.refreshTokenFlow().collectLatest { value ->
+                refreshToken = value
             }
         }
     }
@@ -36,8 +44,15 @@ class DataStoreTokenProvider @Inject constructor(
         return runBlocking(Dispatchers.IO) { tokenStorage.getToken() }
     }
 
+    override fun getRefreshToken(): String? {
+        val cached = refreshToken
+        if (!cached.isNullOrBlank()) return cached
+        return runBlocking(Dispatchers.IO) { tokenStorage.getRefreshToken() }
+    }
+
     override fun clearCachedToken() {
         token = null
+        refreshToken = null
     }
 }
 

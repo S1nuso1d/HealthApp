@@ -16,6 +16,7 @@ from app.services.meal_timing import enrich_meal_timing
 from app.models.sleep import SleepRecord
 from app.services.realtime_manager import realtime_manager
 from app.services.achievement_service import refresh_user_achievements
+from app.services.date_validation import ensure_date_not_future, ensure_datetime_not_future
 from app.services.smart_trigger_service import generate_smart_triggers_and_reminders
 
 router = APIRouter(prefix="/meal", tags=["Meal"])
@@ -98,6 +99,34 @@ def create_saved_dish(
     return row
 
 
+@router.put("/saved/{saved_id}", response_model=SavedDishOut)
+def update_saved_dish(
+    saved_id: int,
+    body: SavedDishCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    row = (
+        db.query(SavedDish)
+        .filter(SavedDish.id == saved_id, SavedDish.user_id == current_user.id)
+        .first()
+    )
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Сохранённое блюдо не найдено")
+    
+    row.name = body.name.strip()
+    row.meal_type = body.meal_type
+    row.calories = body.calories
+    row.protein_g = body.protein_g
+    row.fat_g = body.fat_g
+    row.carbs_g = body.carbs_g
+    row.notes = body.notes
+    
+    db.commit()
+    db.refresh(row)
+    return row
+
+
 @router.delete("/saved/{saved_id}")
 def delete_saved_dish(
     saved_id: int,
@@ -124,6 +153,7 @@ def copy_meals_from_day(
     current_user: User = Depends(get_current_user),
 ):
     target = body.target_date or datetime.now().date()
+    ensure_date_not_future(target)
     src_start, src_end = _day_bounds(body.source_date)
     meals = (
         db.query(MealRecord)
@@ -220,6 +250,8 @@ def update_meal(
     )
     if not meal:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Запись питания не найдена")
+
+    ensure_datetime_not_future(data.meal_time)
 
     meal.meal_type = data.meal_type
     meal.name = data.name
@@ -323,6 +355,7 @@ def create_meal(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    ensure_datetime_not_future(data.meal_time)
     sleep_starts = _upcoming_sleep_starts(db, current_user.id)
     is_late, mins_before = enrich_meal_timing(
         data.meal_time,

@@ -8,8 +8,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Watch
 import androidx.compose.material3.MaterialTheme
@@ -22,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.health.connect.client.PermissionController
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -30,14 +33,19 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.healtapp.core.ui.components.AppButton
-import com.example.healtapp.core.ui.components.AppCard
-import com.example.healtapp.core.ui.components.AppMessageBanner
-import com.example.healtapp.core.ui.components.AppMessageType
-import com.example.healtapp.core.ui.components.AppScreen
-import com.example.healtapp.core.ui.components.AppTextField
-import com.example.healtapp.core.ui.components.CollapsibleAppCard
+import com.example.healtapp.core.ui.components.FeatureCollapsibleCard
+import com.example.healtapp.core.ui.components.FeatureGlassCard
+import com.example.healtapp.core.ui.components.FeatureHeroChip
+import com.example.healtapp.core.ui.components.FeatureInlineNotice
+import com.example.healtapp.core.ui.components.FeatureScreenShell
+import com.example.healtapp.core.ui.components.FeatureSectionTitle
+import com.example.healtapp.core.ui.components.GradientFormPanel
+import com.example.healtapp.core.ui.components.GradientOutlinedField
+import com.example.healtapp.core.ui.theme.contentSecondaryColor
 import com.example.healtapp.data.healthconnect.HealthConnectReader
 import com.example.healtapp.features.settings.presentation.IntegrationsViewModel
+import com.example.healtapp.features.settings.ui.components.SettingsCapabilityPanel
+import com.example.healtapp.features.settings.ui.components.SettingsInfoText
 
 @Composable
 fun IntegrationsScreen(
@@ -68,29 +76,47 @@ fun IntegrationsScreen(
         viewModel.refreshHealthConnectPermissions()
     }
 
-    AppScreen(
+    val connectedCount = listOf(
+        uiState.healthConnectPermissionsGranted,
+        uiState.fatSecretToken.isNotBlank(),
+    ).count { it }
+
+    FeatureScreenShell(
         title = if (registrationMode) "Подключи сервисы" else "Интеграции",
         subtitle = if (registrationMode) {
-            "Health Connect (сон и шаги) и FatSecret — можно настроить сейчас или позже в профиле"
+            "Health Connect и FatSecret — можно настроить сейчас или позже"
         } else {
-            "Health Connect и FatSecret"
+            "Health Connect, FatSecret и носимые устройства"
         },
-        headerIcon = Icons.Filled.Sync,
-        onNavigateBack = onBack,
-        scrollable = true,
-    ) {
-        uiState.error?.let {
-            AppMessageBanner(text = it, type = AppMessageType.Error)
-        }
-        uiState.message?.let {
-            Text(
-                text = it,
-                color = MaterialTheme.colorScheme.primary,
-                style = MaterialTheme.typography.bodyMedium,
+        icon = Icons.Filled.Sync,
+        onBack = onBack,
+        heroFooter = {
+            Spacer(Modifier.height(10.dp))
+            FeatureHeroChip(
+                label = if (connectedCount > 0) "Подключено: $connectedCount" else "Настройте сервисы",
+                modifier = Modifier.padding(start = 12.dp),
             )
-        }
+        },
+    ) {
+        uiState.error?.let { FeatureInlineNotice(text = it, isError = true) }
+        uiState.message?.let { FeatureInlineNotice(text = it) }
 
-        CollapsibleAppCard(
+        SettingsCapabilityPanel(
+            title = if (registrationMode) "С чего начать" else "Синхронизация данных",
+            subtitle = "Подключите внешние сервисы — шаги, сон и питание подтянутся в HealthApp.",
+            items = listOf(
+                Triple(Icons.Filled.Sync, "Health Connect", "Сон и шаги"),
+                Triple(Icons.Filled.Watch, "Mi Band", "Прямой BLE"),
+                Triple(Icons.Filled.Restaurant, "FatSecret", "Поиск еды"),
+            ),
+        )
+
+        FeatureSectionTitle(
+            title = "Подключённые сервисы",
+            subtitle = "Разверните блок и настройте доступ",
+        )
+
+        FeatureCollapsibleCard(
             title = "Health Connect",
             subtitle = if (registrationMode) {
                 "Сон, шаги, тренировки"
@@ -99,19 +125,15 @@ fun IntegrationsScreen(
             },
             initiallyExpanded = registrationMode,
         ) {
-        if (!uiState.healthConnectSupported) {
-            Text(
-                text = "Health Connect сейчас недоступен: для Android 13 и ниже установи приложение Health Connect из Play Маркет; на Android 14+ модуль встроен в систему.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else {
+            if (!uiState.healthConnectSupported) {
+                SettingsInfoText(
+                    text = "Health Connect сейчас недоступен: для Android 13 и ниже установи приложение Health Connect из Play Маркет; на Android 14+ модуль встроен в систему.",
+                )
+            } else {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (uiState.healthConnectNeedsProviderUpdate) {
-                        Text(
+                        SettingsInfoText(
                             text = "Нужно обновить модуль Health Connect (или приложение из маркета на старых версиях Android). После обновления вернись сюда.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
                         )
                         AppButton(
                             text = "Открыть страницу в Play Маркете",
@@ -127,20 +149,18 @@ fun IntegrationsScreen(
                     }
 
                     if (uiState.healthConnectCanRequestPermissions) {
-                        Text(
+                        SettingsInfoText(
                             text = if (uiState.healthConnectPermissionsGranted) {
                                 "Доступ к сну и шагам выдан — можно синхронизировать."
                             } else {
                                 "Нужны разрешения на чтение сна и шагов. Нажми кнопку — откроется экран Health Connect."
                             },
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
                         )
                         if (uiState.healthConnectPermissionsGranted) {
                             Text(
                                 text = "Для Mi Band 8 без Health Connect используйте раздел «Mi Band 8 — прямой BLE» ниже.",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = contentSecondaryColor(),
                             )
                         }
                         if (!uiState.healthConnectPermissionsGranted) {
@@ -166,18 +186,16 @@ fun IntegrationsScreen(
                         }
                     }
                 }
-        }
+            }
         }
 
-        CollapsibleAppCard(
+        FeatureCollapsibleCard(
             title = "Mi Band 8 — прямой BLE",
             subtitle = "Шаги и пульс без Health Connect",
             initiallyExpanded = false,
         ) {
-            Text(
+            SettingsInfoText(
                 text = "Mi Band 8 использует закрытый протокол fe95. HealthApp подключается напрямую по BLE, как Gadgetbridge — с ключом, полученным после привязки в Mi Fitness.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
             )
             AppButton(
                 text = "Настроить Mi Band BLE",
@@ -186,7 +204,7 @@ fun IntegrationsScreen(
             )
         }
 
-        CollapsibleAppCard(
+        FeatureCollapsibleCard(
             title = "FatSecret",
             subtitle = if (registrationMode) {
                 "Поиск через сервер (.env)"
@@ -196,11 +214,18 @@ fun IntegrationsScreen(
             initiallyExpanded = registrationMode,
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                AppTextField(
-                    value = uiState.fatSecretSearchQuery,
-                    onValueChange = viewModel::updateFatSecretSearchQuery,
-                    label = "Поиск продукта (например, овсянка)",
-                )
+                GradientFormPanel {
+                    Text(
+                        text = "Поиск продуктов",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    GradientOutlinedField(
+                        value = uiState.fatSecretSearchQuery,
+                        onValueChange = viewModel::updateFatSecretSearchQuery,
+                        label = "Например, овсянка",
+                    )
+                }
                 AppButton(
                     text = if (uiState.isBusy) "Запрос…" else "Поиск через API",
                     enabled = !uiState.isBusy,
@@ -225,23 +250,30 @@ fun IntegrationsScreen(
                     onClick = { showFatSecretOAuth = !showFatSecretOAuth },
                 )
                 if (showFatSecretOAuth) {
-                    Text(
-                        text = "Resource owner token и secret из кабинета разработчика FatSecret — сервер сохранит их для запросов к API дневника.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    AppTextField(
-                        value = uiState.fatSecretToken,
-                        onValueChange = viewModel::updateFatSecretToken,
-                        label = "Access token (OAuth key)",
-                        isPassword = true,
-                    )
-                    AppTextField(
-                        value = uiState.fatSecretSecret,
-                        onValueChange = viewModel::updateFatSecretSecret,
-                        label = "Access secret (OAuth secret)",
-                        isPassword = true,
-                    )
+                    GradientFormPanel {
+                        Text(
+                            text = "OAuth токены",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = "Resource owner token и secret из кабинета разработчика FatSecret.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = contentSecondaryColor(),
+                        )
+                        GradientOutlinedField(
+                            value = uiState.fatSecretToken,
+                            onValueChange = viewModel::updateFatSecretToken,
+                            label = "Access token (OAuth key)",
+                            isPassword = true,
+                        )
+                        GradientOutlinedField(
+                            value = uiState.fatSecretSecret,
+                            onValueChange = viewModel::updateFatSecretSecret,
+                            label = "Access secret (OAuth secret)",
+                            isPassword = true,
+                        )
+                    }
                     AppButton(
                         text = if (uiState.isBusy) "Подождите…" else "Привязать FatSecret",
                         enabled = !uiState.isBusy,
@@ -252,23 +284,22 @@ fun IntegrationsScreen(
         }
 
         uiState.fatSecretPreview?.let { raw ->
-            AppCard {
+            FeatureGlassCard {
                 Text(
                     text = "Ответ API",
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.SemiBold,
                 )
                 Text(
                     text = raw,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = contentSecondaryColor(),
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
                 )
             }
         }
 
         if (registrationMode && onContinueToApp != null) {
-            Spacer(modifier = Modifier.height(8.dp))
             AppButton(
                 text = "Продолжить в приложение",
                 enabled = !uiState.isBusy,

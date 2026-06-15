@@ -1,6 +1,7 @@
 ﻿# Python / FastAPI
 HealthApp-back/backend/uploads/
 HealthApp-back/backend/.env
+HealthApp-back/backend/healthapp.db
 HealthApp-back/**/*.env
 HealthApp-back/**/__pycache__/
 HealthApp-back/**/*.pyc

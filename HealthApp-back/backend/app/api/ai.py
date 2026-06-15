@@ -1,10 +1,13 @@
 import json
 from datetime import date, datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File
+from fastapi.responses import StreamingResponse
+import base64
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.config import settings
 from app.db.database import get_db
 from app.llm.health_chat_service import HealthChatService
 from app.llm.llm_client import LLMClientError
@@ -23,6 +26,15 @@ from app.schemas.ai import (
     AIExplainInsightRequest,
     AIRecommendationsResponse,
     AIResponse,
+    AiRecognizedFoodResponse,
+    AiRecognizeTextFoodRequest,
+    AiStatusResponse,
+    MealPlanResponse,
+    WorkoutPlanResponse,
+    DashboardHintsResponse,
+    ProactiveTipResponse,
+    SleepSummaryRequest,
+    SleepSummaryResponse,
 )
 from app.schemas.analytics import (
     AnalyticsEvidence,
@@ -199,6 +211,20 @@ def _format_int(value: float | int | None) -> int:
     return int(round(float(value)))
 
 
+def _profile_dietary_rules(db: Session, user_id: int):
+    from app.models.profile import UserProfile
+    from app.llm.dietary_prompt import build_dietary_rules_block
+
+    profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
+    if not profile:
+        return "", None
+    rules = build_dietary_rules_block(
+        is_vegetarian=profile.is_vegetarian,
+        allergies_text=profile.allergies_text if profile.has_allergies else None,
+    )
+    return rules, profile
+
+
 @router.post(
     "/chat",
     response_model=AIResponse,
@@ -210,31 +236,25 @@ def ai_chat(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    from app.services.ai.user_health_context import build_user_health_context_text
+
     analytics = build_analytics_context(
         db=db,
         user_id=current_user.id,
         days=payload.period_days,
     )
 
-    from app.services.action_plan_sync_service import collect_today_goals
+    health_context = build_user_health_context_text(
+        db=db,
+        user_id=current_user.id,
+        period_days=payload.period_days,
+    )
+    dietary_rules, _ = _profile_dietary_rules(db, current_user.id)
 
-    goals = collect_today_goals(db, current_user.id)
-    today = {
-        "sleep_hours": goals.sleep_hours,
-        "sleep_target": goals.sleep_target,
-        "water_ml": goals.water_ml,
-        "water_target": goals.water_target,
-        "steps": goals.steps,
-        "steps_target": goals.steps_target,
-        "calories": goals.calories,
-        "calories_target": goals.calories_target,
-        "burned": goals.burned,
-        "burn_target": goals.burn_target,
-        "state_logged": goals.state_logged_today,
-    }
-    personal_hints = PersonalizedAdvisor.generate_recommendations(
-        db, current_user.id, period_days=min(payload.period_days, 14)
-    )[:4]
+    history = [
+        {"role": msg.role, "content": msg.content}
+        for msg in payload.history[-20:]
+    ]
 
     service = HealthChatService()
 
@@ -242,9 +262,57 @@ def ai_chat(
         return service.generate_chat_answer(
             analytics=analytics,
             user_question=payload.question,
-            today=today,
-            personal_hints=personal_hints,
+            user_health_context=health_context,
+            history=history,
+            dietary_rules=dietary_rules,
         )
+    except LLMClientError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"LLM недоступна: {exc}",
+        )
+
+@router.post(
+    "/chat/stream",
+    summary="Задать вопрос AI (стриминг)",
+    description="Возвращает потоковый ответ SSE или просто чанки."
+)
+def ai_chat_stream(
+    payload: AIChatRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.services.ai.user_health_context import build_user_health_context_text
+
+    analytics = build_analytics_context(
+        db=db,
+        user_id=current_user.id,
+        days=payload.period_days,
+    )
+
+    health_context = build_user_health_context_text(
+        db=db,
+        user_id=current_user.id,
+        period_days=payload.period_days,
+    )
+    dietary_rules, _ = _profile_dietary_rules(db, current_user.id)
+
+    history = [
+        {"role": msg.role, "content": msg.content}
+        for msg in payload.history[-20:]
+    ]
+
+    service = HealthChatService()
+
+    try:
+        generator = service.generate_chat_stream(
+            analytics=analytics,
+            user_question=payload.question,
+            user_health_context=health_context,
+            history=history,
+            dietary_rules=dietary_rules,
+        )
+        return StreamingResponse(generator, media_type="text/plain")
     except LLMClientError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -392,3 +460,345 @@ def get_ai_recommendations(
         health_score=analytics.summary.health_score,
         recommendations=recommendations,
     )
+
+@router.post(
+    "/recognize-food",
+    response_model=AiRecognizedFoodResponse,
+    summary="Распознать еду по фото",
+    description="Анализирует фото еды и возвращает список продуктов с КБЖУ."
+)
+async def recognize_food(
+    image: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        contents = await image.read()
+        base64_image = base64.b64encode(contents).decode("utf-8")
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Ошибка чтения файла: {exc}"
+        )
+
+    dietary_rules, profile = _profile_dietary_rules(db, current_user.id)
+    prompt = (
+        "Распознай еду на этом фото. Оцени примерный вес каждой порции в граммах и рассчитай КБЖУ. "
+        "Верни ответ строго в формате JSON: "
+        "{\"items\": [{\"name\": \"Название\", \"grams\": 150, \"calories\": 200, \"protein\": 10.5, \"fat\": 5.0, \"carbs\": 20.0}]}."
+    )
+    if dietary_rules:
+        prompt += f"\n\n{dietary_rules}"
+
+    from app.llm.llm_client import LLMClient, LLMClientError
+    from app.llm.dietary_prompt import filter_food_items
+    client = LLMClient()
+
+    try:
+        raw_json = client.analyze_image(base64_image=base64_image, prompt=prompt)
+        import json
+        data = json.loads(raw_json)
+        if profile:
+            data["items"] = filter_food_items(
+                data.get("items", []),
+                is_vegetarian=profile.is_vegetarian,
+                allergies_text=profile.allergies_text if profile.has_allergies else None,
+            )
+        return AiRecognizedFoodResponse(**data)
+    except LLMClientError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"LLM недоступна: {exc}",
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ошибка обработки ответа LLM: {exc}",
+        )
+
+@router.post(
+    "/recognize-text-food",
+    response_model=AiRecognizedFoodResponse,
+    summary="Распознать еду по тексту",
+    description="Анализирует текст (например, голосовой ввод) и возвращает список продуктов с КБЖУ."
+)
+def recognize_text_food(
+    payload: AiRecognizeTextFoodRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    dietary_rules, profile = _profile_dietary_rules(db, current_user.id)
+    prompt = (
+        f"Распознай еду из следующего текста: '{payload.text}'. "
+        "Оцени примерный вес каждой порции в граммах и рассчитай КБЖУ. "
+        "Верни ответ строго в формате JSON: "
+        "{\"items\": [{\"name\": \"Название\", \"grams\": 150, \"calories\": 200, \"protein\": 10.5, \"fat\": 5.0, \"carbs\": 20.0}]}."
+    )
+    if dietary_rules:
+        prompt += f"\n\n{dietary_rules}"
+
+    from app.llm.llm_client import LLMClient, LLMClientError
+    from app.llm.dietary_prompt import filter_food_items
+    client = LLMClient()
+
+    try:
+        raw_json = client.generate(prompt=prompt)
+        import json
+        data = json.loads(raw_json)
+        if profile:
+            data["items"] = filter_food_items(
+                data.get("items", []),
+                is_vegetarian=profile.is_vegetarian,
+                allergies_text=profile.allergies_text if profile.has_allergies else None,
+            )
+        return AiRecognizedFoodResponse(**data)
+    except LLMClientError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"LLM недоступна: {exc}",
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ошибка обработки ответа LLM: {exc}",
+        )
+
+@router.get(
+    "/meal_plan",
+    response_model=MealPlanResponse,
+    summary="Сгенерировать AI план питания на неделю",
+    description="Создает персонализированный план питания с рецептами и списком покупок"
+)
+def get_meal_plan(
+    days: int = Query(default=7, ge=1, le=14),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.services.ai.user_health_context import build_user_health_context_text
+    from app.llm.meal_plan_diet_filter import apply_dietary_filters
+    from app.models.profile import UserProfile
+
+    analytics = build_analytics_context(db, current_user.id, days=14)
+    health_context = build_user_health_context_text(db=db, user_id=current_user.id, period_days=14)
+    profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
+    service = HealthChatService()
+    source = "llm"
+    try:
+        raw_json, source = service.generate_meal_plan(analytics, user_context=health_context, days=days)
+        import json
+        try:
+            data = json.loads(raw_json)
+        except json.JSONDecodeError:
+            source = "fallback"
+            data = json.loads(service._build_fallback_meal_plan(analytics, days=days, user_context=health_context))
+        if profile:
+            data = apply_dietary_filters(
+                data,
+                is_vegetarian=profile.is_vegetarian,
+                allergies_text=profile.allergies_text,
+            )
+        return MealPlanResponse(
+            generated_at=datetime.now(timezone.utc),
+            days=data.get("days", []),
+            grocery_list=data.get("grocery_list", []),
+            source=source,
+        )
+    except Exception as exc:
+        if settings.AI_FALLBACK_ENABLED:
+            import json
+            data = json.loads(service._build_fallback_meal_plan(analytics, days=days, user_context=health_context))
+            if profile:
+                data = apply_dietary_filters(
+                    data,
+                    is_vegetarian=profile.is_vegetarian,
+                    allergies_text=profile.allergies_text,
+                )
+            return MealPlanResponse(
+                generated_at=datetime.now(timezone.utc),
+                days=data.get("days", []),
+                grocery_list=data.get("grocery_list", []),
+                source="fallback",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ошибка генерации плана питания: {exc}"
+        )
+
+
+@router.get(
+    "/status",
+    response_model=AiStatusResponse,
+    summary="Статус LLM (Ollama / OpenAI)",
+)
+def get_ai_status(_current_user: User = Depends(get_current_user)):
+    from app.llm.llm_client import LLMClient
+
+    client = LLMClient()
+    available, message = client.check_availability()
+    return AiStatusResponse(
+        llm_enabled=settings.LLM_ENABLED,
+        llm_provider=settings.LLM_PROVIDER,
+        llm_model=settings.LLM_MODEL_NAME,
+        llm_available=available,
+        fallback_enabled=settings.AI_FALLBACK_ENABLED,
+        message=message,
+    )
+
+@router.get(
+    "/workout_plan",
+    response_model=WorkoutPlanResponse,
+    summary="Сгенерировать AI план тренировок на неделю",
+    description="Создает персонализированный план тренировок на основе активности"
+)
+def get_workout_plan(
+    days: int = Query(default=7, ge=1, le=14),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.services.ai.user_health_context import build_user_health_context_text
+
+    analytics = build_analytics_context(db, current_user.id, days=14)
+    health_context = build_user_health_context_text(db=db, user_id=current_user.id, period_days=14)
+    dietary_rules, _ = _profile_dietary_rules(db, current_user.id)
+    if dietary_rules:
+        health_context = f"{health_context}\n\n{dietary_rules}"
+    service = HealthChatService()
+    try:
+        raw_json = service.generate_workout_plan(analytics, user_context=health_context, days=days)
+        import json
+        data = json.loads(raw_json)
+        return WorkoutPlanResponse(
+            generated_at=datetime.now(timezone.utc),
+            workouts=data.get("workouts", [])
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ошибка генерации плана тренировок: {exc}"
+        )
+
+@router.get(
+    "/dashboard-hints",
+    response_model=DashboardHintsResponse,
+    summary="Получить контекстные подсказки для дашборда",
+    description="Собирает данные за сегодня/вчера и генерирует короткие полезные советы (hints) с помощью LLM."
+)
+def get_dashboard_hints(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.services.ai.user_health_context import build_user_health_context_text
+    analytics = build_analytics_context(db, current_user.id, days=3)
+    health_context = build_user_health_context_text(db=db, user_id=current_user.id, period_days=3)
+    dietary_rules, profile = _profile_dietary_rules(db, current_user.id)
+    
+    service = HealthChatService()
+    try:
+        raw_json = service.generate_dashboard_hints(
+            analytics,
+            user_context=health_context,
+            dietary_rules=dietary_rules,
+        )
+        import json
+        try:
+            data = json.loads(raw_json)
+        except json.JSONDecodeError:
+            data = json.loads(service._build_fallback_dashboard_hints(analytics))
+        hints = data.get("hints", [])
+        if profile:
+            from app.llm.dietary_prompt import contains_meat_or_fish, profile_implies_vegetarian
+            if profile_implies_vegetarian(profile.is_vegetarian, profile.allergies_text if profile.has_allergies else None):
+                hints = [h for h in hints if not contains_meat_or_fish(str(h))]
+        return DashboardHintsResponse(hints=hints)
+    except Exception as exc:
+        if settings.AI_FALLBACK_ENABLED:
+            import json
+            data = json.loads(service._build_fallback_dashboard_hints(analytics))
+            return DashboardHintsResponse(hints=data.get("hints", []))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ошибка генерации подсказок: {exc}"
+        )
+
+@router.get(
+    "/proactive-tip",
+    response_model=ProactiveTipResponse,
+    summary="Получить проактивный AI совет",
+    description="Генерирует короткий проактивный совет на основе текущего состояния пользователя для push-уведомления."
+)
+def get_proactive_tip(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.services.ai.user_health_context import build_user_health_context_text
+    from app.schemas.ai import ProactiveTipResponse
+    analytics = build_analytics_context(db, current_user.id, days=1)
+    health_context = build_user_health_context_text(db=db, user_id=current_user.id, period_days=1)
+    dietary_rules, profile = _profile_dietary_rules(db, current_user.id)
+    
+    service = HealthChatService()
+    try:
+        tip_text = service.generate_proactive_tip(
+            analytics,
+            user_context=health_context,
+            dietary_rules=dietary_rules,
+        )
+        if profile:
+            from app.llm.dietary_prompt import contains_meat_or_fish, profile_implies_vegetarian
+            if profile_implies_vegetarian(profile.is_vegetarian, profile.allergies_text if profile.has_allergies else None):
+                if contains_meat_or_fish(tip_text):
+                    tip_text = "Добавьте овощи и бобовые — они дадут энергию без тяжести."
+        return ProactiveTipResponse(
+            tip=tip_text,
+            generated_at=datetime.now(timezone.utc)
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ошибка генерации совета: {exc}"
+        )
+
+@router.post(
+    "/sleep-summary",
+    response_model=SleepSummaryResponse,
+    summary="Сгенерировать саммари по звукам сна",
+    description="Принимает список записанных звуков сна и возвращает короткое саммари (сводку)."
+)
+def generate_sleep_summary(
+    payload: SleepSummaryRequest,
+    current_user: User = Depends(get_current_user),
+):
+    if not payload.sounds:
+        return SleepSummaryResponse(
+            summary="Звуков за эту ночь не зафиксировано. Сон был тихим.",
+            generated_at=datetime.now(timezone.utc)
+        )
+    
+    prompt = (
+        "Проанализируй список звуков, зафиксированных во время сна пользователя этой ночью. "
+        "Сделай короткое, человечное, заботливое и умное резюме (до 3 предложений). "
+        "Например: 'Сегодня вы храпели 3 раза, в основном под утро. Сон был немного беспокойным.'\n\n"
+        "Список звуков:\n"
+    )
+    for sound in payload.sounds:
+        prompt += f"- {sound.time}: {sound.label} (Громкость: {sound.peakRms})\n"
+        
+    from app.llm.llm_client import LLMClient, LLMClientError
+    client = LLMClient()
+    
+    try:
+        raw_response = client.generate(prompt=prompt)
+        return SleepSummaryResponse(
+            summary=raw_response.strip(),
+            generated_at=datetime.now(timezone.utc)
+        )
+    except LLMClientError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"LLM недоступна: {exc}",
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ошибка генерации саммари: {exc}",
+        )

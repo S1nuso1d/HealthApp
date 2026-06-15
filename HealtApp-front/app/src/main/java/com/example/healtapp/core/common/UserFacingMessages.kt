@@ -18,6 +18,8 @@ object UserFacingMessages {
         "Понадобится текущий пароль для подтверждения."
     const val DELETE_RECORD_WARNING =
         "Запись нельзя будет восстановить после удаления."
+    const val FUTURE_DATE_NOT_ALLOWED =
+        "Нельзя добавлять данные за будущие дни"
 
     fun fromThrowable(throwable: Throwable, fallback: String): String {
         return when (throwable) {

@@ -9,6 +9,7 @@ from app.models.hydration import HydrationRecord
 from app.models.meal import MealRecord
 from app.models.sleep import SleepRecord
 from app.models.user_state import UserState
+from app.services.health_metrics import normalize_mood_value
 
 
 def safe_mean(values: list[float | int | None]) -> Optional[float]:
@@ -144,7 +145,7 @@ class DailySummaryService:
         for state in state_records:
             values = []
             if state.mood is not None:
-                values.append(float(state.mood))
+                values.append(normalize_mood_value(float(state.mood)))
             if state.energy is not None:
                 values.append(float(state.energy))
             if state.stress is not None:

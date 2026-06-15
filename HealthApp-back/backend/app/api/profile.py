@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -8,6 +9,7 @@ from app.models.profile import UserProfile
 from app.models.user import User
 from app.schemas.profile import ProfileCreate, ProfileResponse
 from app.services.nutrition_targets_service import try_calculate_from_profile
+from app.services.profile_display import public_display_name, validate_nickname
 from app.services.avatar_storage import (
     delete_avatar_file,
     find_existing_avatar_path,
@@ -17,6 +19,28 @@ from app.services.avatar_storage import (
 )
 
 router = APIRouter(prefix="/profile", tags=["Profile"])
+
+
+def _update_streak(db: Session, profile: UserProfile) -> None:
+    from datetime import datetime, timedelta, timezone
+
+    today = datetime.now(timezone.utc).date().isoformat()
+    if profile.last_active_date == today:
+        return
+
+    yesterday = (datetime.now(timezone.utc).date() - timedelta(days=1)).isoformat()
+    if profile.last_active_date == yesterday:
+        profile.current_streak += 1
+    else:
+        profile.current_streak = 1
+
+    profile.last_active_date = today
+    db.commit()
+
+
+def _profile_response(profile: UserProfile, user: User) -> ProfileResponse:
+    base = ProfileResponse.model_validate(profile, from_attributes=True)
+    return base.model_copy(update={"display_name": public_display_name(profile, user)})
 
 
 @router.get(
@@ -36,7 +60,8 @@ def get_my_profile(
         db.add(profile)
         db.commit()
         db.refresh(profile)
-    return profile
+    _update_streak(db, profile)
+    return _profile_response(profile, current_user)
 
 
 @router.get(
@@ -89,7 +114,7 @@ async def upload_my_avatar(
     profile.has_avatar = True
     db.commit()
     db.refresh(profile)
-    return profile
+    return _profile_response(profile, current_user)
 
 
 @router.delete(
@@ -108,7 +133,7 @@ def delete_my_avatar(
     profile.has_avatar = False
     db.commit()
     db.refresh(profile)
-    return profile
+    return _profile_response(profile, current_user)
 
 
 @router.put(
@@ -128,7 +153,28 @@ def update_my_profile(
         raise HTTPException(status_code=404, detail="Профиль не найден")
 
     payload = profile_data.model_dump(exclude_unset=True)
+
+    if "nickname" in payload:
+        try:
+            payload["nickname"] = validate_nickname(payload.get("nickname"))
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        nick = payload["nickname"]
+        if nick:
+            taken = (
+                db.query(UserProfile)
+                .filter(
+                    UserProfile.user_id != current_user.id,
+                    func.lower(UserProfile.nickname) == nick.lower(),
+                )
+                .first()
+            )
+            if taken:
+                raise HTTPException(status_code=400, detail="Этот никнейм уже занят")
+
     for field, value in payload.items():
+        if field in ("first_name", "last_name") and isinstance(value, str):
+            value = value.strip()[:64] or None
         setattr(profile, field, value)
 
     recalc_macros = payload.get("onboarding_completed") is True or (
@@ -158,4 +204,4 @@ def update_my_profile(
 
     db.commit()
     db.refresh(profile)
-    return profile
+    return _profile_response(profile, current_user)

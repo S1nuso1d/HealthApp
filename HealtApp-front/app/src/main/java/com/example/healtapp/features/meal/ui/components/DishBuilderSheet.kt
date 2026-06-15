@@ -45,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.ui.components.AppButton
 import com.example.healtapp.core.ui.components.AppTextField
+import com.example.healtapp.data.network.dto.meal.FoodCatalogItemDto
 import com.example.healtapp.features.meal.DishIngredient
 import com.example.healtapp.features.meal.DishIngredientsPayload
 import com.example.healtapp.features.meal.presentation.MealUiState
@@ -59,13 +60,14 @@ fun DishBuilderSheet(
     uiState: MealUiState,
     ingredients: List<DishIngredient>,
     dishName: String,
+    isEditing: Boolean = false,
     onDismiss: () -> Unit,
     onDishNameChange: (String) -> Unit,
     onIngredientsChange: (List<DishIngredient>) -> Unit,
     onQueryChange: (String) -> Unit,
     onSearchDebounced: () -> Unit,
     onSearchNow: () -> Unit,
-    onFetchFood: (String, (DishIngredient) -> Unit) -> Unit,
+    onFetchFood: (FoodCatalogItemDto, (DishIngredient) -> Unit) -> Unit,
     onBarcodeLookup: (String, (DishIngredient) -> Unit) -> Unit,
     onSave: () -> Unit,
 ) {
@@ -109,7 +111,7 @@ fun DishBuilderSheet(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        "Новое блюдо",
+                        if (isEditing) "Изменение блюда" else "Новое блюдо",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                     )
@@ -263,10 +265,10 @@ fun DishBuilderSheet(
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     uiState.foodSearchResults.take(12).forEach { hit ->
-                        MealFatSecretHitRow(
+                        MealFoodCatalogHitRow(
                             hit = hit,
                             onClick = {
-                                onFetchFood(hit.foodId) { template ->
+                                onFetchFood(hit) { template ->
                                     val updated = if (replaceIndex != null) {
                                         ingredients.toMutableList().apply {
                                             if (replaceIndex!! in indices) set(replaceIndex!!, template)

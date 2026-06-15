@@ -5,11 +5,21 @@ sealed interface AuthEvent {
     data class PasswordChanged(val value: String) : AuthEvent
     data class RepeatPasswordChanged(val value: String) : AuthEvent
     data class VerificationCodeChanged(val value: String) : AuthEvent
+    data class FirstNameChanged(val value: String) : AuthEvent
+    data class LastNameChanged(val value: String) : AuthEvent
+    data class NicknameChanged(val value: String) : AuthEvent
+    data class BirthDateChanged(val value: String) : AuthEvent
+    data class IsVegetarianChanged(val value: Boolean) : AuthEvent
+    data class HasAllergiesChanged(val value: Boolean) : AuthEvent
+    data class AllergiesTextChanged(val value: String) : AuthEvent
+    data class DietaryNotesChanged(val value: String) : AuthEvent
+    data class DietaryExclusionToggled(val id: String) : AuthEvent
     data object SubmitLogin : AuthEvent
-    /** Отправить код на почту (шаг 1 регистрации) */
+    data object SubmitRegisterNext : AuthEvent
+    data object SubmitRegisterBack : AuthEvent
+    data object HealthConnectSkip : AuthEvent
+    data class HealthConnectPermissionsResult(val granted: Boolean) : AuthEvent
     data object SubmitRegisterSendCode : AuthEvent
-    /** Подтвердить код и создать аккаунт */
     data object SubmitRegisterConfirm : AuthEvent
-    /** Вернуться к редактированию email/пароля */
     data object RegisterEditCredentials : AuthEvent
 }

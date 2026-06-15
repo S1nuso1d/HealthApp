@@ -14,17 +14,21 @@ import com.example.healtapp.data.network.api.HydrationApi
 import com.example.healtapp.data.network.api.ImportApi
 import com.example.healtapp.data.network.api.IntegrationsApi
 import com.example.healtapp.data.network.api.MealApi
+import com.example.healtapp.data.network.api.OpenFoodFactsApi
 import com.example.healtapp.data.network.api.ProfileApi
 import com.example.healtapp.data.network.api.SleepApi
 import com.example.healtapp.data.network.api.SmartApi
 import com.example.healtapp.data.network.api.GamificationApi
 import com.example.healtapp.data.network.api.SocialApi
 import com.example.healtapp.data.network.api.StatesApi
+import com.example.healtapp.data.network.api.CycleApi
 import com.example.healtapp.data.preferences.DashboardCache
 import com.example.healtapp.data.preferences.ProfileCache
 import com.example.healtapp.data.preferences.PendingSyncStore
 import com.example.healtapp.data.preferences.WeightHistoryStore
 import com.example.healtapp.data.preferences.WidgetSnapshotStore
+import com.example.healtapp.data.preferences.FastingPrefs
+import com.example.healtapp.data.preferences.TrainingPrefs
 import com.example.healtapp.data.network.auth.DataStoreTokenProvider
 import com.example.healtapp.data.network.auth.TokenProvider
 import com.example.healtapp.data.network.ApiServerConfig
@@ -49,6 +53,12 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
+
+    @Provides
+    @Singleton
+    fun provideGson(): com.google.gson.Gson {
+        return com.google.gson.Gson()
+    }
 
     @Provides
     @Singleton
@@ -90,13 +100,22 @@ object NetworkModule {
     @Singleton
     fun provideAuthInterceptor(
         tokenProvider: TokenProvider,
+    ): AuthInterceptor = AuthInterceptor(tokenProvider)
+
+    @Provides
+    @Singleton
+    fun provideTokenAuthenticator(
+        tokenProvider: TokenProvider,
         tokenStorage: TokenStorage,
-    ): AuthInterceptor = AuthInterceptor(tokenProvider, tokenStorage)
+        authApiProvider: dagger.Lazy<AuthApi>
+    ): com.example.healtapp.data.network.interceptor.TokenAuthenticator = 
+        com.example.healtapp.data.network.interceptor.TokenAuthenticator(tokenProvider, tokenStorage, authApiProvider)
 
     @Provides
     @Singleton
     fun provideOkHttpClient(
         authInterceptor: AuthInterceptor,
+        tokenAuthenticator: com.example.healtapp.data.network.interceptor.TokenAuthenticator,
         dynamicBaseUrlInterceptor: DynamicBaseUrlInterceptor,
     ): OkHttpClient {
         val logging = HttpLoggingInterceptor().apply {
@@ -111,6 +130,7 @@ object NetworkModule {
         return OkHttpClient.Builder()
             .addInterceptor(dynamicBaseUrlInterceptor)
             .addInterceptor(authInterceptor)
+            .authenticator(tokenAuthenticator)
             .addInterceptor(logging)
             .connectTimeout(12, TimeUnit.SECONDS)
             .readTimeout(25, TimeUnit.SECONDS)
@@ -230,6 +250,11 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    fun provideCycleApi(retrofit: Retrofit): CycleApi =
+        retrofit.create(CycleApi::class.java)
+
+    @Provides
+    @Singleton
     fun provideDashboardCache(
         @ApplicationContext context: Context,
     ): DashboardCache = DashboardCache(context)
@@ -248,6 +273,18 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    fun provideFastingPrefs(
+        @ApplicationContext context: Context,
+    ): FastingPrefs = FastingPrefs(context)
+
+    @Provides
+    @Singleton
+    fun provideTrainingPrefs(
+        @ApplicationContext context: Context,
+    ): TrainingPrefs = TrainingPrefs(context)
+
+    @Provides
+    @Singleton
     fun provideWeightHistoryStore(
         @ApplicationContext context: Context,
     ): WeightHistoryStore = WeightHistoryStore(context)
@@ -257,4 +294,15 @@ object NetworkModule {
     fun providePendingSyncStore(
         @ApplicationContext context: Context,
     ): PendingSyncStore = PendingSyncStore(context)
+
+    @Provides
+    @Singleton
+    fun provideOpenFoodFactsApi(client: OkHttpClient): OpenFoodFactsApi {
+        return Retrofit.Builder()
+            .baseUrl("https://world.openfoodfacts.org/")
+            .client(client)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(OpenFoodFactsApi::class.java)
+    }
 }

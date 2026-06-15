@@ -47,15 +47,6 @@ import com.example.healtapp.data.network.dto.activity.ActivityDto
 import com.example.healtapp.features.activity.presentation.activityTitleFromApi
 import com.example.healtapp.features.activity.presentation.trainingFormFieldsFor
 
-private fun trainingIcon(typeRu: String): ImageVector = when (typeRu) {
-    "Бег" -> Icons.AutoMirrored.Filled.DirectionsRun
-    "Велосипед" -> Icons.AutoMirrored.Filled.DirectionsBike
-    "Плавание" -> Icons.Filled.Pool
-    "Йога", "Растяжка" -> Icons.Filled.SelfImprovement
-    "Силовая тренировка" -> Icons.Filled.FitnessCenter
-    else -> Icons.AutoMirrored.Filled.DirectionsRun
-}
-
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ActivityTrainingFormCard(
@@ -183,7 +174,7 @@ fun ActivityTrainingHistoryRow(
     showSourceBadge: Boolean = false,
 ) {
     val title = activityTitleFromApi(activity.activity_type)
-    val icon = trainingIcon(title)
+    val icon = trainingIconForSlug(activity.activity_type)
     val meta = buildString {
         append("${activity.duration_minutes} мин")
         activity.calories_burned?.let { append(" · ~${it.toInt()} ккал") }

@@ -11,6 +11,7 @@ from app.schemas.activity import ActivityCreate, ActivityOut
 from app.services.analytics_sync import rebuild_user_analytics
 from app.services.realtime_manager import realtime_manager
 from app.services.achievement_service import refresh_user_achievements
+from app.services.date_validation import ensure_datetime_not_future
 from app.services.smart_trigger_service import generate_smart_triggers_and_reminders
 
 router = APIRouter(prefix="/activity", tags=["Activity"])
@@ -23,6 +24,9 @@ def create_activity(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    ensure_datetime_not_future(data.start_time)
+    if data.end_time is not None:
+        ensure_datetime_not_future(data.end_time)
     activity = ActivityRecord(
         user_id=current_user.id,
         activity_type=data.activity_type,
@@ -135,6 +139,10 @@ def update_activity(
     )
     if not activity:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Запись активности не найдена")
+
+    ensure_datetime_not_future(data.start_time)
+    if data.end_time is not None:
+        ensure_datetime_not_future(data.end_time)
 
     activity.activity_type = data.activity_type
     activity.start_time = data.start_time

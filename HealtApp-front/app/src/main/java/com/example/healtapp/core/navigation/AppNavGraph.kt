@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.common.AppRefreshBus
+import com.example.healtapp.core.ui.animation.AppNavTransitions
 import com.example.healtapp.core.ui.theme.screenBackgroundGradient
 import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.animation.fadeIn
@@ -48,6 +49,7 @@ import com.example.healtapp.features.dashboard.ui.DashboardScreen
 import com.example.healtapp.features.health.ui.HealthVitalsScreen
 import com.example.healtapp.features.hydration.ui.HydrationScreen
 import com.example.healtapp.features.onboarding.ui.OnboardingScreen
+import com.example.healtapp.features.profile.ui.PoliticalRecommendationsScreen
 import com.example.healtapp.features.profile.ui.ProfileScreen
 import com.example.healtapp.features.recommendations.ui.RecommendationsScreen
 import com.example.healtapp.features.settings.ui.DataImportScreen
@@ -62,12 +64,16 @@ import com.example.healtapp.features.timeline.ui.TimelineScreen
 import com.example.healtapp.features.achievements.ui.AchievementUnlockOverlay
 import com.example.healtapp.features.achievements.ui.AchievementsScreen
 import com.example.healtapp.features.social.ui.FriendsScreen
+import com.example.healtapp.features.social.ui.ClubsScreen
+import com.example.healtapp.features.social.ui.ClubDetailScreen
 import com.example.healtapp.features.social.ui.FriendProfileScreen
+import com.example.healtapp.features.cycle.ui.CycleScreen
+import com.example.healtapp.features.pills.ui.PillsScreen
+import com.example.healtapp.features.fasting.ui.FastingScreen
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.example.healtapp.core.ui.components.AppBottomNavigation
 import com.example.healtapp.core.ui.components.GlobalPendingSyncBanner
-import com.example.healtapp.features.meal.ui.components.MealDiaryGuidePrefs
 import com.example.healtapp.features.sync.GlobalPendingSyncViewModel
 
 @Composable
@@ -82,6 +88,8 @@ fun AppNavGraph() {
         val route = activity.intent.getStringExtra(HealthNotificationHelper.EXTRA_NAV_ROUTE) ?: return@LaunchedEffect
         activity.intent.removeExtra(HealthNotificationHelper.EXTRA_NAV_ROUTE)
         val dest = when (route) {
+            NavRoutes.Dashboard.route,
+            NavRoutes.Activity.route,
             NavRoutes.Hydration.route,
             NavRoutes.Nutrition.route,
             NavRoutes.Recommendations.route,
@@ -127,12 +135,16 @@ fun AppNavGraph() {
                     },
                 )
             }
-        }
+        },
     ) { innerPadding ->
         NavHost(
             navController = navController,
             startDestination = NavRoutes.Splash.route,
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.padding(innerPadding),
+            enterTransition = AppNavTransitions.enterTransition,
+            exitTransition = AppNavTransitions.exitTransition,
+            popEnterTransition = AppNavTransitions.popEnterTransition,
+            popExitTransition = AppNavTransitions.popExitTransition,
         ) {
             composable(NavRoutes.Splash.route) {
                 val viewModel: SplashViewModel = hiltViewModel()
@@ -216,7 +228,7 @@ fun AppNavGraph() {
             composable(NavRoutes.Register.route) {
                 RegisterScreen(
                     onRegisterSuccess = {
-                        navController.navigate(NavRoutes.Onboarding.route) {
+                        navController.navigate(NavRoutes.Dashboard.route) {
                             popUpTo(NavRoutes.Register.route) { inclusive = true }
                             launchSingleTop = true
                         }
@@ -289,14 +301,31 @@ fun AppNavGraph() {
                     onOpenNotifications = { navController.navigate(NavRoutes.Notifications.route) },
                     onOpenAchievements = { navController.navigate(NavRoutes.Achievements.route) },
                     onOpenFriends = { navController.navigate(NavRoutes.Friends.route) },
-                    onOpenNutritionGuide = {
-                        MealDiaryGuidePrefs.requestShowAgain(activity)
-                        navController.navigate(NavRoutes.Nutrition.route) {
+                    onOpenClubs = {
+                        navController.navigate(NavRoutes.Clubs.route) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onOpenPoliticalRecommendations = {
+                        navController.navigate(NavRoutes.PoliticalRecommendations.route) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onOpenPills = {
+                        navController.navigate(NavRoutes.Pills.route) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onOpenCycle = {
+                        navController.navigate(NavRoutes.Cycle.route) {
                             launchSingleTop = true
                         }
                     },
                     onLogout = { AppRefreshBus.notifyLogout() },
                 )
+            }
+            composable(NavRoutes.PoliticalRecommendations.route) {
+                PoliticalRecommendationsScreen(onBack = { navController.popBackStack() })
             }
             composable(NavRoutes.ServerConnection.route) {
                 ServerConnectionScreen(onBack = { navController.popBackStack() })
@@ -340,7 +369,10 @@ fun AppNavGraph() {
                 )
             }
             composable(NavRoutes.Nutrition.route) {
-                com.example.healtapp.features.nutrition.ui.NutritionHubScreen(initialTab = 0)
+                com.example.healtapp.features.nutrition.ui.NutritionHubScreen(
+                    initialTab = 0,
+                    onOpenPlanner = { navController.navigate(NavRoutes.MealPlanner.route) { launchSingleTop = true } }
+                )
             }
             composable(NavRoutes.Activity.route) {
                 ActivityScreen(
@@ -362,7 +394,22 @@ fun AppNavGraph() {
                 enterTransition = { fadeIn() },
                 exitTransition = { fadeOut() },
             ) {
-                TimelineScreen(onBack = { navController.popBackStack() })
+                TimelineScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenFriend = { userId ->
+                        navController.navigate(NavRoutes.FriendProfile.route(userId)) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onOpenFriends = {
+                        navController.navigate(NavRoutes.Friends.route) { launchSingleTop = true }
+                    },
+                )
+            }
+            composable(NavRoutes.MealPlanner.route) {
+                com.example.healtapp.features.meal.ui.MealPlannerScreen(
+                    onBack = { navController.popBackStack() }
+                )
             }
             composable(
                 route = NavRoutes.ActionPlan.route,
@@ -388,6 +435,36 @@ fun AppNavGraph() {
                         navController.navigate(NavRoutes.FriendProfile.route(id))
                     },
                 )
+            }
+            composable(NavRoutes.Clubs.route) {
+                ClubsScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenClub = { id ->
+                        navController.navigate(NavRoutes.ClubDetail.route(id))
+                    },
+                )
+            }
+            composable(
+                route = NavRoutes.ClubDetail.route,
+                arguments = listOf(navArgument("clubId") { type = NavType.IntType }),
+            ) {
+                val clubId = it.arguments?.getInt("clubId") ?: return@composable
+                ClubDetailScreen(
+                    clubId = clubId,
+                    onBack = { navController.popBackStack() },
+                    onOpenMember = { userId ->
+                        navController.navigate(NavRoutes.FriendProfile.route(userId))
+                    },
+                )
+            }
+            composable(NavRoutes.Cycle.route) {
+                CycleScreen(onBack = { navController.popBackStack() })
+            }
+            composable(NavRoutes.Pills.route) {
+                PillsScreen(onBack = { navController.popBackStack() })
+            }
+            composable(NavRoutes.Fasting.route) {
+                FastingScreen(onBack = { navController.popBackStack() })
             }
             composable(
                 route = NavRoutes.FriendProfile.route,

@@ -3,19 +3,20 @@ from app.schemas.analytics import AnalyticsResponse
 
 class PromptBuilder:
     SYSTEM_PROMPT = """
-Ты — персональный AI-ассистент по здоровью в приложении HealthApp.
+Ты — персональный AI-консультант по здоровью и образу жизни в приложении HealthApp.
 
-Твои правила:
-1. Не ставь диагнозы.
-2. Не говори, что у пользователя есть болезнь.
-3. Не отменяй лекарства и не советуй лечение.
-4. Опирайся только на переданные данные аналитики.
-5. Если данных мало, честно скажи об этом.
-6. Давай практичные, спокойные и понятные рекомендации.
-7. Объясняй причинно-следственные связи человеческим языком.
-8. Пиши на русском языке.
-9. Не выдумывай факты, которых нет в данных.
-10. Если видишь позитивный паттерн, тоже отмечай его.
+Стиль: как внимательный чат-помощник — дружелюбно, по-русски, на «вы», короткими абзацами.
+
+Правила:
+1. Не ставь диагнозы и не назначай лечение, не отменяй лекарства.
+2. Отвечай на ЛЮБОЙ вопрос о здоровье, сне, питании, воде, активности, стрессе, привычках.
+3. Опирайся на блок «ДАННЫЕ ПОЛЬЗОВАТЕЛЯ» — цифры, даты, тренды. Не выдумывай факты.
+4. Если данных нет — скажите честно и подскажите, что записать в дневнике.
+5. Давай конкретные шаги: что, когда, сколько (мл, минут, порций), привязка к целям из профиля.
+6. Учитывай сегодняшние показатели и отставание от целей.
+7. При общих вопросах (например «как лучше спать») сочетай общие советы с персонализацией по данным.
+8. Не повторяй дословно предыдущие ответы в диалоге, развивай тему.
+9. Без markdown-заголовков и таблиц — обычный текст, списки через «•» или нумерацию при необходимости.
 """.strip()
 
     @staticmethod
@@ -87,35 +88,45 @@ Recommendations:
         return "Персональные наблюдения из дневника:\n" + "\n".join(lines)
 
     @staticmethod
+    def build_chat_messages(
+        user_health_context: str,
+        user_question: str,
+        history: list[dict[str, str]] | None = None,
+        dietary_rules: str | None = None,
+    ) -> list[dict[str, str]]:
+        """Сообщения для Ollama /api/chat."""
+        system = (
+            f"{PromptBuilder.SYSTEM_PROMPT}\n\n"
+            f"--- ДАННЫЕ ПОЛЬЗОВАТЕЛЯ (дневник HealthApp) ---\n"
+            f"{user_health_context.strip()}\n"
+            f"--- КОНЕЦ ДАННЫХ ---"
+        )
+        if dietary_rules and dietary_rules.strip():
+            system += f"\n\n{dietary_rules.strip()}"
+        messages: list[dict[str, str]] = [{"role": "system", "content": system}]
+        for item in history or []:
+            role = item.get("role", "user")
+            if role not in ("user", "assistant"):
+                continue
+            content = (item.get("content") or "").strip()
+            if content:
+                messages.append({"role": role, "content": content})
+        messages.append({"role": "user", "content": user_question.strip()})
+        return messages
+
+    @staticmethod
     def build_chat_prompt(
         analytics: AnalyticsResponse,
         user_question: str,
         today: dict | None = None,
         personal_hints: list[dict] | None = None,
     ) -> str:
+        """Legacy single-prompt (briefs)."""
         context = PromptBuilder.build_context_block(analytics)
         today_block = PromptBuilder.build_today_block(today)
         hints_block = PromptBuilder.build_personal_hints_block(personal_hints)
-
         extra = "\n\n".join(x for x in (today_block, hints_block) if x)
-
-        return f"""
-Ниже аналитический контекст пользователя.
-
-{context}
-{extra}
-
-Вопрос пользователя:
-{user_question}
-
-Ответь:
-1. Понятно и по-русски, на «вы» или «ты» как в вопросе
-2. Без медицинских диагнозов и назначения лечения
-3. Сначала ответь на вопрос; опирайся на блок «Сегодня» для советов на текущий день
-4. Если данных мало — скажи честно, что записать (сон, вода, еда, шаги)
-5. 2–4 коротких абзаца, без воды
-6. В конце — нумерованный список из 1–3 конкретных шагов на сегодня или завтра
-""".strip()
+        return f"{context}\n{extra}\n\nВопрос: {user_question}".strip()
 
     @staticmethod
     def build_daily_brief_prompt(analytics: AnalyticsResponse) -> str:
@@ -152,6 +163,138 @@ Recommendations:
 """.strip()
 
     @staticmethod
+    def build_meal_plan_prompt(
+        analytics: AnalyticsResponse,
+        user_context: str | None = None,
+        days: int = 7,
+    ) -> str:
+        ctx = PromptBuilder.build_context_block(analytics)
+        if user_context:
+            ctx += f"\nДополнительный контекст:\n{user_context}"
+        return f"""
+ДАННЫЕ ПОЛЬЗОВАТЕЛЯ:
+{ctx}
+
+ЗАДАЧА:
+Сгенерируй персонализированный план питания на {days} дней.
+ОБЯЗАТЕЛЬНО:
+- Каждый день должен отличаться по блюдам (не повторяй одни и те же завтраки/обеды/ужины).
+- Если в профиле указаны аллергии или ограничения — НЕ включай эти продукты ни в одно блюдо и список покупок.
+- Если отмечено вегетарианство — СТРОГО без мяса, птицы, рыбы, морепродуктов, бульонов на мясе/рыбе.
+- Примеры запрещённых ингредиентов при вегетарианстве: курица, говядина, свинина, индейка, рыба, креветки, тунец, лосось.
+- Ориентируйся на целевые калории и КБЖУ из профиля, если они есть.
+- Учитывай текущие показатели питания и рекомендации из контекста.
+
+В ответ верни ТОЛЬКО валидный JSON без маркдауна (без ```json), который строго соответствует схеме:
+{{
+    "days": [
+        {{
+            "day_name": "Понедельник",
+            "meals": [
+                {{
+                    "meal_type": "Завтрак",
+                    "name": "Яичница с овощами",
+                    "calories": 350,
+                    "protein_g": 20.0,
+                    "fat_g": 15.0,
+                    "carbs_g": 25.0,
+                    "recipe": "Краткий рецепт"
+                }}
+            ],
+            "total_calories": 1500,
+            "total_protein": 100.0,
+            "total_fat": 50.0,
+            "total_carbs": 150.0
+        }}
+    ],
+    "grocery_list": [
+        {{
+            "category": "Овощи",
+            "name": "Помидоры",
+            "amount": "500 г"
+        }}
+    ]
+}}
+"""
+
+    @staticmethod
+    def build_workout_plan_prompt(
+        analytics: AnalyticsResponse,
+        user_context: str | None = None,
+        days: int = 7,
+    ) -> str:
+        ctx = PromptBuilder.build_context_block(analytics)
+        if user_context:
+            ctx += f"\nДополнительный контекст:\n{user_context}"
+        return f"""
+ДАННЫЕ ПОЛЬЗОВАТЕЛЯ:
+{ctx}
+
+ЗАДАЧА:
+Сгенерируй персонализированный план тренировок на {days} дней, учитывая уровень активности пользователя.
+В ответ верни ТОЛЬКО валидный JSON без маркдауна (без ```json), который строго соответствует схеме:
+{{
+    "workouts": [
+        {{
+            "day_name": "Понедельник",
+            "workout_type": "Силовая",
+            "title": "Тренировка на все тело",
+            "duration_minutes": 45,
+            "description": "Описание упражнений..."
+        }}
+    ]
+}}
+"""
+    @staticmethod
+    def build_dashboard_hints_prompt(
+        analytics: AnalyticsResponse,
+        user_context: str | None = None,
+        dietary_rules: str | None = None,
+    ) -> str:
+        ctx = PromptBuilder.build_context_block(analytics)
+        if user_context:
+            ctx += f"\nДополнительный контекст:\n{user_context}"
+        if dietary_rules and dietary_rules.strip():
+            ctx += f"\n\n{dietary_rules.strip()}"
+        return f"""
+ДАННЫЕ ПОЛЬЗОВАТЕЛЯ:
+{ctx}
+
+ЗАДАЧА:
+Сгенерируй 2-3 короткие, максимально контекстные и полезные подсказки (hints) для дашборда на основе текущих данных (сон, вода, активность, питание).
+Каждая подсказка должна быть 1 коротким предложением.
+Если пользователь вегетарианец — не предлагайте мясо, птицу, рыбу и морепродукты в советах по питанию.
+Примеры: "Вы спали всего 5 часов, постарайтесь лечь пораньше", "Вы отстаете по воде на 1л, выпейте стакан", "Сегодня вы сделали уже 8000 шагов, отличный результат!".
+В ответ верни ТОЛЬКО валидный JSON без маркдауна (без ```json), который строго соответствует схеме:
+{{
+    "hints": ["Подсказка 1", "Подсказка 2", "Подсказка 3"]
+}}
+"""
+
+    @staticmethod
+    def build_proactive_tip_prompt(
+        analytics: AnalyticsResponse,
+        user_context: str | None = None,
+        dietary_rules: str | None = None,
+    ) -> str:
+        ctx = PromptBuilder.build_context_block(analytics)
+        if user_context:
+            ctx += f"\nДополнительный контекст:\n{user_context}"
+        if dietary_rules and dietary_rules.strip():
+            ctx += f"\n\n{dietary_rules.strip()}"
+        return f"""
+ДАННЫЕ ПОЛЬЗОВАТЕЛЯ:
+{ctx}
+
+ЗАДАЧА:
+Сгенерируй ОДИН короткий (1-2 предложения) персонализированный, проактивный совет (push-уведомление) для пользователя на основе текущего контекста и его метрик.
+Совет должен быть заботливым и учитывать время суток и текущие данные по питанию, активности или гидратации.
+Если пользователь вегетарианец — не предлагайте мясо, птицу, рыбу и морепродукты.
+Например: "Время близится к вечеру, а вы выпили всего 1 литр воды — самое время для стакана воды!" или "Отличная прогулка, норма шагов почти выполнена!".
+В ответ верни ТОЛЬКО текст совета, без кавычек и дополнительных пояснений.
+"""
+
+    @staticmethod
     def build_explain_insight_prompt(
         analytics: AnalyticsResponse,
         insight_title: str,
@@ -173,3 +316,87 @@ Recommendations:
 4. Что пользователь может попробовать сделать
 5. Без диагнозов, спокойно и понятно
 """.strip()
+
+    @staticmethod
+    def build_meal_plan_prompt(
+        analytics: AnalyticsResponse,
+        user_context: str | None = None,
+        days: int = 7,
+    ) -> str:
+        ctx = PromptBuilder.build_context_block(analytics)
+        if user_context:
+            ctx += f"\nДополнительный контекст:\n{user_context}"
+        return f"""
+ДАННЫЕ ПОЛЬЗОВАТЕЛЯ:
+{ctx}
+
+ЗАДАЧА:
+Сгенерируй персонализированный план питания на {days} дней.
+ОБЯЗАТЕЛЬНО:
+- Каждый день должен отличаться по блюдам (не повторяй одни и те же завтраки/обеды/ужины).
+- Если в профиле указаны аллергии или ограничения — НЕ включай эти продукты ни в одно блюдо и список покупок.
+- Если отмечено вегетарианство — СТРОГО без мяса, птицы, рыбы, морепродуктов, бульонов на мясе/рыбе.
+- Примеры запрещённых ингредиентов при вегетарианстве: курица, говядина, свинина, индейка, рыба, креветки, тунец, лосось.
+- Ориентируйся на целевые калории и КБЖУ из профиля, если они есть.
+- Учитывай текущие показатели питания и рекомендации из контекста.
+
+В ответ верни ТОЛЬКО валидный JSON без маркдауна (без ```json), который строго соответствует схеме:
+{{
+    "days": [
+        {{
+            "day_name": "Понедельник",
+            "meals": [
+                {{
+                    "meal_type": "Завтрак",
+                    "name": "Яичница с овощами",
+                    "calories": 350,
+                    "protein_g": 20.0,
+                    "fat_g": 15.0,
+                    "carbs_g": 25.0,
+                    "recipe": "Краткий рецепт"
+                }}
+            ],
+            "total_calories": 1500,
+            "total_protein": 100.0,
+            "total_fat": 50.0,
+            "total_carbs": 150.0
+        }}
+    ],
+    "grocery_list": [
+        {{
+            "category": "Овощи",
+            "name": "Помидоры",
+            "amount": "500 г"
+        }}
+    ]
+}}
+"""
+
+    @staticmethod
+    def build_workout_plan_prompt(
+        analytics: AnalyticsResponse,
+        user_context: str | None = None,
+        days: int = 7,
+    ) -> str:
+        ctx = PromptBuilder.build_context_block(analytics)
+        if user_context:
+            ctx += f"\nДополнительный контекст:\n{user_context}"
+        return f"""
+ДАННЫЕ ПОЛЬЗОВАТЕЛЯ:
+{ctx}
+
+ЗАДАЧА:
+Сгенерируй персонализированный план тренировок на {days} дней, учитывая уровень активности пользователя.
+В ответ верни ТОЛЬКО валидный JSON без маркдауна (без ```json), который строго соответствует схеме:
+{{
+    "workouts": [
+        {{
+            "day_name": "Понедельник",
+            "workout_type": "Силовая",
+            "title": "Тренировка на все тело",
+            "duration_minutes": 45,
+            "description": "Описание упражнений..."
+        }}
+    ]
+}}
+"""

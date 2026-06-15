@@ -72,7 +72,7 @@ class ApiServerConfig @Inject constructor(
     suspend fun clearOverride() = applyOverride(null)
 
     companion object {
-        private const val SERVER_OVERRIDE_ENABLED = false
+        private const val SERVER_OVERRIDE_ENABLED = true
 
         fun normalizeBaseUrl(raw: String): String {
             var s = raw.trim()

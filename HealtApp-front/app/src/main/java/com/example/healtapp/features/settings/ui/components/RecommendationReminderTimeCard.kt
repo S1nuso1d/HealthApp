@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.healtapp.core.ui.components.GradientFormPanel
 import com.example.healtapp.core.ui.theme.chipSelectedColor
 import com.example.healtapp.core.ui.theme.themedCardMint
 
@@ -46,12 +47,7 @@ fun RecommendationReminderTimeCard(
     val context = LocalContext.current
     val timeLabel = "%02d:%02d".format(hour, minute)
 
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(start = 4.dp, end = 4.dp, bottom = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
+    GradientFormPanel(modifier = modifier) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,

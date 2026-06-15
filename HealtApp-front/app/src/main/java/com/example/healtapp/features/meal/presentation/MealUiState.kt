@@ -1,9 +1,12 @@
 package com.example.healtapp.features.meal.presentation
 
+import com.example.healtapp.core.common.NutritionTargetsCalculator
 import com.example.healtapp.data.network.dto.meal.MealDto
 import com.example.healtapp.data.network.dto.meal.SavedDishDto
-import com.example.healtapp.features.meal.util.FatSecretFoodHit
+import com.example.healtapp.data.network.dto.meal.FoodCatalogItemDto
 import com.example.healtapp.features.meal.util.FatSecretServingOption
+
+private val defaultTargets = NutritionTargetsCalculator.defaultTargets()
 
 data class MealUiState(
     val isLoading: Boolean = false,
@@ -28,12 +31,12 @@ data class MealUiState(
     val mealHistory: List<MealDto> = emptyList(),
     val savedDishes: List<SavedDishDto> = emptyList(),
 
-    val caloriesTarget: Int = 2200,
-    val targetProteinG: Float? = null,
-    val targetFatG: Float? = null,
-    val targetCarbsG: Float? = null,
+    val caloriesTarget: Int = defaultTargets.calories,
+    val targetProteinG: Float = defaultTargets.proteinG,
+    val targetFatG: Float = defaultTargets.fatG,
+    val targetCarbsG: Float = defaultTargets.carbsG,
     /** Подсказка в блоке «Сводка»: откуда взяты ориентиры КБЖУ. */
-    val nutritionTargetsHint: String? = null,
+    val nutritionTargetsHint: String? = "Ориентиры КБЖУ",
     val progressCelebrateToken: Int = 0,
     val pendingSyncCount: Int = 0,
 
@@ -44,7 +47,15 @@ data class MealUiState(
     val dayCaffeineTotal: Float = 0f,
 
     val foodSearchQuery: String = "",
-    val foodSearchResults: List<FatSecretFoodHit> = emptyList(),
+    val foodSearchResults: List<FoodCatalogItemDto> = emptyList(),
     val isFoodSearchLoading: Boolean = false,
     val foodSearchError: String? = null,
+
+    val selectedCatalogItem: FoodCatalogItemDto? = null,
+    val showMacroCompletionSheet: Boolean = false,
+    val showAddCustomFoodSheet: Boolean = false,
+    val macroCompletionProtein: String = "",
+    val macroCompletionFat: String = "",
+    val macroCompletionCarbs: String = "",
+    val isCatalogSaving: Boolean = false,
 )

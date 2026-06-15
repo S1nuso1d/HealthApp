@@ -46,25 +46,7 @@ fun DashboardRecommendationCard(
     }
 
     AppCard(onClick = onClick) {
-        if (emphasized) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 10.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(
-                        Brush.horizontalGradient(subtleFillGradient()),
-                    )
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-            ) {
-                Text(
-                    text = "Главный совет дня",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = contentPrimaryColor(),
-                )
-            }
-        }
+    // "Главный совет дня" убран
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -124,13 +106,7 @@ fun DashboardRecommendationCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
 
-                item.progressLabel?.let { progress ->
-                    Text(
-                        text = progress,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = contentPrimaryColor(),
-                    )
-                }
+                // progressLabel убран, чтобы избежать дублирования текста
 
                 item.personalizedTip?.takeIf { it.isNotBlank() }?.let { tip ->
                     val (tipBg, tipFg) = tipBannerColors()

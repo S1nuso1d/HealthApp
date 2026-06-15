@@ -19,4 +19,5 @@ interface ReminderEntryPoint {
     fun activityRepository(): ActivityRepository
     fun profileRepository(): ProfileRepository
     fun notificationPrefs(): NotificationPrefs
+    fun socialRepository(): com.example.healtapp.domain.repository.SocialRepository
 }

@@ -1,14 +1,7 @@
 package com.example.healtapp.features.activity.presentation
 
 /** Типы для ручного добавления тренировок (без ходьбы — шаги отдельно). */
-val trainingActivityTypes = listOf(
-    "Бег",
-    "Велосипед",
-    "Силовая тренировка",
-    "Йога",
-    "Растяжка",
-    "Плавание",
-)
+// Список перенесён в TrainingCatalog.kt — allTrainingTypes / trainingActivityTypes
 
 fun activityApiSlug(displayRu: String): String = when (displayRu) {
     "Бег" -> "run"
@@ -18,7 +11,18 @@ fun activityApiSlug(displayRu: String): String = when (displayRu) {
     "Йога" -> "yoga"
     "Растяжка" -> "stretch"
     "Плавание" -> "swim"
-    else -> displayRu.lowercase().replace(" ", "_").ifBlank { "workout" }
+    "HIIT" -> "hiit"
+    "Пилатес" -> "pilates"
+    "Эллипс" -> "elliptical"
+    "Гребля" -> "rowing"
+    "Танцы" -> "dance"
+    "Бокс" -> "boxing"
+    "Футбол" -> "football"
+    "Теннис" -> "tennis"
+    "Поход" -> "hiking"
+    "Кроссфит" -> "crossfit"
+    else -> trainingTypeByTitle(displayRu)?.slug
+        ?: displayRu.lowercase().replace(" ", "_").ifBlank { "workout" }
 }
 
 fun activityTitleFromApi(apiType: String): String = when (apiType.lowercase()) {
@@ -29,7 +33,18 @@ fun activityTitleFromApi(apiType: String): String = when (apiType.lowercase()) {
     "yoga" -> "Йога"
     "stretch" -> "Растяжка"
     "swim" -> "Плавание"
-    else -> apiType.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+    "hiit" -> "HIIT"
+    "pilates" -> "Пилатес"
+    "elliptical" -> "Эллипс"
+    "rowing" -> "Гребля"
+    "dance" -> "Танцы"
+    "boxing" -> "Бокс"
+    "football" -> "Футбол"
+    "tennis" -> "Теннис"
+    "hiking" -> "Поход"
+    "crossfit" -> "Кроссфит"
+    else -> trainingTypeBySlug(apiType)?.titleRu
+        ?: apiType.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
 }
 
 fun isWalkLikeApi(apiType: String): Boolean =

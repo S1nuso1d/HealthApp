@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.healtapp.core.ui.animation.AppAppearOnce
 import com.example.healtapp.core.ui.theme.contentPrimaryColor
 import com.example.healtapp.core.ui.theme.contentSecondaryColor
 import com.example.healtapp.core.ui.theme.iconBadgeGradient
@@ -41,20 +42,21 @@ fun ScreenHeader(
     onLeadingClick: (() -> Unit)? = null,
     onBackClick: (() -> Unit)? = null,
 ) {
-    val shape = RoundedCornerShape(if (isAppDarkTheme()) 8.dp else 22.dp)
+    val shape = RoundedCornerShape(32.dp)
     val borderColor = MaterialTheme.colorScheme.outline.copy(
-        alpha = if (isAppDarkTheme()) 0.55f else 0.22f,
+        alpha = if (isAppDarkTheme()) 0.2f else 0.05f,
     )
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.82f))
-            .border(1.dp, borderColor, shape)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
+    AppAppearOnce {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(shape)
+                .background(MaterialTheme.colorScheme.surface)
+                .border(1.dp, borderColor, shape)
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
         if (onBackClick != null) {
             IconButton(onClick = onBackClick, modifier = Modifier.size(48.dp)) {
                 Icon(
@@ -124,6 +126,7 @@ fun ScreenHeader(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+        }
         }
     }
 }

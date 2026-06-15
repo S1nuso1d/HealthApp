@@ -31,6 +31,42 @@ object ReminderScheduler {
         rescheduleSleepEvening(context, settings.hydrationReminders)
         rescheduleWeightReminder(context, settings.goalAchievementNotifications)
         rescheduleSmartContext(context, settings.goalAchievementNotifications || settings.hydrationReminders)
+        rescheduleHourlyWaterReminder(context, settings.hydrationReminders)
+        rescheduleAiCoach(context, true) // Always enabled or bind to a specific setting
+    }
+
+    private const val AI_COACH_PERIODIC = "ai_coach_periodic"
+
+    fun rescheduleAiCoach(context: Context, enabled: Boolean) {
+        val wm = WorkManager.getInstance(context)
+        if (!enabled) {
+            wm.cancelUniqueWork(AI_COACH_PERIODIC)
+            return
+        }
+        val request = PeriodicWorkRequestBuilder<AiCoachWorker>(3, TimeUnit.HOURS)
+            .setInitialDelay(30, TimeUnit.MINUTES)
+            .build()
+        wm.enqueueUniquePeriodicWork(
+            AI_COACH_PERIODIC,
+            ExistingPeriodicWorkPolicy.KEEP,
+            request,
+        )
+    }
+
+    private fun rescheduleHourlyWaterReminder(context: Context, enabled: Boolean) {
+        val wm = WorkManager.getInstance(context)
+        val workName = "hourly_water_reminder"
+        if (!enabled) {
+            wm.cancelUniqueWork(workName)
+            return
+        }
+        val request = PeriodicWorkRequestBuilder<HydrationReminderWorker>(1, TimeUnit.HOURS)
+            .build()
+        wm.enqueueUniquePeriodicWork(
+            workName,
+            ExistingPeriodicWorkPolicy.KEEP,
+            request
+        )
     }
 
     fun rescheduleSmartContext(context: Context, enabled: Boolean) {

@@ -1,11 +1,17 @@
 package com.example.healtapp.features.hydration.presentation
 
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.healtapp.core.common.AppRefreshBus
 import com.example.healtapp.data.preferences.PendingSyncStore
+import com.example.healtapp.data.preferences.WidgetSnapshot
+import com.example.healtapp.data.preferences.WidgetSnapshotStore
 import com.example.healtapp.data.sync.PendingSyncFlusher
 import com.example.healtapp.domain.repository.HydrationRepository
+import com.example.healtapp.domain.repository.ProfileRepository
+import com.example.healtapp.widget.refreshAllWidgets
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,9 +22,12 @@ import javax.inject.Inject
 
 @HiltViewModel
 class HydrationViewModel @Inject constructor(
+    @ApplicationContext private val appContext: Context,
     private val repository: HydrationRepository,
+    private val profileRepository: ProfileRepository,
     private val pendingSyncStore: PendingSyncStore,
     private val pendingSyncFlusher: PendingSyncFlusher,
+    private val widgetSnapshotStore: WidgetSnapshotStore,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HydrationUiState())
@@ -41,6 +50,13 @@ class HydrationViewModel @Inject constructor(
                 pendingSyncCount = pendingCount,
             )
 
+            val waterTarget = profileRepository.getMyProfile()
+                .getOrNull()
+                ?.target_water_ml
+                ?.toInt()
+                ?.takeIf { it > 0 }
+                ?: 2500
+
             val result = repository.getTodayHydrationSummary()
 
             result.onSuccess { summary ->
@@ -48,8 +64,11 @@ class HydrationViewModel @Inject constructor(
                     isLoading = false,
                     waterToday = summary.total_ml,
                     todayRecords = summary.records,
-                    target = 2500
+                    target = waterTarget,
                 )
+                val snap = widgetSnapshotStore.load() ?: WidgetSnapshot()
+                widgetSnapshotStore.save(snap.copy(waterMl = summary.total_ml))
+                refreshAllWidgets(appContext)
             }.onFailure { throwable ->
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
@@ -76,6 +95,9 @@ class HydrationViewModel @Inject constructor(
                 AppRefreshBus.notifyDataChanged()
             }.onFailure { _ ->
                 pendingSyncStore.enqueueHydration(amount)
+                val snap = widgetSnapshotStore.load() ?: WidgetSnapshot()
+                widgetSnapshotStore.save(snap.copy(waterMl = snap.waterMl + amount))
+                refreshAllWidgets(appContext)
                 _uiState.update {
                     it.copy(
                         isLoading = false,

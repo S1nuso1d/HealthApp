@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.healtapp.core.ui.animation.AppAppearOnce
 import com.example.healtapp.core.ui.theme.brandingGradient
 import com.example.healtapp.core.ui.theme.contentPrimaryColor
 import com.example.healtapp.core.ui.theme.contentSecondaryColor
@@ -28,7 +29,8 @@ fun SectionHeader(
     title: String,
     subtitle: String? = null,
 ) {
-    Row(
+    AppAppearOnce {
+        Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 4.dp, bottom = 2.dp),
@@ -58,5 +60,6 @@ fun SectionHeader(
                 )
             }
         }
+    }
     }
 }

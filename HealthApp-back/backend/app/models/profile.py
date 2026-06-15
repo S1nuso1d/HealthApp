@@ -10,6 +10,10 @@ class UserProfile(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
 
+    first_name = Column(String(64), nullable=True)
+    last_name = Column(String(64), nullable=True)
+    nickname = Column(String(32), nullable=True, index=True)
+
     age = Column(Integer, nullable=True)
     sex = Column(String, nullable=True)
     height_cm = Column(Float, nullable=True)
@@ -29,6 +33,9 @@ class UserProfile(Base):
     has_allergies = Column(Boolean, nullable=True)
     allergies_text = Column(String, nullable=True)
     onboarding_completed = Column(Boolean, nullable=False, default=False)
+
+    current_streak = Column(Integer, nullable=False, default=0)
+    last_active_date = Column(String(10), nullable=True)
 
     has_avatar = Column(Boolean, nullable=False, default=False)
 

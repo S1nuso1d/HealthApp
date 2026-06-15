@@ -13,7 +13,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.ui.theme.contentPrimaryColor
 import com.example.healtapp.core.ui.theme.contentSecondaryColor
@@ -30,6 +32,8 @@ fun AppTextField(
     enabled: Boolean = true,
     leadingIcon: ImageVector? = null,
     keyboardType: KeyboardType = KeyboardType.Text,
+    imeAction: ImeAction = ImeAction.Default,
+    keyboardActions: KeyboardActions = KeyboardActions.Default,
     placeholder: String? = null,
     trailingIcon: @Composable (() -> Unit)? = null,
     modifier: Modifier = Modifier.fillMaxWidth(),
@@ -69,7 +73,9 @@ fun AppTextField(
                 isPassword -> KeyboardType.Password
                 else -> keyboardType
             },
+            imeAction = imeAction,
         ),
+        keyboardActions = keyboardActions,
         colors = TextFieldDefaults.colors(
             focusedContainerColor = MaterialTheme.colorScheme.surface,
             unfocusedContainerColor = MaterialTheme.colorScheme.surface,

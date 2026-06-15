@@ -15,6 +15,10 @@ data class ProfileEditUiState(
     /** Меняется после загрузки/смены фото, чтобы Coil не брал старый кэш. */
     val avatarLoadNonce: Int = 0,
 
+    val firstName: String = "",
+    val lastName: String = "",
+    val nickname: String = "",
+    val publicDisplayName: String = "",
     val birthDate: String = "",
     val age: String = "",
     val sex: String = Constants.Sex.MALE,

@@ -29,7 +29,7 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Mood
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
-import androidx.compose.material.icons.filled.Timeline
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -49,6 +49,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.healtapp.core.ui.animation.AppAnimations
 import com.example.healtapp.core.ui.animation.AppMotion
 import com.example.healtapp.core.ui.components.AppButton
 import com.example.healtapp.core.ui.components.AppCard
@@ -132,15 +133,9 @@ fun DashboardMoodCheckInCard(
                         )
                         if (state.savedToday && !expanded) {
                             Text(
-                                "Отметка сохранена · ${moodEmojis.getOrNull(state.mood - 1) ?: "🙂"}",
+                                "Сохранено ${moodEmojis.getOrNull(state.mood - 1) ?: ""} · энергия ${state.energy}/10 · стресс ${state.stress}/10",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Text(
-                                "Энергия ${state.energy}/10 · Стресс ${state.stress}/10",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = contentPrimaryColor(),
-                                fontWeight = FontWeight.Medium,
                             )
                         }
                     }
@@ -208,25 +203,43 @@ fun DashboardScoresCard(
     AppCard(modifier = modifier) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Индекс здоровья", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(
+                "Среднее только по разделам, где есть данные за сегодня. Незаполненные не снижают балл.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Text("${scores.healthScore}/100", style = MaterialTheme.typography.headlineSmall, color = contentPrimaryColor(), fontWeight = FontWeight.Bold)
             LinearProgressIndicator(
                 progress = { animatedHealth },
                 modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
             )
-            ScoreRow("Сон", scores.sleepScore)
-            ScoreRow("Вода", scores.hydrationScore)
-            ScoreRow("Активность", scores.activityScore)
-            ScoreRow("Питание", scores.nutritionScore)
-            ScoreRow("Состояние", scores.stateScore)
+            ScoreRow("Сон", scores.sleepScore, hint = if (scores.sleepScore <= 0) "нет записи" else null)
+            ScoreRow("Вода", scores.hydrationScore, hint = if (scores.hydrationScore <= 0) "нет записи" else null)
+            ScoreRow("Активность", scores.activityScore, hint = if (scores.activityScore <= 0) "нет записи" else null)
+            ScoreRow("Питание", scores.nutritionScore, hint = if (scores.nutritionScore <= 0) "нет записи" else null)
+            ScoreRow(
+                label = "Состояние",
+                score = scores.stateScore,
+                hint = if (scores.stateScore <= 0) "отметьте «Как вы сегодня?»" else null,
+            )
         }
     }
 }
 
 @Composable
-private fun ScoreRow(label: String, score: Int) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text("$score", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+private fun ScoreRow(label: String, score: Int, hint: String? = null) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                text = if (score > 0) "$score" else "—",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+        hint?.let {
+            Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 
@@ -413,8 +426,8 @@ fun DashboardQuickLinksRow(
     modifier: Modifier = Modifier,
 ) {
     Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        QuickLinkCard("AI-советник", Icons.AutoMirrored.Filled.Chat, onOpenAi, Modifier.weight(1f))
-        QuickLinkCard("Лента", Icons.Filled.Timeline, onOpenTimeline, Modifier.weight(1f))
+        QuickLinkCard("AI-чат", Icons.AutoMirrored.Filled.Chat, onOpenAi, Modifier.weight(1f))
+        QuickLinkCard("Сообщество", Icons.Filled.Groups, onOpenTimeline, Modifier.weight(1f))
     }
 }
 
@@ -437,8 +450,8 @@ private fun QuickLinkCard(
 fun AnimatedDashboardSection(visible: Boolean, content: @Composable () -> Unit) {
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(tween(AppMotion.MEDIUM_MS)) + expandVertically(tween(AppMotion.MEDIUM_MS)),
-        exit = fadeOut(tween(AppMotion.SHORT_MS)) + shrinkVertically(tween(AppMotion.SHORT_MS)),
+        enter = AppAnimations.expandFadeEnter(),
+        exit = AppAnimations.shrinkFadeExit(),
     ) {
         content()
     }

@@ -75,6 +75,10 @@ android {
         buildConfig = true
     }
 
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.15"
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -132,12 +136,14 @@ dependencies {
     ksp("com.google.dagger:hilt-compiler:2.52")
 
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
+    implementation("androidx.hilt:hilt-work:1.2.0")
 
     implementation("androidx.health.connect:connect-client:1.1.0")
 
     implementation("com.google.protobuf:protobuf-javalite:3.25.5")
     implementation("org.bouncycastle:bcprov-jdk18on:1.78.1")
 
+    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
     val cam = "1.3.4"
     implementation("androidx.camera:camera-core:$cam")
@@ -148,8 +154,15 @@ dependencies {
     // CameraX ProcessCameraProvider uses Guava ListenableFuture on the compile classpath
     implementation("com.google.guava:guava:33.3.1-android")
 
+    val vico = "1.15.0"
+    implementation("com.patrykandpatrick.vico:compose:$vico")
+    implementation("com.patrykandpatrick.vico:compose-m3:$vico")
+
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    
+    implementation("com.google.android.gms:play-services-wearable:18.1.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
 }

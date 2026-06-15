@@ -6,13 +6,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.MonitorWeight
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -20,7 +19,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -33,6 +34,7 @@ import com.example.healtapp.core.ui.components.AppCard
 import com.example.healtapp.core.ui.components.SectionHeader
 import com.example.healtapp.core.ui.theme.bmiCategoryColor
 import com.example.healtapp.core.ui.theme.bmiScaleGradient
+import com.example.healtapp.core.ui.theme.brandingGradient
 
 @Composable
 fun ProfileBodyStatsCard(
@@ -46,12 +48,15 @@ fun ProfileBodyStatsCard(
     val weight = weightKg.toFloatOrNull()
     val bmi = BmiHelper.calculate(height, weight)
     val range = height?.let { BmiHelper.healthyWeightRangeKg(it) }
+    val recentWeights = weightHistory.takeLast(8)
+    val showTrend = recentWeights.size >= 2 &&
+        recentWeights.last().weightKg != recentWeights[recentWeights.lastIndex - 1].weightKg
 
     AppCard(modifier = modifier) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             SectionHeader(
                 title = "Показатели тела",
-                subtitle = "ИМТ по росту и весу из профиля",
+                subtitle = "Рост, вес и ИМТ",
             )
 
             weightWeeklyReminder?.let { reminder ->
@@ -62,57 +67,35 @@ fun ProfileBodyStatsCard(
                 )
             }
 
-            if (weightHistory.size >= 2) {
-                Text(
-                    text = "Вес за последние недели",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                WeightTrendChart(
-                    entries = weightHistory.takeLast(14),
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(168.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                VerticalWeightBar(
+                    entries = recentWeights,
+                    currentWeight = weight,
+                    healthyRange = range,
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(72.dp),
+                        .width(56.dp)
+                        .fillMaxHeight(),
                 )
-            }
 
-            if (bmi == null) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Icon(
-                        Icons.Outlined.MonitorWeight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                    Text(
-                        text = "Укажите рост и вес в «Основных данных», чтобы увидеть ИМТ",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    BmiGauge(
-                        bmi = bmi.value,
-                        category = bmi.category,
-                        modifier = Modifier.weight(0.42f),
-                    )
-                    Column(
-                        modifier = Modifier.weight(0.58f),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
+                    MetricLine(label = "Рост", value = if (heightCm.isBlank()) "—" else "$heightCm см")
+                    MetricLine(label = "Вес", value = if (weightKg.isBlank()) "—" else "$weightKg кг")
+                    if (bmi != null) {
                         Surface(
                             shape = RoundedCornerShape(12.dp),
                             color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
                         ) {
                             Text(
-                                text = bmi.labelRu,
+                                text = "ИМТ ${BmiHelper.formatValue(bmi.value)} · ${bmi.labelRu}",
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.SemiBold,
@@ -124,17 +107,40 @@ fun ProfileBodyStatsCard(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        range?.let { (lo, hi) ->
+                            Text(
+                                text = "Норма: ${"%.0f".format(lo)}–${"%.0f".format(hi)} кг",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        BmiScaleBar(bmi = bmi.value, category = bmi.category)
+                    } else {
                         Text(
-                            text = buildString {
-                                append("Рост ${heightCm.ifBlank { "—" }} см · вес ${weightKg.ifBlank { "—" }} кг")
-                                range?.let { (lo, hi) ->
-                                    append("\nНорма веса: ${"%.0f".format(lo)}–${"%.0f".format(hi)} кг")
-                                }
-                            },
-                            style = MaterialTheme.typography.bodySmall,
+                            text = "Укажите рост и вес в «Основных данных».",
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                }
+            }
+
+            if (showTrend) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Изменение веса",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    WeightTrendChart(
+                        entries = recentWeights,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(72.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                    )
                 }
             }
         }
@@ -142,61 +148,122 @@ fun ProfileBodyStatsCard(
 }
 
 @Composable
-private fun BmiGauge(
-    bmi: Float,
-    category: BmiHelper.Category,
+private fun MetricLine(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun VerticalWeightBar(
+    entries: List<WeightEntry>,
+    currentWeight: Float?,
+    healthyRange: Pair<Float, Float>?,
     modifier: Modifier = Modifier,
 ) {
-    val fraction = ((bmi - 15f) / (35f - 15f)).coerceIn(0f, 1f)
-    val markerColor = bmiCategoryColor(category)
-
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Text(
-            text = BmiHelper.formatValue(bmi),
-            style = MaterialTheme.typography.displaySmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        Text(
-            text = "ИМТ",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+    val weights = entries.map { it.weightKg }.toMutableList()
+    if (currentWeight != null && weights.lastOrNull() != currentWeight) {
+        weights.add(currentWeight)
+    }
+    if (weights.isEmpty() && currentWeight != null) {
+        weights.add(currentWeight)
+    }
+    if (weights.isEmpty()) {
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(10.dp)
-                .clip(RoundedCornerShape(5.dp))
-                .background(
-                    Brush.horizontalGradient(bmiScaleGradient()),
-                ),
+            modifier = modifier
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
+            contentAlignment = Alignment.Center,
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(fraction)
-                    .height(10.dp)
-                    .clip(RoundedCornerShape(5.dp))
-                    .background(markerColor.copy(alpha = 0.25f)),
+            Text("—", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        return
+    }
+
+    val minW = (healthyRange?.first ?: weights.minOrNull()!!) - 2f
+    val maxW = (healthyRange?.second ?: weights.maxOrNull()!!) + 2f
+    val span = (maxW - minW).coerceAtLeast(1f)
+    val gradient = brandingGradient()
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(
+                Brush.verticalGradient(
+                    gradient.map { it.copy(alpha = 0.18f) },
+                ),
             )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(fraction)
-                    .padding(end = 2.dp),
-                contentAlignment = Alignment.CenterEnd,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .height(14.dp)
-                        .fillMaxWidth(0.02f)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(markerColor),
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+    ) {
+        Canvas(modifier = Modifier.fillMaxHeight().fillMaxWidth()) {
+            val barWidth = size.width * 0.35f
+            val barLeft = (size.width - barWidth) / 2f
+            drawRoundRect(
+                color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.35f),
+                topLeft = Offset(barLeft, 0f),
+                size = Size(barWidth, size.height),
+                cornerRadius = CornerRadius(barWidth / 2f, barWidth / 2f),
+            )
+            healthyRange?.let { (lo, hi) ->
+                val top = size.height * (1f - ((hi - minW) / span).coerceIn(0f, 1f))
+                val bottom = size.height * (1f - ((lo - minW) / span).coerceIn(0f, 1f))
+                drawRoundRect(
+                    color = androidx.compose.ui.graphics.Color(0xFF7AD9B6).copy(alpha = 0.35f),
+                    topLeft = Offset(barLeft, top),
+                    size = Size(barWidth, (bottom - top).coerceAtLeast(4f)),
+                    cornerRadius = CornerRadius(8f, 8f),
+                )
+            }
+            weights.forEachIndexed { index, w ->
+                val fraction = ((w - minW) / span).coerceIn(0f, 1f)
+                val y = size.height * (1f - fraction)
+                val isLast = index == weights.lastIndex
+                drawCircle(
+                    color = if (isLast) gradient.first() else gradient.last().copy(alpha = 0.85f),
+                    radius = if (isLast) 7.dp.toPx() else 5.dp.toPx(),
+                    center = Offset(size.width / 2f, y),
                 )
             }
         }
+        Column(
+            modifier = Modifier.align(Alignment.BottomCenter),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = weights.lastOrNull()?.let { "%.1f".format(it) } ?: "—",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+    }
+}
+
+@Composable
+private fun BmiScaleBar(
+    bmi: Float,
+    category: BmiHelper.Category,
+) {
+    val fraction = ((bmi - 15f) / (35f - 15f)).coerceIn(0f, 1f)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(8.dp)
+            .clip(RoundedCornerShape(4.dp))
+            .background(Brush.horizontalGradient(bmiScaleGradient())),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(fraction)
+                .height(8.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(bmiCategoryColor(category).copy(alpha = 0.35f)),
+        )
     }
 }
 
@@ -225,10 +292,5 @@ private fun WeightTrendChart(
             color = lineColor,
             style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round),
         )
-        weights.forEachIndexed { index, w ->
-            val x = index * stepX
-            val y = size.height - ((w - minW) / range) * size.height
-            drawCircle(color = lineColor, radius = 4.dp.toPx(), center = Offset(x, y))
-        }
     }
 }

@@ -32,8 +32,5 @@ class ProfileCache(
     }
 
     fun needsOnboarding(profile: ProfileDto?): Boolean =
-        profile == null ||
-            profile.age == null ||
-            profile.height_cm == null ||
-            profile.weight_kg == null
+        profile == null || !profile.onboarding_completed
 }

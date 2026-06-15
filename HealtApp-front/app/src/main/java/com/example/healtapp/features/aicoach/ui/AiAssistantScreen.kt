@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
@@ -13,10 +14,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -25,15 +22,16 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.healtapp.core.ui.components.ScreenHeader
-import com.example.healtapp.core.ui.components.AppMessageBanner
-import com.example.healtapp.core.ui.components.AppMessageType
 import com.example.healtapp.core.ui.theme.screenBackgroundGradient
 import com.example.healtapp.features.aicoach.presentation.AiAssistantViewModel
-import com.example.healtapp.features.aicoach.ui.components.AiChatBubble
-import com.example.healtapp.features.aicoach.ui.components.AiComposerBar
-import com.example.healtapp.features.aicoach.ui.components.AiMetricsStrip
-import com.example.healtapp.features.aicoach.ui.components.AiTypingBubble
+import com.example.healtapp.features.aicoach.presentation.AiSuggestedPrompts
+import com.example.healtapp.features.aicoach.ui.components.AiAssistantMessage
+import com.example.healtapp.features.aicoach.ui.components.AiCoachHeroBar
+import com.example.healtapp.features.aicoach.ui.components.AiComposerDock
+import com.example.healtapp.features.aicoach.ui.components.AiGuestPanel
+import com.example.healtapp.features.aicoach.ui.components.AiInlineNotice
+import com.example.healtapp.features.aicoach.ui.components.AiThinkingBubble
+import com.example.healtapp.features.aicoach.ui.components.AiWelcomePanel
 
 @Composable
 fun AiAssistantScreen(
@@ -43,86 +41,105 @@ fun AiAssistantScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
 
-    LaunchedEffect(uiState.messages.size, uiState.isLoading) {
-        val last = uiState.messages.lastIndex.coerceAtLeast(0)
-        val target = if (uiState.isLoading) last + 1 else last
+    val hasUserMessages = uiState.messages.any { it.isUser }
+    val showWelcome = !uiState.isGuestMode && !hasUserMessages && !uiState.isLoading
+    val chatMessages = if (showWelcome) emptyList() else uiState.messages
+
+    LaunchedEffect(chatMessages.size, uiState.isLoading) {
+        val extra = when {
+            uiState.isLoading && chatMessages.lastOrNull()?.isUser == true -> 1
+            showWelcome -> 1
+            else -> 0
+        }
+        val target = chatMessages.size + extra - 1
         if (target >= 0) {
             listState.animateScrollToItem(target)
         }
     }
 
-    val gradient = screenBackgroundGradient()
-
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(gradient))
+            .background(Brush.verticalGradient(screenBackgroundGradient()))
             .statusBarsPadding()
-            .navigationBarsPadding(),
+            .navigationBarsPadding()
+            .imePadding(),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .imePadding(),
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                ScreenHeader(
-                    title = "AI-советник",
-                    subtitle = "Персональные ответы по вашему дневнику",
-                    icon = Icons.Filled.AutoAwesome,
-                    onBackClick = onBack,
-                )
-
-                if (uiState.metricChips.isNotEmpty()) {
-                    AiMetricsStrip(
-                        chips = uiState.metricChips,
-                        hint = uiState.contextHint,
-                    )
-                } else if (uiState.isGuestMode) {
-                    Text(
-                        uiState.contextHint.orEmpty(),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
+        Column(modifier = Modifier.fillMaxSize()) {
+            AiCoachHeroBar(
+                onBack = onBack,
+                llmAvailable = uiState.llmAvailable,
+                isGuestMode = uiState.isGuestMode,
+                onRefreshStatus = viewModel::refreshLlmStatus,
+                onNewChat = viewModel::clearChat,
+                showNewChat = hasUserMessages && !uiState.isGuestMode,
+                enabled = !uiState.isLoading,
+            )
 
             LazyColumn(
                 state = listState,
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                    .fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                items(uiState.messages, key = { it.id }) { msg ->
-                    AiChatBubble(msg)
+                uiState.info?.let { info ->
+                    item(key = "info") {
+                        AiInlineNotice(text = info, isError = false)
+                    }
                 }
-                if (uiState.isLoading) {
-                    item { AiTypingBubble() }
+
+                if (uiState.isGuestMode) {
+                    item(key = "guest") {
+                        AiGuestPanel()
+                    }
+                }
+
+                if (showWelcome) {
+                    item(key = "welcome") {
+                        AiWelcomePanel(
+                            prompts = AiSuggestedPrompts,
+                            onPromptClick = viewModel::sendSuggestedPrompt,
+                            enabled = !uiState.isLoading,
+                        )
+                    }
+                }
+
+                items(chatMessages, key = { it.id }) { message ->
+                    AiAssistantMessage(message = message)
+                }
+
+                if (uiState.isLoading && chatMessages.lastOrNull()?.isUser == true) {
+                    item(key = "typing") {
+                        AiThinkingBubble()
+                    }
                 }
             }
 
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 16.dp, top = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                uiState.error?.let {
-                    AppMessageBanner(text = it, type = AppMessageType.Error)
+                uiState.error?.let { err ->
+                    AiInlineNotice(
+                        text = err,
+                        isError = true,
+                        onDismiss = viewModel::clearError,
+                    )
                 }
-                AiComposerBar(
-                    value = uiState.input,
-                    onValueChange = viewModel::updateInput,
-                    onSend = viewModel::sendMessage,
-                    enabled = !uiState.isLoading && !uiState.isGuestMode,
-                )
+
+                if (!uiState.isGuestMode) {
+                    AiComposerDock(
+                        value = uiState.input,
+                        onValueChange = viewModel::updateInput,
+                        onSend = { viewModel.sendMessage() },
+                        enabled = !uiState.isLoading,
+                    )
+                }
             }
         }
     }

@@ -6,6 +6,9 @@ interface ProfileRepository {
     suspend fun getMyProfile(): Result<ProfileDto>
 
     suspend fun updateMyProfile(
+        firstName: String? = null,
+        lastName: String? = null,
+        nickname: String? = null,
         age: Int?,
         sex: String?,
         heightCm: Float?,

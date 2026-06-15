@@ -1,4 +1,5 @@
 from app.core.config import settings
+import typing
 from app.llm.llm_client import LLMClient, LLMClientError
 from app.llm.prompt_builder import PromptBuilder
 from app.llm.response_formatter import ResponseFormatter
@@ -14,6 +15,7 @@ class HealthChatService:
         self,
         analytics: AnalyticsResponse,
         user_question: str,
+        user_health_context: str | None = None,
     ) -> AIResponse:
         summary = analytics.summary
 
@@ -47,18 +49,30 @@ class HealthChatService:
 
         recommendation_block = "\n".join(recommendation_texts) if recommendation_texts else "- Пока рекомендаций нет"
 
+        context_note = ""
+        if user_health_context:
+            excerpt = user_health_context[:1200]
+            if len(user_health_context) > 1200:
+                excerpt += "…"
+            context_note = f"\n\nФрагмент вашего дневника:\n{excerpt}"
+
+        provider_label = "OpenAI" if settings.LLM_PROVIDER == "openai" else "Ollama"
         text = f"""
-Сейчас не удалось связаться с языковой моделью — краткий ответ по вашей аналитике в приложении.
+Сейчас не удалось связаться с языковой моделью ({provider_label}). Краткий ответ по данным HealthApp.
 
 Ваш вопрос: {user_question}{today_note}
 
 По текущей аналитике:
-- общий health score: {summary.health_score}/100
-- основные слабые зоны: {weak_text}
-- главные инсайты: {insight_text}
+- общий индекс: {summary.health_score}/100
+- слабые зоны: {weak_text}
+- инсайты: {insight_text}
 
-Что можно сделать прямо сейчас:
+Рекомендации приложения:
 {recommendation_block}
+{context_note}
+
+Проверьте настройки LLM в .env на сервере (LLM_PROVIDER, LLM_BASE_URL, LLM_MODEL_NAME).
+Для Ollama: запустите `ollama serve` и загрузите модель `ollama pull {settings.LLM_MODEL_NAME}`.
         """.strip()
 
         return ResponseFormatter.format_chat_response(text, source="fallback")
@@ -174,24 +188,82 @@ class HealthChatService:
         user_question: str,
         today: dict | None = None,
         personal_hints: list[dict] | None = None,
+        user_health_context: str | None = None,
+        history: list[dict[str, str]] | None = None,
+        dietary_rules: str | None = None,
     ) -> AIResponse:
-        prompt = PromptBuilder.build_chat_prompt(
-            analytics=analytics,
-            user_question=user_question,
-            today=today,
-            personal_hints=personal_hints,
-        )
-
         try:
-            raw = self.client.generate(
-                prompt=prompt,
-                system_prompt=PromptBuilder.SYSTEM_PROMPT,
-                temperature=0.35,
-            )
+            if user_health_context:
+                messages = PromptBuilder.build_chat_messages(
+                    user_health_context=user_health_context,
+                    user_question=user_question,
+                    history=history,
+                    dietary_rules=dietary_rules,
+                )
+                raw = self.client.chat(messages=messages, temperature=0.4)
+            else:
+                prompt = PromptBuilder.build_chat_prompt(
+                    analytics=analytics,
+                    user_question=user_question,
+                    today=today,
+                    personal_hints=personal_hints,
+                )
+                raw = self.client.generate(
+                    prompt=prompt,
+                    system_prompt=PromptBuilder.SYSTEM_PROMPT,
+                    temperature=0.35,
+                )
             return ResponseFormatter.format_chat_response(raw, source="llm")
         except LLMClientError:
             if settings.AI_FALLBACK_ENABLED:
-                return self._build_fallback_chat_answer(analytics, user_question)
+                return self._build_fallback_chat_answer(
+                    analytics,
+                    user_question,
+                    user_health_context=user_health_context,
+                )
+            raise
+
+    def generate_chat_stream(
+        self,
+        analytics: AnalyticsResponse,
+        user_question: str,
+        today: dict | None = None,
+        personal_hints: list[dict] | None = None,
+        user_health_context: str | None = None,
+        history: list[dict[str, str]] | None = None,
+        dietary_rules: str | None = None,
+    ) -> typing.Any:
+        try:
+            if user_health_context:
+                messages = PromptBuilder.build_chat_messages(
+                    user_health_context=user_health_context,
+                    user_question=user_question,
+                    history=history,
+                    dietary_rules=dietary_rules,
+                )
+                return self.client.chat(messages=messages, temperature=0.4, stream=True)
+            else:
+                prompt = PromptBuilder.build_chat_prompt(
+                    analytics=analytics,
+                    user_question=user_question,
+                    today=today,
+                    personal_hints=personal_hints,
+                )
+                messages = []
+                if PromptBuilder.SYSTEM_PROMPT:
+                    messages.append({"role": "system", "content": PromptBuilder.SYSTEM_PROMPT.strip()})
+                messages.append({"role": "user", "content": prompt.strip()})
+                return self.client.chat(messages=messages, temperature=0.35, stream=True)
+        except LLMClientError:
+            if settings.AI_FALLBACK_ENABLED:
+                fallback_resp = self._build_fallback_chat_answer(
+                    analytics,
+                    user_question,
+                    user_health_context=user_health_context,
+                )
+                def generate():
+                    yield fallback_resp.answer
+                return generate()
             raise
 
     def generate_daily_brief(
@@ -259,3 +331,78 @@ class HealthChatService:
             if settings.AI_FALLBACK_ENABLED:
                 return self._build_fallback_explain_insight(analytics, insight_title)
             raise
+
+    def _build_fallback_dashboard_hints(self, analytics: AnalyticsResponse) -> str:
+        import json
+
+        summary = analytics.summary
+        hints: list[str] = []
+
+        if summary.hydration_score < 65:
+            hints.append("Сегодня мало воды — выпейте стакан прямо сейчас.")
+        if summary.sleep_score < 65:
+            hints.append("Сон был коротким — постарайтесь лечь раньше сегодня.")
+        if summary.activity_score < 65:
+            hints.append("Добавьте короткую прогулку, чтобы набрать шаги.")
+        if summary.nutrition_score < 65:
+            hints.append("Проверьте КБЖУ — возможно, не хватает белка или овощей.")
+        if not hints and analytics.recommendations:
+            hints.append(analytics.recommendations[0].action or analytics.recommendations[0].title)
+        if not hints:
+            hints.append("Продолжайте отслеживать метрики — так проще замечать прогресс.")
+
+        return json.dumps({"hints": hints[:3]}, ensure_ascii=False)
+
+    def _build_fallback_meal_plan(self, analytics: AnalyticsResponse, days: int = 7, user_context: str | None = None) -> str:
+        from app.llm.meal_plan_fallback import build_fallback_meal_plan_json
+
+        return build_fallback_meal_plan_json(analytics, days=days, user_context=user_context)
+
+    def generate_meal_plan(self, analytics: AnalyticsResponse, user_context: str | None = None, days: int = 7) -> tuple[str, str]:
+        prompt = PromptBuilder.build_meal_plan_prompt(analytics, user_context, days)
+        try:
+            text = self.client.generate(
+                prompt=prompt,
+                system_prompt=PromptBuilder.SYSTEM_PROMPT,
+                temperature=0.65,
+            )
+            return text, "llm"
+        except LLMClientError:
+            if settings.AI_FALLBACK_ENABLED:
+                return self._build_fallback_meal_plan(analytics, days=days, user_context=user_context), "fallback"
+            raise
+
+    def generate_workout_plan(self, analytics: AnalyticsResponse, user_context: str | None = None, days: int = 7) -> str:
+        prompt = PromptBuilder.build_workout_plan_prompt(analytics, user_context, days)
+        return self.client.generate(prompt=prompt, system_prompt=PromptBuilder.SYSTEM_PROMPT, temperature=0.3)
+
+    def generate_dashboard_hints(
+        self,
+        analytics: AnalyticsResponse,
+        user_context: str | None = None,
+        dietary_rules: str | None = None,
+    ) -> str:
+        prompt = PromptBuilder.build_dashboard_hints_prompt(
+            analytics,
+            user_context,
+            dietary_rules=dietary_rules,
+        )
+        try:
+            return self.client.generate(prompt=prompt, system_prompt=PromptBuilder.SYSTEM_PROMPT, temperature=0.4)
+        except LLMClientError:
+            if settings.AI_FALLBACK_ENABLED:
+                return self._build_fallback_dashboard_hints(analytics)
+            raise
+
+    def generate_proactive_tip(
+        self,
+        analytics: AnalyticsResponse,
+        user_context: str | None = None,
+        dietary_rules: str | None = None,
+    ) -> str:
+        prompt = PromptBuilder.build_proactive_tip_prompt(
+            analytics,
+            user_context,
+            dietary_rules=dietary_rules,
+        )
+        return self.client.generate(prompt=prompt, system_prompt=PromptBuilder.SYSTEM_PROMPT, temperature=0.4).strip()

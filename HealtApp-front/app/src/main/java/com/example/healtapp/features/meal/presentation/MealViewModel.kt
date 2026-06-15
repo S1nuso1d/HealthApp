@@ -3,13 +3,15 @@ package com.example.healtapp.features.meal.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.healtapp.core.common.AppRefreshBus
-import com.example.healtapp.data.network.api.IntegrationsApi
+import com.example.healtapp.data.network.dto.meal.FoodCatalogItemDto
+import com.example.healtapp.data.network.dto.meal.FoodCatalogUpsertRequestDto
 import com.example.healtapp.data.network.dto.meal.MealCreateRequestDto
 import com.example.healtapp.data.network.dto.meal.SavedDishCreateRequestDto
 import com.example.healtapp.data.network.dto.meal.SavedDishDto
 import com.example.healtapp.data.preferences.PendingMealOp
 import com.example.healtapp.data.preferences.PendingSyncStore
 import com.example.healtapp.data.sync.PendingSyncFlusher
+import com.example.healtapp.domain.repository.AiRepository
 import com.example.healtapp.domain.repository.MealRepository
 import com.example.healtapp.domain.repository.ProfileRepository
 import com.example.healtapp.core.common.Constants
@@ -19,9 +21,9 @@ import com.example.healtapp.features.meal.DishIngredient
 import com.example.healtapp.features.meal.DishIngredientFactory
 import com.example.healtapp.features.meal.DishIngredientsJson
 import com.example.healtapp.features.meal.DishIngredientsPayload
-import com.example.healtapp.features.meal.util.FatSecretFoodHit
 import com.example.healtapp.features.meal.util.FatSecretParse
 import com.example.healtapp.features.meal.util.FatSecretServingOption
+import java.io.File
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,7 +38,7 @@ import java.time.format.DateTimeFormatter
 @HiltViewModel
 class MealViewModel @Inject constructor(
     private val repository: MealRepository,
-    private val integrationsApi: IntegrationsApi,
+    private val aiRepository: AiRepository,
     private val profileRepository: ProfileRepository,
     private val pendingSyncStore: PendingSyncStore,
     private val pendingSyncFlusher: PendingSyncFlusher,
@@ -70,8 +72,8 @@ class MealViewModel @Inject constructor(
         private const val DEFAULT_WEIGHT_KG = 70f
     }
 
-    private val searchCache = object : LinkedHashMap<String, List<FatSecretFoodHit>>(16, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<FatSecretFoodHit>>): Boolean =
+    private val searchCache = object : LinkedHashMap<String, List<FoodCatalogItemDto>>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<FoodCatalogItemDto>>): Boolean =
             size > 24
     }
 
@@ -79,6 +81,9 @@ class MealViewModel @Inject constructor(
     val uiState: StateFlow<MealUiState> = _uiState.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            applyNutritionTargetsFromProfile(profileRepository.getMyProfile().getOrNull())
+        }
         loadMeals()
         viewModelScope.launch {
             AppRefreshBus.events.collect { loadMeals() }
@@ -165,18 +170,7 @@ class MealViewModel @Inject constructor(
 
             val profileRes = profileRepository.getMyProfile()
             val targets = profileRes.getOrNull()
-            val resolved = resolveNutritionTargets(targets)
-            val calTarget = resolved.calories
-            val tp = resolved.proteinG
-            val tf = resolved.fatG
-            val tc = resolved.carbsG
-            val targetsHint = nutritionTargetsHint(resolved)
-            maybePersistComputedTargets(targets, resolved)
-            val autoSnack = if (resolved.autoFilled) {
-                "Подобрали ориентиры: ${resolved.calories} ккал, Б ${resolved.proteinG.toInt()} / Ж ${resolved.fatG.toInt()} / У ${resolved.carbsG.toInt()} г"
-            } else {
-                null
-            }
+            applyNutritionTargetsFromProfile(targets)
 
             val savedRes = repository.listSavedDishes()
             val savedList = savedRes.getOrNull().orEmpty()
@@ -216,16 +210,6 @@ class MealViewModel @Inject constructor(
                     todayMeal = today.getOrNull(),
                     mealHistory = list,
                     savedDishes = savedList,
-                    caloriesTarget = calTarget,
-                    targetProteinG = tp,
-                    targetFatG = tf,
-                    targetCarbsG = tc,
-                    nutritionTargetsHint = targetsHint,
-                    snackMessage = if (resolved.autoFilled && it.nutritionTargetsHint != targetsHint) {
-                        autoSnack
-                    } else {
-                        it.snackMessage
-                    },
                     dayCaloriesTotal = dayCals,
                     dayProteinTotal = dayP,
                     dayFatTotal = dayF,
@@ -280,27 +264,26 @@ class MealViewModel @Inject constructor(
             }
         }
         _uiState.update { it.copy(isFoodSearchLoading = true, foodSearchError = null) }
-        runCatching {
-            val raw = integrationsApi.searchFoods(q)
-            FatSecretParse.parseSearchHits(raw)
-        }.onSuccess { hits ->
-            searchCache[key] = hits
-            _uiState.update {
-                it.copy(
-                    isFoodSearchLoading = false,
-                    foodSearchResults = hits,
-                    foodSearchError = if (hits.isEmpty()) "Ничего не найдено" else null,
-                )
+        repository.searchFoodCatalog(q)
+            .onSuccess { hits ->
+                searchCache[key] = hits
+                _uiState.update {
+                    it.copy(
+                        isFoodSearchLoading = false,
+                        foodSearchResults = hits,
+                        foodSearchError = if (hits.isEmpty()) "Ничего не найдено" else null,
+                    )
+                }
             }
-        }.onFailure { e ->
-            _uiState.update {
-                it.copy(
-                    isFoodSearchLoading = false,
-                    foodSearchResults = emptyList(),
-                    foodSearchError = e.message ?: "Ошибка поиска",
-                )
+            .onFailure { e ->
+                _uiState.update {
+                    it.copy(
+                        isFoodSearchLoading = false,
+                        foodSearchResults = emptyList(),
+                        foodSearchError = e.message ?: "Ошибка поиска",
+                    )
+                }
             }
-        }
     }
 
     fun searchBarcodeForDishTemplate(barcode: String, onAdded: (DishIngredient) -> Unit) {
@@ -308,18 +291,20 @@ class MealViewModel @Inject constructor(
         if (code.length < 4) return
         viewModelScope.launch {
             _uiState.update { it.copy(isFoodSearchLoading = true, foodSearchError = null) }
-            runCatching {
-                val raw = integrationsApi.searchBarcode(code)
-                val foodId = FatSecretParse.extractFoodIdFromBarcodeResponse(raw)
-                    ?: error("Продукт по штрихкоду не найден")
-                integrationsApi.getFood(foodId)
-            }.onSuccess { detail ->
-                val template = DishIngredientFactory.fromFoodDetailJson(detail, null)
-                _uiState.update { it.copy(isFoodSearchLoading = false) }
-                if (template != null) onAdded(template)
-            }.onFailure {
-                _uiState.update { it.copy(isFoodSearchLoading = false) }
-            }
+            repository.getFoodByBarcode(code)
+                .onSuccess { item ->
+                    val template = DishIngredientFactory.fromCatalogItem(item)
+                    _uiState.update { it.copy(isFoodSearchLoading = false) }
+                    onAdded(template)
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(
+                            isFoodSearchLoading = false,
+                            foodSearchError = e.message ?: "Продукт по штрихкоду не найден",
+                        )
+                    }
+                }
         }
     }
 
@@ -331,72 +316,51 @@ class MealViewModel @Inject constructor(
         }
         viewModelScope.launch {
             _uiState.update { it.copy(isFoodSearchLoading = true, foodSearchError = null) }
-            runCatching {
-                val raw = integrationsApi.searchBarcode(code)
-                val foodId = FatSecretParse.extractFoodIdFromBarcodeResponse(raw)
-                    ?: error("Продукт по штрихкоду не найден")
-                integrationsApi.getFood(foodId)
-            }.onSuccess { detail ->
-                applyFoodDetail(detail)
-            }.onFailure { e ->
-                val msg = e.message ?: "Ошибка штрихкода"
-                _uiState.update {
-                    it.copy(
-                        isFoodSearchLoading = false,
-                        foodSearchError = "$msg. База FatSecret меньше магазинной — попробуйте текстовый поиск «$code» или введите вручную.",
-                    )
-                }
-                if (code.length >= 4) {
+            repository.getFoodByBarcode(code)
+                .onSuccess { item -> applyCatalogItem(item) }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(
+                            isFoodSearchLoading = false,
+                            foodSearchError = e.message ?: "Продукт по штрихкоду не найден",
+                        )
+                    }
                     searchFoodsFallbackQuery(code)
                 }
-            }
         }
     }
 
     private suspend fun searchFoodsFallbackQuery(query: String) {
-        runCatching {
-            val hits = FatSecretParse.parseSearchHits(integrationsApi.searchFoods(query))
-            if (hits.isNotEmpty()) {
-                _uiState.update {
-                    it.copy(
-                        foodSearchResults = hits.take(8),
-                        foodSearchError = "По штрихкоду не найдено; варианты по поиску «$query»:",
-                    )
-                }
-            }
-        }
-    }
-
-    fun applyFoodFromSearch(foodId: String) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isFoodSearchLoading = true, foodSearchError = null) }
-            runCatching {
-                integrationsApi.getFood(foodId)
-            }.onSuccess { detail ->
-                applyFoodDetail(detail)
-            }.onFailure { e ->
-                _uiState.update {
-                    it.copy(
-                        isFoodSearchLoading = false,
-                        foodSearchError = e.message ?: "Ошибка загрузки продукта",
-                    )
-                }
-            }
-        }
-    }
-
-    fun fetchIngredientTemplate(foodId: String, onResult: (DishIngredient) -> Unit) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isFoodSearchLoading = true, foodSearchError = null) }
-            runCatching { integrationsApi.getFood(foodId) }
-                .onSuccess { json ->
-                    val template = DishIngredientFactory.fromFoodDetailJson(json, foodId)
-                    _uiState.update { it.copy(isFoodSearchLoading = false) }
-                    if (template != null) {
-                        onResult(template)
-                    } else {
-                        _uiState.update { it.copy(foodSearchError = "Не удалось разобрать продукт") }
+        repository.searchFoodCatalog(query)
+            .onSuccess { hits ->
+                if (hits.isNotEmpty()) {
+                    _uiState.update {
+                        it.copy(
+                            foodSearchResults = hits.take(8),
+                            foodSearchError = "По штрихкоду не найдено; варианты по поиску «$query»:",
+                        )
                     }
+                }
+            }
+    }
+
+    fun applyFoodFromSearch(item: FoodCatalogItemDto) {
+        applyCatalogItem(item)
+    }
+
+    fun fetchIngredientTemplate(item: FoodCatalogItemDto, onResult: (DishIngredient) -> Unit) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isFoodSearchLoading = true, foodSearchError = null) }
+            val resolved = if (item.id != null || item.barcode.isNullOrBlank()) {
+                Result.success(item)
+            } else {
+                repository.getFoodByBarcode(item.barcode)
+            }
+            resolved
+                .onSuccess { catalogItem ->
+                    val template = DishIngredientFactory.fromCatalogItem(catalogItem)
+                    _uiState.update { it.copy(isFoodSearchLoading = false) }
+                    onResult(template)
                 }
                 .onFailure { e ->
                     _uiState.update {
@@ -406,6 +370,190 @@ class MealViewModel @Inject constructor(
                         )
                     }
                 }
+        }
+    }
+
+    fun openMacroCompletionSheet() {
+        _uiState.update { it.copy(showMacroCompletionSheet = true) }
+    }
+
+    fun dismissMacroCompletionSheet() {
+        _uiState.update {
+            it.copy(
+                showMacroCompletionSheet = false,
+                macroCompletionProtein = "",
+                macroCompletionFat = "",
+                macroCompletionCarbs = "",
+            )
+        }
+    }
+
+    fun openAddCustomFoodSheet() {
+        _uiState.update { it.copy(showAddCustomFoodSheet = true) }
+    }
+
+    fun dismissAddCustomFoodSheet() {
+        _uiState.update { it.copy(showAddCustomFoodSheet = false) }
+    }
+
+    fun updateMacroCompletionProtein(value: String) {
+        _uiState.update { it.copy(macroCompletionProtein = value) }
+    }
+
+    fun updateMacroCompletionFat(value: String) {
+        _uiState.update { it.copy(macroCompletionFat = value) }
+    }
+
+    fun updateMacroCompletionCarbs(value: String) {
+        _uiState.update { it.copy(macroCompletionCarbs = value) }
+    }
+
+    fun saveMacroCompletion(onSaved: () -> Unit = {}) {
+        val state = _uiState.value
+        val item = state.selectedCatalogItem ?: return
+        val protein = state.macroCompletionProtein.toFloatOrNull()
+        val fat = state.macroCompletionFat.toFloatOrNull()
+        val carbs = state.macroCompletionCarbs.toFloatOrNull()
+        if (protein == null || fat == null || carbs == null) {
+            _uiState.update { it.copy(foodSearchError = "Укажите белки, жиры и углеводы на 100 г") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isCatalogSaving = true, foodSearchError = null) }
+            val request = FoodCatalogUpsertRequestDto(
+                barcode = item.barcode,
+                name = item.name,
+                brand = item.brand,
+                calories100g = item.calories100g ?: state.calories.toFloatOrNull(),
+                proteinG100g = protein,
+                fatG100g = fat,
+                carbsG100g = carbs,
+                offImageUrl = item.imageUrl,
+            )
+            val result = if (item.id != null) {
+                repository.updateFoodCatalogItem(item.id, request)
+            } else {
+                repository.createFoodCatalogItem(
+                    name = item.name,
+                    barcode = item.barcode,
+                    brand = item.brand,
+                    calories100g = request.calories100g,
+                    proteinG100g = protein,
+                    fatG100g = fat,
+                    carbsG100g = carbs,
+                    offImageUrl = item.imageUrl,
+                )
+            }
+            result
+                .onSuccess { saved ->
+                    applyCatalogItem(saved, forceComplete = true)
+                    _uiState.update {
+                        it.copy(
+                            isCatalogSaving = false,
+                            showMacroCompletionSheet = false,
+                            macroCompletionProtein = "",
+                            macroCompletionFat = "",
+                            macroCompletionCarbs = "",
+                            snackMessage = "КБЖУ сохранено — при следующем поиске подтянется автоматически",
+                        )
+                    }
+                    onSaved()
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(
+                            isCatalogSaving = false,
+                            foodSearchError = e.message ?: "Не удалось сохранить КБЖУ",
+                        )
+                    }
+                }
+        }
+    }
+
+    fun saveCustomFood(
+        name: String,
+        barcode: String?,
+        brand: String?,
+        calories100g: Float?,
+        proteinG100g: Float?,
+        fatG100g: Float?,
+        carbsG100g: Float?,
+        photoFile: File?,
+        onSaved: () -> Unit = {},
+    ) {
+        if (name.isBlank()) {
+            _uiState.update { it.copy(foodSearchError = "Укажите название продукта") }
+            return
+        }
+        if (calories100g == null || proteinG100g == null || fatG100g == null || carbsG100g == null) {
+            _uiState.update { it.copy(foodSearchError = "Заполните КБЖУ на 100 г") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isCatalogSaving = true, foodSearchError = null) }
+            repository.createFoodCatalogItem(
+                name = name.trim(),
+                barcode = barcode?.trim()?.takeIf { it.isNotBlank() },
+                brand = brand?.trim()?.takeIf { it.isNotBlank() },
+                calories100g = calories100g,
+                proteinG100g = proteinG100g,
+                fatG100g = fatG100g,
+                carbsG100g = carbsG100g,
+                photoFile = photoFile,
+            )
+                .onSuccess { saved ->
+                    applyCatalogItem(saved, forceComplete = true)
+                    _uiState.update {
+                        it.copy(
+                            isCatalogSaving = false,
+                            showAddCustomFoodSheet = false,
+                            snackMessage = "Продукт добавлен в каталог",
+                        )
+                    }
+                    onSaved()
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(
+                            isCatalogSaving = false,
+                            foodSearchError = e.message ?: "Не удалось сохранить продукт",
+                        )
+                    }
+                }
+        }
+    }
+
+    private fun applyCatalogItem(item: FoodCatalogItemDto, forceComplete: Boolean = false) {
+        val needsCompletion = !forceComplete && item.needsCompletion
+        val option = FatSecretServingOption(
+            servingId = item.id?.toString(),
+            description = "100 г",
+            calories = item.calories100g,
+            proteinG = item.proteinG100g,
+            fatG = item.fatG100g,
+            carbsG = item.carbsG100g,
+            metricGrams = 100f,
+        )
+        val servings = listOf(option)
+        val macros = macrosFromServing(option, _uiState.value.portionMultiplier)
+        _uiState.update { state ->
+            state.copy(
+                isFoodSearchLoading = false,
+                mealName = item.name,
+                servingOptions = servings,
+                selectedServingIndex = 0,
+                calories = macros.calories,
+                protein = if (needsCompletion) "" else macros.protein,
+                fat = if (needsCompletion) "" else macros.fat,
+                carbs = if (needsCompletion) "" else macros.carbs,
+                foodSearchResults = emptyList(),
+                foodSearchError = if (needsCompletion) "У продукта только калории — дополните БЖУ" else null,
+                selectedCatalogItem = item,
+                showMacroCompletionSheet = needsCompletion,
+                macroCompletionProtein = if (needsCompletion) state.macroCompletionProtein else "",
+                macroCompletionFat = if (needsCompletion) state.macroCompletionFat else "",
+                macroCompletionCarbs = if (needsCompletion) state.macroCompletionCarbs else "",
+            )
         }
     }
 
@@ -426,6 +574,8 @@ class MealViewModel @Inject constructor(
                 servingOptions = emptyList(),
                 portionMultiplier = 1f,
                 selectedServingIndex = 0,
+                selectedCatalogItem = null,
+                showMacroCompletionSheet = false,
             )
         }
     }
@@ -434,6 +584,17 @@ class MealViewModel @Inject constructor(
         val state = _uiState.value
         if (state.mealName.isBlank()) {
             _uiState.update { it.copy(error = "Сначала выберите продукт из списка или по штрихкоду") }
+            return
+        }
+        if (state.selectedCatalogItem?.needsCompletion == true &&
+            (state.protein.isBlank() || state.fat.isBlank() || state.carbs.isBlank())
+        ) {
+            _uiState.update {
+                it.copy(
+                    error = "Дополните БЖУ и сохраните в каталог",
+                    showMacroCompletionSheet = true,
+                )
+            }
             return
         }
         viewModelScope.launch {
@@ -503,6 +664,59 @@ class MealViewModel @Inject constructor(
                 }
                 .onFailure { e ->
                     _uiState.update { it.copy(error = e.message ?: "Не удалось сохранить блюдо") }
+                }
+        }
+    }
+
+    fun updateDishWithIngredients(
+        id: Int,
+        name: String,
+        mealTypeDisplay: String?,
+        ingredients: List<DishIngredient>,
+    ) {
+        val templates = ingredients
+            .filter { it.name.isNotBlank() }
+            .map { if (it.isTemplate) it.copy(grams = 0f) else it }
+        val totals = DishIngredientsPayload(templates.map { it.per100gPreview() }).referencePer100g()
+        viewModelScope.launch {
+            val body = SavedDishCreateRequestDto(
+                name = name,
+                meal_type = mealTypeDisplay?.let { apiMealTypeFromDisplay(it) },
+                calories = totals.calories.takeIf { it > 0f },
+                protein_g = totals.protein.takeIf { it > 0f },
+                fat_g = totals.fat.takeIf { it > 0f },
+                carbs_g = totals.carbs.takeIf { it > 0f },
+                notes = DishIngredientsJson.encode(templates),
+            )
+            repository.updateSavedDish(id, body)
+                .onSuccess {
+                    _uiState.update { it.copy(snackMessage = "Блюдо «$name» обновлено") }
+                    loadMeals()
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(error = e.message ?: "Не удалось обновить блюдо") }
+                }
+        }
+    }
+
+    fun duplicateSavedDish(dish: SavedDishDto) {
+        viewModelScope.launch {
+            val body = SavedDishCreateRequestDto(
+                name = "${dish.name} (копия)",
+                meal_type = dish.meal_type,
+                calories = dish.calories,
+                protein_g = dish.protein_g,
+                fat_g = dish.fat_g,
+                carbs_g = dish.carbs_g,
+                notes = dish.notes,
+            )
+            repository.createSavedDish(body)
+                .onSuccess {
+                    _uiState.update { it.copy(snackMessage = "Копия блюда создана") }
+                    loadMeals()
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(error = e.message ?: "Не удалось скопировать блюдо") }
                 }
         }
     }
@@ -763,23 +977,23 @@ class MealViewModel @Inject constructor(
     }
 
     fun updateMealName(value: String) {
-        _uiState.update { it.copy(mealName = value) }
+        _uiState.update { it.copy(mealName = value, selectedServingIndex = -1, portionMultiplier = 1f) }
     }
 
     fun updateCalories(value: String) {
-        _uiState.update { it.copy(calories = value) }
+        _uiState.update { it.copy(calories = value, selectedServingIndex = -1, portionMultiplier = 1f) }
     }
 
     fun updateProtein(value: String) {
-        _uiState.update { it.copy(protein = value) }
+        _uiState.update { it.copy(protein = value, selectedServingIndex = -1, portionMultiplier = 1f) }
     }
 
     fun updateFat(value: String) {
-        _uiState.update { it.copy(fat = value) }
+        _uiState.update { it.copy(fat = value, selectedServingIndex = -1, portionMultiplier = 1f) }
     }
 
     fun updateCarbs(value: String) {
-        _uiState.update { it.copy(carbs = value) }
+        _uiState.update { it.copy(carbs = value, selectedServingIndex = -1, portionMultiplier = 1f) }
     }
 
     fun updateCaffeine(value: String) {
@@ -897,6 +1111,126 @@ class MealViewModel @Inject constructor(
         }
     }
 
+    fun recognizeFoodFromText(text: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isFoodSearchLoading = true, foodSearchError = null) }
+            aiRepository.recognizeFoodFromText(text)
+                .onSuccess { response ->
+                    val items = response.items
+                    if (items.isNotEmpty()) {
+                        if (items.size == 1) {
+                            val first = items.first()
+                            _uiState.update {
+                                it.copy(
+                                    isFoodSearchLoading = false,
+                                    mealName = first.name,
+                                    calories = first.calories.toString(),
+                                    protein = first.protein.toString(),
+                                    fat = first.fat.toString(),
+                                    carbs = first.carbs.toString(),
+                                    snackMessage = "Распознано: ${first.name}"
+                                )
+                            }
+                        } else {
+                            val totalCal = items.sumOf { it.calories }
+                            val totalProt = items.sumOf { it.protein }
+                            val totalFat = items.sumOf { it.fat }
+                            val totalCarbs = items.sumOf { it.carbs }
+                            val names = items.joinToString(", ") { it.name }
+                            _uiState.update {
+                                it.copy(
+                                    isFoodSearchLoading = false,
+                                    mealName = names.take(50) + if (names.length > 50) "..." else "",
+                                    calories = totalCal.toString(),
+                                    protein = totalProt.toString(),
+                                    fat = totalFat.toString(),
+                                    carbs = totalCarbs.toString(),
+                                    snackMessage = "Распознано несколько продуктов"
+                                )
+                            }
+                        }
+                    } else {
+                        _uiState.update {
+                            it.copy(
+                                isFoodSearchLoading = false,
+                                foodSearchError = "Не удалось распознать еду из текста"
+                            )
+                        }
+                    }
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(
+                            isFoodSearchLoading = false,
+                            foodSearchError = e.message ?: "Ошибка распознавания текста"
+                        )
+                    }
+                }
+        }
+    }
+
+    fun recognizeFoodFromPhoto(imageFile: java.io.File) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isFoodSearchLoading = true, foodSearchError = null) }
+            aiRepository.recognizeFood(imageFile)
+                .onSuccess { response ->
+                    val items = response.items
+                    if (items.isNotEmpty()) {
+                        if (items.size == 1) {
+                            val first = items.first()
+                            _uiState.update {
+                                it.copy(
+                                    isFoodSearchLoading = false,
+                                    mealName = first.name,
+                                    calories = first.calories.toString(),
+                                    protein = first.protein.toString(),
+                                    fat = first.fat.toString(),
+                                    carbs = first.carbs.toString(),
+                                    snackMessage = "Распознано: ${first.name}"
+                                )
+                            }
+                        } else {
+                            val totalCal = items.sumOf { it.calories }
+                            val totalProt = items.sumOf { it.protein }
+                            val totalFat = items.sumOf { it.fat }
+                            val totalCarbs = items.sumOf { it.carbs }
+                            val names = items.joinToString(", ") { it.name }
+                            _uiState.update {
+                                it.copy(
+                                    isFoodSearchLoading = false,
+                                    mealName = names.take(50) + if (names.length > 50) "..." else "",
+                                    calories = totalCal.toString(),
+                                    protein = totalProt.toString(),
+                                    fat = totalFat.toString(),
+                                    carbs = totalCarbs.toString(),
+                                    snackMessage = "Распознано несколько продуктов"
+                                )
+                            }
+                        }
+                    } else {
+                        _uiState.update {
+                            it.copy(
+                                isFoodSearchLoading = false,
+                                foodSearchError = "Не удалось распознать еду на фото"
+                            )
+                        }
+                    }
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(
+                            isFoodSearchLoading = false,
+                            foodSearchError = e.message ?: "Ошибка распознавания фото"
+                        )
+                    }
+                }
+        }
+    }
+
+    fun scanBarcode(barcode: String) {
+        searchFoodByBarcode(barcode)
+    }
+
     fun deleteMeal(id: Int) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
@@ -914,6 +1248,31 @@ class MealViewModel @Inject constructor(
                         )
                     }
                 }
+        }
+    }
+
+    private fun applyNutritionTargetsFromProfile(profile: ProfileDto?) {
+        val resolved = resolveNutritionTargets(profile)
+        val targetsHint = nutritionTargetsHint(resolved)
+        maybePersistComputedTargets(profile, resolved)
+        val autoSnack = if (resolved.autoFilled) {
+            "Подобрали ориентиры: ${resolved.calories} ккал, Б ${resolved.proteinG.toInt()} / Ж ${resolved.fatG.toInt()} / У ${resolved.carbsG.toInt()} г"
+        } else {
+            null
+        }
+        _uiState.update {
+            it.copy(
+                caloriesTarget = resolved.calories,
+                targetProteinG = resolved.proteinG,
+                targetFatG = resolved.fatG,
+                targetCarbsG = resolved.carbsG,
+                nutritionTargetsHint = targetsHint,
+                snackMessage = if (resolved.autoFilled && it.nutritionTargetsHint != targetsHint) {
+                    autoSnack
+                } else {
+                    it.snackMessage
+                },
+            )
         }
     }
 
@@ -961,14 +1320,7 @@ class MealViewModel @Inject constructor(
             weightKg = weight,
             activityLevel = profile?.activity_level ?: Constants.ActivityLevel.MEDIUM,
             goal = profile?.goal ?: Constants.Goals.IMPROVE_ENERGY,
-        ) ?: NutritionTargetsCalculator.calculate(
-            age = DEFAULT_AGE_YEARS,
-            sex = Constants.Sex.MALE,
-            heightCm = DEFAULT_HEIGHT_CM,
-            weightKg = DEFAULT_WEIGHT_KG,
-            activityLevel = Constants.ActivityLevel.MEDIUM,
-            goal = Constants.Goals.IMPROVE_ENERGY,
-        )!!
+        ) ?: NutritionTargetsCalculator.defaultTargets()
 
         return ResolvedTargets(
             calories = storedCal ?: computed.calories,

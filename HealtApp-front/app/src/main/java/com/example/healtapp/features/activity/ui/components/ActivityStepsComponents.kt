@@ -37,6 +37,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.fillMaxHeight
+import kotlin.math.min
 import com.example.healtapp.core.ui.animation.AppMotion
 import com.example.healtapp.core.ui.components.AppButton
 import com.example.healtapp.core.ui.components.AppCard
@@ -243,19 +245,6 @@ fun ActivityStepsHeroCard(
                     Text("  Цель: ${formatStepsCount(stepsGoal)} · изменить")
                 }
             }
-
-            AppButton(
-                text = if (isSaving) "Синхронизация…" else "Синхронизировать шаги",
-                onClick = onSyncHealthConnect,
-                enabled = !isSaving,
-                isSecondary = true,
-            )
-            AppButton(
-                text = if (isSaving) "Импорт…" else "Тренировки из Health Connect",
-                onClick = onSyncWorkoutsFromHealthConnect,
-                enabled = !isSaving,
-                isSecondary = true,
-            )
         }
     }
 }
@@ -327,8 +316,9 @@ fun WeeklyStepsBarChart(
     modifier: Modifier = Modifier,
 ) {
     if (days.isEmpty()) return
-    val maxSteps = (days.maxOf { it.steps }.coerceAtLeast(goal)).coerceAtLeast(1)
-    val todayBarGradient = chartBarFillGradient()
+    val maxSteps = (days.maxOf { it.steps }.coerceAtLeast(goal)).coerceAtLeast(100)
+    val goalLineColor = chartBarGuideColor()
+    val todayBarGradient = cardHeaderGradient(themedCardBlue(), 1f)
     val defaultBarGradient = chartBarFillGradientSoft(themedCardBlue())
 
     AppCard(modifier = modifier) {
@@ -343,7 +333,6 @@ fun WeeklyStepsBarChart(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            val goalLineColor = chartBarGuideColor()
             val valueSlotHeight = 18.dp
             val barAreaHeight = 120.dp
             val labelSlotHeight = 32.dp
@@ -366,7 +355,7 @@ fun WeeklyStepsBarChart(
                             modifier = Modifier.weight(1f),
                             style = MaterialTheme.typography.labelSmall,
                             color = if (isToday) {
-                                MaterialTheme.colorScheme.primary
+                                contentPrimaryColor()
                             } else {
                                 MaterialTheme.colorScheme.onSurfaceVariant
                             },
@@ -397,25 +386,21 @@ fun WeeklyStepsBarChart(
                         verticalAlignment = Alignment.Bottom,
                     ) {
                         days.forEach { day ->
-                            val barFraction = day.steps.toFloat() / maxSteps
                             val isToday = day.dateKey == java.time.LocalDate.now().toString()
+                            val fraction = (day.steps.toFloat() / maxSteps).coerceIn(0f, 1f)
+                            val gradient = if (isToday) todayBarGradient else defaultBarGradient
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .fillMaxSize(),
+                                    .fillMaxHeight(),
                                 contentAlignment = Alignment.BottomCenter,
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .padding(horizontal = 3.dp)
-                                        .fillMaxWidth(0.65f)
-                                        .height((barAreaHeight * barFraction.coerceIn(0.04f, 1f)).coerceAtLeast(4.dp))
-                                        .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
-                                        .background(
-                                            Brush.verticalGradient(
-                                                if (isToday) todayBarGradient else defaultBarGradient,
-                                            ),
-                                        ),
+                                        .fillMaxWidth(0.6f)
+                                        .fillMaxHeight(fraction)
+                                        .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
+                                        .background(Brush.verticalGradient(gradient)),
                                 )
                             }
                         }
@@ -424,22 +409,25 @@ fun WeeklyStepsBarChart(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(labelSlotHeight),
+                        .height(labelSlotHeight)
+                        .padding(top = 6.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically,
+                    verticalAlignment = Alignment.Top,
                 ) {
                     days.forEach { day ->
                         val isToday = day.dateKey == java.time.LocalDate.now().toString()
                         Text(
                             text = day.label,
                             modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontSize = MaterialTheme.typography.labelSmall.fontSize * 0.88f,
+                            ),
                             color = if (isToday) {
-                                MaterialTheme.colorScheme.primary
+                                contentPrimaryColor()
                             } else {
                                 MaterialTheme.colorScheme.onSurfaceVariant
                             },
-                            fontWeight = if (isToday) FontWeight.SemiBold else FontWeight.Normal,
+                            fontWeight = if (isToday) FontWeight.Bold else FontWeight.Medium,
                             textAlign = TextAlign.Center,
                             maxLines = 1,
                         )

@@ -11,6 +11,7 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
@@ -20,6 +21,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.example.healtapp.core.common.DateRules
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -34,11 +36,20 @@ fun DatePickerField(
     label: String,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    /** null — без ограничения сверху */
+    maxDate: LocalDate? = DateRules.today(),
+    /** null — без ограничения снизу */
+    minDate: LocalDate? = null,
 ) {
     var showDialog by remember { mutableStateOf(false) }
     val zone = remember { ZoneId.systemDefault() }
-    val parsedDate = remember(value) {
-        runCatching { LocalDate.parse(value.trim()) }.getOrElse { LocalDate.now() }
+    val parsedDate = remember(value, maxDate) {
+        val parsed = runCatching { LocalDate.parse(value.trim()) }.getOrElse { DateRules.today() }
+        when {
+            maxDate != null && parsed.isAfter(maxDate) -> maxDate
+            minDate != null && parsed.isBefore(minDate) -> minDate
+            else -> parsed
+        }
     }
     val displayText = remember(parsedDate) {
         parsedDate.format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru", "RU")))
@@ -77,7 +88,26 @@ fun DatePickerField(
         val initialMillis = remember(parsedDate) {
             parsedDate.atStartOfDay(zone).toInstant().toEpochMilli()
         }
-        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
+        val selectableDates = remember(maxDate, minDate) {
+            object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                    val date = Instant.ofEpochMilli(utcTimeMillis).atZone(zone).toLocalDate()
+                    if (maxDate != null && date.isAfter(maxDate)) return false
+                    if (minDate != null && date.isBefore(minDate)) return false
+                    return true
+                }
+
+                override fun isSelectableYear(year: Int): Boolean {
+                    val minYear = minDate?.year ?: 1900
+                    val maxYear = maxDate?.year ?: 2100
+                    return year in minYear..maxYear
+                }
+            }
+        }
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = initialMillis,
+            selectableDates = selectableDates,
+        )
 
         DatePickerDialog(
             onDismissRequest = { showDialog = false },
@@ -85,7 +115,13 @@ fun DatePickerField(
                 TextButton(
                     onClick = {
                         datePickerState.selectedDateMillis?.let { millis ->
-                            val selected = Instant.ofEpochMilli(millis).atZone(zone).toLocalDate()
+                            var selected = Instant.ofEpochMilli(millis).atZone(zone).toLocalDate()
+                            if (maxDate != null && selected.isAfter(maxDate)) {
+                                selected = maxDate
+                            }
+                            if (minDate != null && selected.isBefore(minDate)) {
+                                selected = minDate
+                            }
                             onValueChange(selected.toString())
                         }
                         showDialog = false

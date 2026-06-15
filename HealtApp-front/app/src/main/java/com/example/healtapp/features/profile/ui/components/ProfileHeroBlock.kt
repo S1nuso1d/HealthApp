@@ -28,7 +28,6 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import coil.ImageLoader
-import com.example.healtapp.core.common.Constants
 import com.example.healtapp.core.ui.theme.heroBlockGradient
 import com.example.healtapp.core.ui.theme.heroContentColor
 import com.example.healtapp.core.ui.theme.heroIconBackdrop
@@ -38,10 +37,12 @@ import com.example.healtapp.features.profile.ProfileRus
 @Composable
 fun ProfileHeroBlock(
     initial: String,
+    displayName: String,
     avatarUrl: String?,
     imageLoader: ImageLoader,
     goal: String,
     activityLevel: String,
+    age: String,
     guestMode: Boolean,
     isUploadingAvatar: Boolean,
     enabled: Boolean,
@@ -108,11 +109,18 @@ fun ProfileHeroBlock(
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
-                text = "Твой аккаунт",
+                text = displayName.ifBlank { "Ваш профиль" },
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = heroContentColor(),
             )
+            if (age.isNotBlank()) {
+                Text(
+                    text = "$age лет",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = heroContentColor().copy(alpha = 0.88f),
+                )
+            }
             Text(
                 text = if (goal.isNotBlank()) {
                     "Цель: ${ProfileRus.goalLabel(goal)}"
@@ -129,15 +137,13 @@ fun ProfileHeroBlock(
                     color = heroContentColor().copy(alpha = 0.85f),
                 )
             }
-            Text(
-                text = if (guestMode) {
-                    "Демо-режим — фото и синхронизация недоступны"
-                } else {
-                    "Нажми на аватар · до ${Constants.AVATAR_MAX_BYTES / (1024 * 1024)} МБ"
-                },
-                style = MaterialTheme.typography.labelMedium,
-                color = heroContentColor().copy(alpha = 0.75f),
-            )
+            if (guestMode) {
+                Text(
+                    text = "Демо-режим — фото и синхронизация недоступны",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = heroContentColor().copy(alpha = 0.75f),
+                )
+            }
         }
     }
 }

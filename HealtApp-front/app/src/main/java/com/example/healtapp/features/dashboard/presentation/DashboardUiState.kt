@@ -15,6 +15,7 @@ data class DashboardUiState(
 
     val greetingText: String = "Добро пожаловать",
     val headerSubtitle: String = "Сводка сна, питания, воды и активности",
+    val currentStreak: Int = 0,
 
     val sleepHours: Float = 0f,
     val sleepTargetHours: Float = 8f,
@@ -54,4 +55,8 @@ data class DashboardUiState(
     val recommendations: List<RecommendationUiItem> = emptyList(),
     val recommendationsLoading: Boolean = false,
     val recommendationsError: String? = null,
+
+    val dashboardHints: List<String> = emptyList(),
+    val hintsLoading: Boolean = false,
+
 )

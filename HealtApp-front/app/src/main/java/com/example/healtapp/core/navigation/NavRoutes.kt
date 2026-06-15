@@ -15,6 +15,7 @@ sealed class NavRoute(val route: String) {
     data object Activity : NavRoute("activity")
     data object Recommendations : NavRoute("recommendations")
     data object Timeline : NavRoute("timeline")
+    data object MealPlanner : NavRoute("meal_planner")
     data object ActionPlan : NavRoute("action_plan")
     data object DataPrivacy : NavRoute("data_privacy")
     data object DataImport : NavRoute("data_import")
@@ -24,11 +25,19 @@ sealed class NavRoute(val route: String) {
     data object ServerConnection : NavRoute("server_connection")
     data object HealthVitals : NavRoute("health_vitals")
     data object Notifications : NavRoute("notifications")
+    data object PoliticalRecommendations : NavRoute("political_recommendations")
     data object AiAssistant : NavRoute("ai_assistant")
     data object Achievements : NavRoute("achievements")
     data object Friends : NavRoute("friends")
     data object FriendProfile : NavRoute("friend_profile/{userId}") {
         fun route(userId: Int) = "friend_profile/$userId"
+    }
+    data object Cycle : NavRoute("cycle")
+    data object Pills : NavRoute("pills")
+    data object Fasting : NavRoute("fasting")
+    data object Clubs : NavRoute("clubs")
+    data object ClubDetail : NavRoute("club_detail/{clubId}") {
+        fun route(clubId: Int) = "club_detail/$clubId"
     }
 }
 
@@ -46,6 +55,7 @@ object NavRoutes {
     val Hydration = NavRoute.Hydration
     val Activity = NavRoute.Activity
     val Recommendations = NavRoute.Recommendations
+    val MealPlanner = NavRoute.MealPlanner
     val Timeline = NavRoute.Timeline
     val ActionPlan = NavRoute.ActionPlan
     val DataPrivacy = NavRoute.DataPrivacy
@@ -56,8 +66,14 @@ object NavRoutes {
     val ServerConnection = NavRoute.ServerConnection
     val HealthVitals = NavRoute.HealthVitals
     val Notifications = NavRoute.Notifications
+    val PoliticalRecommendations = NavRoute.PoliticalRecommendations
     val AiAssistant = NavRoute.AiAssistant
     val Achievements = NavRoute.Achievements
     val Friends = NavRoute.Friends
     val FriendProfile = NavRoute.FriendProfile
+    val Cycle = NavRoute.Cycle
+    val Pills = NavRoute.Pills
+    val Fasting = NavRoute.Fasting
+    val Clubs = NavRoute.Clubs
+    val ClubDetail = NavRoute.ClubDetail
 }

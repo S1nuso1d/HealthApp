@@ -28,6 +28,9 @@ class ProfileRepositoryImpl @Inject constructor(
         result.onSuccess { profileCache.save(it) }
 
     override suspend fun updateMyProfile(
+        firstName: String?,
+        lastName: String?,
+        nickname: String?,
         age: Int?,
         sex: String?,
         heightCm: Float?,
@@ -48,6 +51,9 @@ class ProfileRepositoryImpl @Inject constructor(
     ): Result<ProfileDto> = saveProfileResult(runCatching {
             profileApi.updateMyProfile(
                 UpdateProfileRequestDto(
+                    first_name = firstName,
+                    last_name = lastName,
+                    nickname = nickname,
                     age = age,
                     sex = sex,
                     height_cm = heightCm,

@@ -18,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.example.healtapp.core.ui.animation.AppAppearOnce
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -39,9 +40,20 @@ fun AppMessageBanner(
     type: AppMessageType = AppMessageType.Info,
     title: String? = null,
 ) {
+    AppAppearOnce(modifier = modifier) {
+        AppMessageBannerContent(text = text, type = type, title = title)
+    }
+}
+
+@Composable
+private fun AppMessageBannerContent(
+    text: String,
+    type: AppMessageType,
+    title: String?,
+) {
     val (container, content, icon) = styleFor(type)
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         color = container,
         border = BorderStroke(1.dp, content.copy(alpha = 0.22f)),

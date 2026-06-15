@@ -16,6 +16,21 @@ object NutritionTargetsCalculator {
         val steps: Int = 10_000,
     )
 
+    fun defaultTargets(): Result = calculate(
+        age = 30,
+        sex = Constants.Sex.MALE,
+        heightCm = 170f,
+        weightKg = 70f,
+        activityLevel = Constants.ActivityLevel.MEDIUM,
+        goal = Constants.Goals.IMPROVE_ENERGY,
+    ) ?: Result(
+        calories = 2200,
+        proteinG = 105f,
+        fatG = 68f,
+        carbsG = 248f,
+        waterMl = 2500f,
+    )
+
     fun calculate(
         age: Int,
         sex: String,

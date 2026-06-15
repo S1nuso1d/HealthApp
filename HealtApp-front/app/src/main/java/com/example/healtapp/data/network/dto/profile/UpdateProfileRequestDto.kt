@@ -1,6 +1,9 @@
 package com.example.healtapp.data.network.dto.profile
 
 data class UpdateProfileRequestDto(
+    val first_name: String? = null,
+    val last_name: String? = null,
+    val nickname: String? = null,
     val age: Int? = null,
     val sex: String? = null,
     val height_cm: Float? = null,

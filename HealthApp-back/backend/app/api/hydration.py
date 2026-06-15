@@ -15,6 +15,7 @@ from app.schemas.hydration import (
 from app.services.achievement_service import refresh_user_achievements
 from app.services.analytics_sync import rebuild_user_analytics
 from app.services.realtime_manager import realtime_manager
+from app.services.date_validation import ensure_datetime_not_future
 from app.services.smart_trigger_service import generate_smart_triggers_and_reminders
 
 try:
@@ -42,6 +43,7 @@ def create_hydration_record(
     db: Session = Depends(get_db),
 ):
     record_time = hydration_data.record_time or datetime.now()
+    ensure_datetime_not_future(record_time)
 
     new_record = HydrationRecord(
         user_id=current_user.id,
@@ -183,6 +185,7 @@ def update_hydration_record(
 
     record.amount_ml = float(data.amount_ml)
     if data.record_time is not None:
+        ensure_datetime_not_future(data.record_time)
         record.record_time = data.record_time
     if data.source is not None:
         record.source = data.source

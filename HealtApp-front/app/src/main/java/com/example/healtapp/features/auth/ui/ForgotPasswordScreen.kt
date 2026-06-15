@@ -1,7 +1,6 @@
 package com.example.healtapp.features.auth.ui
 
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material3.MaterialTheme
@@ -11,6 +10,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.padding
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.healtapp.core.ui.components.AppButton
@@ -18,9 +19,11 @@ import com.example.healtapp.core.ui.components.AppTextField
 import com.example.healtapp.features.auth.presentation.ForgotPasswordViewModel
 import com.example.healtapp.features.auth.ui.components.AuthFormCard
 import com.example.healtapp.features.auth.ui.components.AuthHeroBanner
+import com.example.healtapp.features.auth.ui.components.AuthInfoStepsCard
 import com.example.healtapp.features.auth.ui.components.AuthMessageBanner
 import com.example.healtapp.features.auth.ui.components.AuthMessageType
 import com.example.healtapp.features.auth.ui.components.AuthScaffold
+import com.example.healtapp.features.auth.ui.components.AuthStepHint
 
 @Composable
 fun ForgotPasswordScreen(
@@ -32,13 +35,17 @@ fun ForgotPasswordScreen(
     AuthScaffold(onBack = onBack) {
         AuthHeroBanner(
             title = "Восстановление доступа",
-            subtitle = "Отправим временный пароль на почту. После входа смените его в профиле.",
+            subtitle = "Отправим временный пароль на почту — смените его в профиле после входа",
         )
 
+        AuthInfoStepsCard()
+
         AuthFormCard(
-            sectionTitle = "Сброс пароля",
-            sectionSubtitle = "Укажите email, с которым регистрировались",
+            sectionTitle = "Ваш email",
+            sectionSubtitle = "Тот же адрес, что при регистрации",
         ) {
+            AuthStepHint("Если SMTP не настроен на сервере — пароль появится в консоли backend")
+
             AppTextField(
                 value = uiState.email,
                 onValueChange = viewModel::updateEmail,
@@ -69,10 +76,12 @@ fun ForgotPasswordScreen(
         }
 
         Text(
-            text = "Временный пароль — 8 цифр. Используйте его для входа, затем задайте новый в разделе «Профиль → Пароль».",
+            text = "Временный пароль — 8 цифр. Войдите с ним и задайте новый в «Профиль → Пароль».",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp),
             textAlign = TextAlign.Center,
         )
     }

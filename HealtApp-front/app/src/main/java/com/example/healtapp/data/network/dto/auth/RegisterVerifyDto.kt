@@ -4,4 +4,5 @@ data class RegisterVerifyDto(
     val email: String,
     val password: String,
     val code: String,
+    val profile: RegisterProfileDraftDto? = null,
 )

@@ -23,6 +23,8 @@ data class FriendProfileUiState(
     val activities: List<FriendActivityDto> = emptyList(),
     val achievements: List<FriendAchievementDto> = emptyList(),
     val isFriend: Boolean = false,
+    val isBlocked: Boolean = false,
+    val actionMessage: String? = null,
 )
 
 @HiltViewModel
@@ -66,13 +68,72 @@ class FriendProfileViewModel @Inject constructor(
                         activities = dto.activities,
                         achievements = dto.achievements,
                         isFriend = dto.is_friend,
+                        isBlocked = dto.is_blocked,
                     )
                 }
                 .onFailure { e ->
                     _uiState.update {
-                        it.copy(isLoading = false, error = e.message ?: "Профиль недоступен")
+                        it.copy(
+                            isLoading = false,
+                            error = e.message?.takeIf { msg ->
+                                msg.contains("403") || msg.contains("404") || msg.contains("недоступ")
+                            } ?: (e.message ?: "Профиль скрыт настройками приватности"),
+                        )
                     }
                 }
         }
+    }
+
+    fun requestFriend() {
+        if (userId <= 0) return
+        viewModelScope.launch {
+            repository.requestFriend(userId)
+                .onSuccess {
+                    _uiState.update { it.copy(actionMessage = "Заявка отправлена", isFriend = false) }
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(error = e.message) }
+                }
+        }
+    }
+
+    fun blockUser() {
+        if (userId <= 0) return
+        viewModelScope.launch {
+            repository.blockUser(userId)
+                .onSuccess {
+                    _uiState.update { 
+                        it.copy(
+                            actionMessage = "Пользователь заблокирован", 
+                            isBlocked = true, 
+                            isFriend = false, 
+                            activities = emptyList(), 
+                            achievements = emptyList(),
+                            error = null
+                        ) 
+                    }
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(error = e.message) }
+                }
+        }
+    }
+
+    fun unblockUser() {
+        if (userId <= 0) return
+        viewModelScope.launch {
+            repository.unblockUser(userId)
+                .onSuccess {
+                    _uiState.update { it.copy(actionMessage = "Пользователь разблокирован", isBlocked = false) }
+                    load()
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(error = e.message) }
+                }
+        }
+    }
+
+    fun clearActionMessage() {
+        _uiState.update { it.copy(actionMessage = null) }
     }
 }

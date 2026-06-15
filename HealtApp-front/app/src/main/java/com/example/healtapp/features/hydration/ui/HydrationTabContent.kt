@@ -5,9 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -20,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.healtapp.core.common.UserFacingMessages
@@ -27,13 +26,15 @@ import com.example.healtapp.core.ui.components.AppButton
 import com.example.healtapp.core.ui.components.AppDialogMessage
 import com.example.healtapp.core.ui.components.AppMessageBanner
 import com.example.healtapp.core.ui.components.AppMessageType
-import com.example.healtapp.core.ui.components.progressCelebrateEffect
 import com.example.healtapp.core.ui.components.AppCard
 import com.example.healtapp.core.ui.components.AppTextField
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.foundation.text.KeyboardOptions
 import com.example.healtapp.core.ui.components.CollapsibleAppCard
+import com.example.healtapp.core.ui.components.EmptyStateCard
+import com.example.healtapp.core.ui.components.GradientFormPanel
+import com.example.healtapp.core.ui.components.GradientOutlinedField
 import com.example.healtapp.core.ui.components.PendingSyncBadge
+import com.example.healtapp.core.ui.components.SectionHeader
+import com.example.healtapp.core.ui.components.progressCelebrateEffect
 import com.example.healtapp.data.network.dto.hydration.HydrationDto
 import com.example.healtapp.features.hydration.presentation.HydrationViewModel
 
@@ -48,10 +49,9 @@ fun HydrationTabContent() {
     var customMlInput by remember { mutableStateOf("") }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(
-            text = "Отслеживай водный баланс и быстро добавляй выпитую воду.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        SectionHeader(
+            title = "Вода за сегодня",
+            subtitle = "Быстро добавьте стакан или свой объём",
         )
 
         PendingSyncBadge(count = uiState.pendingSyncCount)
@@ -71,6 +71,7 @@ fun HydrationTabContent() {
                 Text(
                     text = "Цель: ${uiState.target} мл",
                     style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 if (uiState.isLoading) {
                     CircularProgressIndicator()
@@ -81,54 +82,50 @@ fun HydrationTabContent() {
             }
         }
 
+        SectionHeader(title = "Быстрое добавление", subtitle = "Нажмите на порцию")
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Button(
+            AppButton(
+                text = "+200 мл",
                 onClick = { viewModel.addWater(200) },
+                isSecondary = true,
                 modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(18.dp),
-            ) { Text("+200 мл") }
-            Button(
+            )
+            AppButton(
+                text = "+250 мл",
                 onClick = { viewModel.addWater(250) },
+                isSecondary = true,
                 modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(18.dp),
-            ) { Text("+250 мл") }
-            Button(
+            )
+            AppButton(
+                text = "+500 мл",
                 onClick = { viewModel.addWater(500) },
+                isSecondary = true,
                 modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(18.dp),
-            ) { Text("+500 мл") }
+            )
         }
 
-        AppCard {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    text = "Свой объём",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                AppTextField(
-                    value = customMlInput,
-                    onValueChange = { customMlInput = it.filter { ch -> ch.isDigit() }.take(5) },
-                    label = "Сколько миллилитров выпили?",
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardType = KeyboardType.Number,
-                )
-                AppButton(
-                    text = "Добавить",
-                    onClick = {
-                        val ml = customMlInput.toIntOrNull()
-                        if (ml != null && ml > 0) {
-                            viewModel.addWater(ml)
-                            customMlInput = ""
-                        }
-                    },
-                    enabled = customMlInput.toIntOrNull()?.let { it > 0 } == true && !uiState.isLoading,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
+        SectionHeader(title = "Свой объём", subtitle = "Укажите миллилитры вручную")
+        GradientFormPanel {
+            GradientOutlinedField(
+                value = customMlInput,
+                onValueChange = { customMlInput = it.filter { ch -> ch.isDigit() }.take(5) },
+                label = "Сколько миллилитров выпили?",
+            )
+            AppButton(
+                text = "Добавить",
+                onClick = {
+                    val ml = customMlInput.toIntOrNull()
+                    if (ml != null && ml > 0) {
+                        viewModel.addWater(ml)
+                        customMlInput = ""
+                    }
+                },
+                enabled = customMlInput.toIntOrNull()?.let { it > 0 } == true && !uiState.isLoading,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
 
         CollapsibleAppCard(
@@ -137,11 +134,7 @@ fun HydrationTabContent() {
             initiallyExpanded = false,
         ) {
             if (uiState.todayRecords.isEmpty()) {
-                Text(
-                    text = "Пока нет записей за сегодня.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                EmptyStateCard(text = "Пока нет записей за сегодня — добавьте воду кнопками выше.")
             } else {
                 uiState.todayRecords.forEach { rec ->
                     AppCard {
@@ -205,6 +198,7 @@ fun HydrationTabContent() {
                     value = editAmount,
                     onValueChange = { editAmount = it },
                     label = "Мл",
+                    keyboardType = KeyboardType.Number,
                 )
             },
             confirmButton = {

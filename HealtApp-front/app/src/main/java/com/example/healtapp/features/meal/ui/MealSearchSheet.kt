@@ -36,12 +36,41 @@ import com.example.healtapp.core.ui.components.AppCard
 import com.example.healtapp.core.ui.components.AppMessageBanner
 import com.example.healtapp.core.ui.components.AppMessageType
 import com.example.healtapp.core.ui.components.AppTextField
+import com.example.healtapp.data.network.dto.meal.FoodCatalogItemDto
 import com.example.healtapp.data.network.dto.meal.SavedDishDto
 import com.example.healtapp.features.meal.presentation.MealUiState
 import androidx.compose.material3.TextButton
-import com.example.healtapp.features.meal.ui.components.MealFatSecretHitRow
+import com.example.healtapp.features.meal.ui.components.MealFoodCatalogHitRow
+import com.example.healtapp.features.meal.ui.components.FoodMacroCompletionSheet
+import com.example.healtapp.features.meal.ui.components.AddCustomFoodSheet
 import com.example.healtapp.features.meal.ui.components.MealServingPicker
+import android.content.Intent
+import android.speech.RecognizerIntent
+import android.app.Activity
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.activity.result.PickVisualMediaRequest
+import android.net.Uri
+import android.content.Context
+import androidx.compose.ui.platform.LocalContext
+import java.io.File
 import kotlinx.coroutines.delay
+
+fun getFileFromUri(context: Context, uri: Uri): File? {
+    return try {
+        val inputStream = context.contentResolver.openInputStream(uri) ?: return null
+        val tempFile = File.createTempFile("food_", ".jpg", context.cacheDir)
+        tempFile.outputStream().use { outputStream ->
+            inputStream.copyTo(outputStream)
+        }
+        tempFile
+    } catch (e: Exception) {
+        null
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,15 +83,59 @@ fun MealSearchSheet(
     onQueryChange: (String) -> Unit,
     onSearchDebounced: () -> Unit,
     onSearchNow: () -> Unit,
-    onSelectFood: (String) -> Unit,
+    onSelectFood: (FoodCatalogItemDto) -> Unit,
     onSelectSavedDish: (SavedDishDto) -> Unit = {},
     onOpenBarcode: () -> Unit,
+    onOpenAddCustomFood: () -> Unit = {},
+    onOpenMacroCompletion: () -> Unit = {},
     onSelectServing: (Int) -> Unit,
     onMultiplierChange: (Float) -> Unit,
     onAddToDiary: () -> Unit,
+    onRecognizePhoto: (File) -> Unit = {},
+    onRecognizeVoice: (String) -> Unit = {},
+    onDismissMacroCompletion: () -> Unit = {},
+    onMacroProteinChange: (String) -> Unit = {},
+    onMacroFatChange: (String) -> Unit = {},
+    onMacroCarbsChange: (String) -> Unit = {},
+    onSaveMacroCompletion: () -> Unit = {},
+    onDismissAddCustomFood: () -> Unit = {},
+    onSaveCustomFood: (
+        name: String,
+        barcode: String?,
+        brand: String?,
+        calories100g: Float?,
+        proteinG100g: Float?,
+        fatG100g: Float?,
+        carbsG100g: Float?,
+        photoFile: File?,
+    ) -> Unit = { _, _, _, _, _, _, _, _ -> },
 ) {
     if (!visible) return
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val context = LocalContext.current
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            val file = getFileFromUri(context, uri)
+            if (file != null) {
+                onRecognizePhoto(file)
+            }
+        }
+    }
+
+    val voiceLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val data = result.data
+            val matches = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            if (!matches.isNullOrEmpty()) {
+                onRecognizeVoice(matches[0])
+            }
+        }
+    }
 
     LaunchedEffect(uiState.foodSearchQuery) {
         delay(450)
@@ -93,7 +166,7 @@ fun MealSearchSheet(
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
-                        text = "Найдите продукт в базе или отсканируйте штрихкод",
+                        text = "Open Food Facts и ваш каталог — поиск или штрихкод",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -118,7 +191,42 @@ fun MealSearchSheet(
                     Icon(Icons.Filled.Search, contentDescription = "Искать")
                 }
                 IconButton(onClick = onOpenBarcode, enabled = !uiState.isFoodSearchLoading) {
-                    Icon(Icons.Filled.QrCode2, contentDescription = "Штрихкод")
+                    Icon(Icons.Filled.QrCodeScanner, contentDescription = "Штрихкод")
+                }
+                IconButton(
+                    onClick = {
+                        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                            putExtra(RecognizerIntent.EXTRA_PROMPT, "Что вы съели?")
+                        }
+                        try {
+                            voiceLauncher.launch(intent)
+                        } catch (e: Exception) {
+                            // No speech recognizer
+                        }
+                    },
+                    enabled = !uiState.isFoodSearchLoading
+                ) {
+                    Icon(Icons.Filled.Mic, contentDescription = "Голосовой ввод")
+                }
+                IconButton(
+                    onClick = {
+                        photoPickerLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    },
+                    enabled = !uiState.isFoodSearchLoading
+                ) {
+                    Icon(Icons.Filled.PhotoCamera, contentDescription = "Распознать по фото")
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(onClick = onOpenAddCustomFood) {
+                    Text("Добавить свой продукт")
                 }
             }
 
@@ -175,9 +283,9 @@ fun MealSearchSheet(
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     uiState.foodSearchResults.take(16).forEach { hit ->
-                        MealFatSecretHitRow(
+                        MealFoodCatalogHitRow(
                             hit = hit,
-                            onClick = { onSelectFood(hit.foodId) },
+                            onClick = { onSelectFood(hit) },
                         )
                     }
                 }
@@ -204,6 +312,17 @@ fun MealSearchSheet(
                             onMultiplierChange = onMultiplierChange,
                         )
                     }
+                    if (uiState.selectedCatalogItem?.needsCompletion == true) {
+                        AppMessageBanner(
+                            text = "У продукта неполное КБЖУ — дополните и сохраните в каталог",
+                            type = AppMessageType.Warning,
+                        )
+                        AppButton(
+                            text = "Дополнить БЖУ",
+                            onClick = onOpenMacroCompletion,
+                            enabled = !uiState.isCatalogSaving,
+                        )
+                    }
                     AppButton(
                         text = if (uiState.isSaving) "Добавляем…" else "Добавить в $mealSlotLabel",
                         onClick = onAddToDiary,
@@ -213,4 +332,21 @@ fun MealSearchSheet(
             }
         }
     }
+
+    FoodMacroCompletionSheet(
+        visible = uiState.showMacroCompletionSheet,
+        uiState = uiState,
+        onDismiss = onDismissMacroCompletion,
+        onProteinChange = onMacroProteinChange,
+        onFatChange = onMacroFatChange,
+        onCarbsChange = onMacroCarbsChange,
+        onSave = onSaveMacroCompletion,
+    )
+
+    AddCustomFoodSheet(
+        visible = uiState.showAddCustomFoodSheet,
+        uiState = uiState,
+        onDismiss = onDismissAddCustomFood,
+        onSave = onSaveCustomFood,
+    )
 }
