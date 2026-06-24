@@ -262,6 +262,42 @@ private fun PlaybackHintBanner() {
 }
 
 @Composable
+private fun DayAnalyticsBlock(summary: String) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(
+                Brush.horizontalGradient(
+                    listOf(
+                        MintPrimary.copy(alpha = 0.1f),
+                        SkyPrimary.copy(alpha = 0.1f),
+                    ),
+                ),
+            )
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = MintPrimary)
+            Text(
+                text = "Умный анализ",
+                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.titleSmall,
+            )
+        }
+        Text(
+            text = summary,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
 private fun SleepSoundDayGroupSection(
     group: SleepSoundDayGroupUi,
     todayKey: String,
@@ -303,7 +339,12 @@ private fun SleepSoundDayGroupSection(
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = pluralFragments(group.clips.size),
+                    text = buildString {
+                        append(pluralFragments(group.clips.size))
+                        if (!group.aiSummary.isNullOrBlank()) {
+                            append(" · есть анализ")
+                        }
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -320,6 +361,12 @@ private fun SleepSoundDayGroupSection(
                 modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
+                group.aiSummary?.takeIf { it.isNotBlank() }?.let { summary ->
+                    DayAnalyticsBlock(summary = summary)
+                    if (group.clips.isNotEmpty()) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+                    }
+                }
                 group.clips.forEach { clip ->
                     SleepSoundClipRow(
                         clip = clip,

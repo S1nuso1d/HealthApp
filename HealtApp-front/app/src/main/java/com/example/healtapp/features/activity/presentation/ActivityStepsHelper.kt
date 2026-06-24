@@ -2,7 +2,10 @@ package com.example.healtapp.features.activity.presentation
 
 import com.example.healtapp.data.network.dto.activity.ActivityDto
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 data class DaySteps(
     val dateKey: String,
@@ -12,9 +15,25 @@ data class DaySteps(
 
 object ActivityStepsHelper {
 
-    private val dayLabelFormatter = java.time.format.DateTimeFormatter.ofPattern("EE", java.util.Locale("ru", "RU"))
+    private val dayLabelFormatter = DateTimeFormatter.ofPattern("EE", java.util.Locale("ru", "RU"))
+    private val zone: ZoneId get() = ZoneId.systemDefault()
 
-    fun activityDateKey(raw: String): String = raw.take(10)
+    /** Локальная календарная дата записи (не UTC-префикс строки). */
+    fun activityDateKey(raw: String): String {
+        val trimmed = raw.trim()
+        return runCatching {
+            OffsetDateTime.parse(trimmed.replace("Z", "+00:00"))
+                .atZoneSameInstant(zone)
+                .toLocalDate()
+                .toString()
+        }.getOrElse {
+            runCatching {
+                LocalDateTime.parse(trimmed.take(19)).toLocalDate().toString()
+            }.getOrElse {
+                trimmed.take(10)
+            }
+        }
+    }
 
     /**
      * Шаги за день из сохранённых записей: для «ходьбы» берём максимум (не сумму —
@@ -126,14 +145,14 @@ object ActivityStepsHelper {
         return toRemove
     }
 
-    fun parseStartTime(raw: String): java.time.LocalDateTime {
+    fun parseStartTime(raw: String): LocalDateTime {
         return try {
             OffsetDateTime.parse(raw).toLocalDateTime()
         } catch (_: Exception) {
             try {
-                java.time.LocalDateTime.parse(raw.take(19))
+                LocalDateTime.parse(raw.take(19))
             } catch (_: Exception) {
-                java.time.LocalDateTime.now()
+                LocalDateTime.now()
             }
         }
     }

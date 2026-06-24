@@ -52,6 +52,14 @@ def clamp_score(value: float) -> int:
     return max(0, min(100, round(value)))
 
 
+def _shorten_dashboard_hint(text: str, max_len: int = 72) -> str:
+    compact = " ".join(str(text).split())
+    if len(compact) <= max_len:
+        return compact
+    trimmed = compact[:max_len].rsplit(" ", 1)[0]
+    return trimmed.rstrip(".,!? ") + "…"
+
+
 def calculate_sleep_score(avg_sleep_hours: float) -> int:
     if avg_sleep_hours <= 0:
         return 0
@@ -574,29 +582,54 @@ def get_meal_plan(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    from app.services.ai.user_health_context import build_user_health_context_text
+    from app.services.ai.user_health_context import build_meal_plan_context
     from app.llm.meal_plan_diet_filter import apply_dietary_filters
+    from app.llm.meal_plan_portions import build_grocery_list_from_days, enrich_meal_plan_days
     from app.models.profile import UserProfile
 
-    analytics = build_analytics_context(db, current_user.id, days=14)
-    health_context = build_user_health_context_text(db=db, user_id=current_user.id, period_days=14)
     profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
+    analytics = build_analytics_context(db, current_user.id, days=7)
+    health_context = build_meal_plan_context(db=db, user_id=current_user.id)
+    is_vegetarian = profile.is_vegetarian is True if profile else False
+    allergies_text = (
+        profile.allergies_text
+        if profile and profile.has_allergies and profile.allergies_text
+        else None
+    )
     service = HealthChatService()
     source = "llm"
     try:
-        raw_json, source = service.generate_meal_plan(analytics, user_context=health_context, days=days)
-        import json
+        raw_json, source = service.generate_meal_plan(
+            analytics,
+            user_context=health_context,
+            days=days,
+            is_vegetarian=is_vegetarian,
+            allergies_text=allergies_text,
+        )
+        from app.llm.json_utils import parse_llm_json
+
         try:
-            data = json.loads(raw_json)
-        except json.JSONDecodeError:
+            data = parse_llm_json(raw_json)
+            if not data.get("days"):
+                raise ValueError("В ответе нет поля days")
+        except (ValueError, json.JSONDecodeError):
             source = "fallback"
-            data = json.loads(service._build_fallback_meal_plan(analytics, days=days, user_context=health_context))
+            data = json.loads(
+                service._build_fallback_meal_plan(
+                    analytics,
+                    days=days,
+                    user_context=health_context,
+                    is_vegetarian=is_vegetarian,
+                )
+            )
         if profile:
             data = apply_dietary_filters(
                 data,
                 is_vegetarian=profile.is_vegetarian,
                 allergies_text=profile.allergies_text,
             )
+        data["days"] = enrich_meal_plan_days(data.get("days", []))
+        data["grocery_list"] = build_grocery_list_from_days(data.get("days", []))
         return MealPlanResponse(
             generated_at=datetime.now(timezone.utc),
             days=data.get("days", []),
@@ -606,13 +639,22 @@ def get_meal_plan(
     except Exception as exc:
         if settings.AI_FALLBACK_ENABLED:
             import json
-            data = json.loads(service._build_fallback_meal_plan(analytics, days=days, user_context=health_context))
+            data = json.loads(
+                service._build_fallback_meal_plan(
+                    analytics,
+                    days=days,
+                    user_context=health_context,
+                    is_vegetarian=is_vegetarian,
+                )
+            )
             if profile:
                 data = apply_dietary_filters(
                     data,
                     is_vegetarian=profile.is_vegetarian,
                     allergies_text=profile.allergies_text,
                 )
+            data["days"] = enrich_meal_plan_days(data.get("days", []))
+            data["grocery_list"] = build_grocery_list_from_days(data.get("days", []))
             return MealPlanResponse(
                 generated_at=datetime.now(timezone.utc),
                 days=data.get("days", []),
@@ -704,7 +746,11 @@ def get_dashboard_hints(
             data = json.loads(raw_json)
         except json.JSONDecodeError:
             data = json.loads(service._build_fallback_dashboard_hints(analytics))
-        hints = data.get("hints", [])
+        hints = [
+            _shorten_dashboard_hint(h)
+            for h in data.get("hints", [])
+            if str(h).strip()
+        ][:3]
         if profile:
             from app.llm.dietary_prompt import contains_meat_or_fish, profile_implies_vegetarian
             if profile_implies_vegetarian(profile.is_vegetarian, profile.allergies_text if profile.has_allergies else None):
@@ -714,7 +760,12 @@ def get_dashboard_hints(
         if settings.AI_FALLBACK_ENABLED:
             import json
             data = json.loads(service._build_fallback_dashboard_hints(analytics))
-            return DashboardHintsResponse(hints=data.get("hints", []))
+            hints = [
+                _shorten_dashboard_hint(h)
+                for h in data.get("hints", [])
+                if str(h).strip()
+            ][:3]
+            return DashboardHintsResponse(hints=hints)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Ошибка генерации подсказок: {exc}"
@@ -768,37 +819,19 @@ def generate_sleep_summary(
     payload: SleepSummaryRequest,
     current_user: User = Depends(get_current_user),
 ):
-    if not payload.sounds:
-        return SleepSummaryResponse(
-            summary="Звуков за эту ночь не зафиксировано. Сон был тихим.",
-            generated_at=datetime.now(timezone.utc)
-        )
-    
-    prompt = (
-        "Проанализируй список звуков, зафиксированных во время сна пользователя этой ночью. "
-        "Сделай короткое, человечное, заботливое и умное резюме (до 3 предложений). "
-        "Например: 'Сегодня вы храпели 3 раза, в основном под утро. Сон был немного беспокойным.'\n\n"
-        "Список звуков:\n"
-    )
-    for sound in payload.sounds:
-        prompt += f"- {sound.time}: {sound.label} (Громкость: {sound.peakRms})\n"
-        
-    from app.llm.llm_client import LLMClient, LLMClientError
-    client = LLMClient()
-    
+    from app.services.ai.sleep_summary_service import generate_sleep_summary as build_summary
+
     try:
-        raw_response = client.generate(prompt=prompt)
-        return SleepSummaryResponse(
-            summary=raw_response.strip(),
-            generated_at=datetime.now(timezone.utc)
-        )
-    except LLMClientError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"LLM недоступна: {exc}",
-        )
+        return build_summary(payload.sounds)
     except Exception as exc:
+        from app.llm.llm_client import LLMClientError
+
+        if isinstance(exc, LLMClientError):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"LLM недоступна: {exc}",
+            ) from exc
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Ошибка генерации саммари: {exc}",
-        )
+        ) from exc

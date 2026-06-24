@@ -111,12 +111,14 @@ object NetworkModule {
     ): com.example.healtapp.data.network.interceptor.TokenAuthenticator = 
         com.example.healtapp.data.network.interceptor.TokenAuthenticator(tokenProvider, tokenStorage, authApiProvider)
 
-    @Provides
-    @Singleton
-    fun provideOkHttpClient(
+    private fun buildOkHttpClient(
         authInterceptor: AuthInterceptor,
         tokenAuthenticator: com.example.healtapp.data.network.interceptor.TokenAuthenticator,
         dynamicBaseUrlInterceptor: DynamicBaseUrlInterceptor,
+        connectTimeoutSec: Long,
+        readTimeoutSec: Long,
+        writeTimeoutSec: Long,
+        callTimeoutSec: Long,
     ): OkHttpClient {
         val logging = HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) {
@@ -132,12 +134,45 @@ object NetworkModule {
             .addInterceptor(authInterceptor)
             .authenticator(tokenAuthenticator)
             .addInterceptor(logging)
-            .connectTimeout(12, TimeUnit.SECONDS)
-            .readTimeout(25, TimeUnit.SECONDS)
-            .writeTimeout(20, TimeUnit.SECONDS)
-            .callTimeout(35, TimeUnit.SECONDS)
+            .connectTimeout(connectTimeoutSec, TimeUnit.SECONDS)
+            .readTimeout(readTimeoutSec, TimeUnit.SECONDS)
+            .writeTimeout(writeTimeoutSec, TimeUnit.SECONDS)
+            .callTimeout(callTimeoutSec, TimeUnit.SECONDS)
             .build()
     }
+
+    @Provides
+    @Singleton
+    fun provideOkHttpClient(
+        authInterceptor: AuthInterceptor,
+        tokenAuthenticator: com.example.healtapp.data.network.interceptor.TokenAuthenticator,
+        dynamicBaseUrlInterceptor: DynamicBaseUrlInterceptor,
+    ): OkHttpClient = buildOkHttpClient(
+        authInterceptor = authInterceptor,
+        tokenAuthenticator = tokenAuthenticator,
+        dynamicBaseUrlInterceptor = dynamicBaseUrlInterceptor,
+        connectTimeoutSec = 12,
+        readTimeoutSec = 25,
+        writeTimeoutSec = 20,
+        callTimeoutSec = 35,
+    )
+
+    @Provides
+    @Singleton
+    @AiHttpClient
+    fun provideAiOkHttpClient(
+        authInterceptor: AuthInterceptor,
+        tokenAuthenticator: com.example.healtapp.data.network.interceptor.TokenAuthenticator,
+        dynamicBaseUrlInterceptor: DynamicBaseUrlInterceptor,
+    ): OkHttpClient = buildOkHttpClient(
+        authInterceptor = authInterceptor,
+        tokenAuthenticator = tokenAuthenticator,
+        dynamicBaseUrlInterceptor = dynamicBaseUrlInterceptor,
+        connectTimeoutSec = 30,
+        readTimeoutSec = 180,
+        writeTimeoutSec = 30,
+        callTimeoutSec = 200,
+    )
 
     @Provides
     @Singleton
@@ -200,8 +235,14 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideAiApi(retrofit: Retrofit): AiApi =
-        retrofit.create(AiApi::class.java)
+    fun provideAiApi(@AiHttpClient aiClient: OkHttpClient): AiApi {
+        return Retrofit.Builder()
+            .baseUrl("http://127.0.0.1/")
+            .client(aiClient)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(AiApi::class.java)
+    }
 
     @Provides
     @Singleton
@@ -287,7 +328,8 @@ object NetworkModule {
     @Singleton
     fun provideWeightHistoryStore(
         @ApplicationContext context: Context,
-    ): WeightHistoryStore = WeightHistoryStore(context)
+        tokenStorage: TokenStorage,
+    ): WeightHistoryStore = WeightHistoryStore(context, tokenStorage)
 
     @Provides
     @Singleton

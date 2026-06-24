@@ -16,6 +16,20 @@ LAST_SENT_CODES: dict[str, str] = {}
 LAST_RESET_PASSWORDS: dict[str, str] = {}
 
 
+def _log_registration_code(to_email: str, code: str) -> None:
+    print(
+        f"[HealthApp mail dev] Код подтверждения для {to_email}: {code} "
+        f"(действует {settings.REGISTRATION_CODE_TTL_MINUTES} мин.)"
+    )
+
+
+def _log_password_reset(to_email: str, temporary_password: str) -> None:
+    print(
+        f"[HealthApp mail dev] Временный пароль для {to_email}: {temporary_password} "
+        f"(войди с ним и смени пароль в разделе «Профиль».)"
+    )
+
+
 def _send_email_via_smtp(msg: EmailMessage) -> None:
     ctx = ssl.create_default_context()
     use_ssl = settings.SMTP_USE_SSL or settings.SMTP_PORT == 465
@@ -46,11 +60,8 @@ def _send_email_via_smtp(msg: EmailMessage) -> None:
 
 def send_registration_verification_email(to_email: str, code: str) -> None:
     LAST_SENT_CODES[to_email.lower()] = code
+    _log_registration_code(to_email, code)
     if not settings.SMTP_HOST.strip():
-        print(
-            f"[HealthApp mail dev] Код подтверждения для {to_email}: {code} "
-            f"(действует {settings.REGISTRATION_CODE_TTL_MINUTES} мин.)"
-        )
         return
 
     msg = EmailMessage()
@@ -78,11 +89,8 @@ def send_registration_verification_email(to_email: str, code: str) -> None:
 def send_password_reset_email(to_email: str, temporary_password: str) -> None:
     """Временный пароль из 8 цифр — пользователь входит и меняет пароль в профиле."""
     LAST_RESET_PASSWORDS[to_email.lower()] = temporary_password
+    _log_password_reset(to_email, temporary_password)
     if not settings.SMTP_HOST.strip():
-        print(
-            f"[HealthApp mail dev] Временный пароль для {to_email}: {temporary_password} "
-            f"(войди с ним и смени пароль в разделе «Профиль».)"
-        )
         return
 
     msg = EmailMessage()

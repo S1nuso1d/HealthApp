@@ -30,7 +30,7 @@ class AiRepositoryImpl @Inject constructor(
         return try {
             Result.success(aiApi.getProactiveTip())
         } catch (e: Exception) {
-            Result.failure(Exception(e.toUserMessage("Не удалось получить совет от AI")))
+            Result.failure(Exception(e.toUserMessage("Не удалось получить совет от ИИ")))
         }
     }
 
@@ -54,7 +54,7 @@ class AiRepositoryImpl @Inject constructor(
         return try {
             Result.success(aiApi.getAiStatus())
         } catch (e: Exception) {
-            Result.failure(Exception(e.toUserMessage("Не удалось проверить статус AI")))
+            Result.failure(Exception(e.toUserMessage("Не удалось проверить статус ИИ")))
         }
     }
 

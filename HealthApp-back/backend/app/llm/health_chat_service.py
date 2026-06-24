@@ -1,4 +1,5 @@
 from app.core.config import settings
+from app.llm.text_sanitizer import sanitize_llm_markdown
 import typing
 from app.llm.llm_client import LLMClient, LLMClientError
 from app.llm.prompt_builder import PromptBuilder
@@ -10,6 +11,7 @@ from app.schemas.analytics import AnalyticsResponse
 class HealthChatService:
     def __init__(self):
         self.client = LLMClient()
+        self.meal_plan_client = LLMClient(model_name=settings.LLM_MEAL_PLAN_MODEL)
 
     def _build_fallback_chat_answer(
         self,
@@ -335,9 +337,14 @@ class HealthChatService:
     def _build_fallback_dashboard_hints(self, analytics: AnalyticsResponse) -> str:
         import json
 
+        from app.services.ai.time_context import time_aware_hint
+
         summary = analytics.summary
         hints: list[str] = []
 
+        time_hint = time_aware_hint()
+        if time_hint:
+            hints.append(time_hint)
         if summary.hydration_score < 65:
             hints.append("Сегодня мало воды — выпейте стакан прямо сейчас.")
         if summary.sleep_score < 65:
@@ -353,28 +360,72 @@ class HealthChatService:
 
         return json.dumps({"hints": hints[:3]}, ensure_ascii=False)
 
-    def _build_fallback_meal_plan(self, analytics: AnalyticsResponse, days: int = 7, user_context: str | None = None) -> str:
+    def _build_fallback_meal_plan(
+        self,
+        analytics: AnalyticsResponse,
+        days: int = 7,
+        user_context: str | None = None,
+        *,
+        is_vegetarian: bool | None = None,
+    ) -> str:
         from app.llm.meal_plan_fallback import build_fallback_meal_plan_json
 
-        return build_fallback_meal_plan_json(analytics, days=days, user_context=user_context)
+        return build_fallback_meal_plan_json(
+            analytics,
+            days=days,
+            user_context=user_context,
+            is_vegetarian=is_vegetarian,
+        )
 
-    def generate_meal_plan(self, analytics: AnalyticsResponse, user_context: str | None = None, days: int = 7) -> tuple[str, str]:
-        prompt = PromptBuilder.build_meal_plan_prompt(analytics, user_context, days)
+    def generate_meal_plan(
+        self,
+        analytics: AnalyticsResponse,
+        user_context: str | None = None,
+        days: int = 7,
+        *,
+        is_vegetarian: bool = False,
+        allergies_text: str | None = None,
+    ) -> tuple[str, str]:
+        prompt = PromptBuilder.build_meal_plan_prompt(
+            user_context or "",
+            days,
+            is_vegetarian=is_vegetarian,
+            allergies_text=allergies_text,
+        )
+        predict_budget = min(3800, 600 + days * 480)
         try:
-            text = self.client.generate(
+            text = self.meal_plan_client.generate(
                 prompt=prompt,
-                system_prompt=PromptBuilder.SYSTEM_PROMPT,
-                temperature=0.65,
+                system_prompt=PromptBuilder.JSON_SYSTEM_PROMPT,
+                temperature=0.25,
+                json_mode=True,
+                ollama_options={
+                    "num_predict": predict_budget,
+                    "num_ctx": 4096,
+                },
             )
             return text, "llm"
         except LLMClientError:
             if settings.AI_FALLBACK_ENABLED:
-                return self._build_fallback_meal_plan(analytics, days=days, user_context=user_context), "fallback"
+                return (
+                    self._build_fallback_meal_plan(
+                        analytics,
+                        days=days,
+                        user_context=user_context,
+                        is_vegetarian=is_vegetarian,
+                    ),
+                    "fallback",
+                )
             raise
 
     def generate_workout_plan(self, analytics: AnalyticsResponse, user_context: str | None = None, days: int = 7) -> str:
         prompt = PromptBuilder.build_workout_plan_prompt(analytics, user_context, days)
-        return self.client.generate(prompt=prompt, system_prompt=PromptBuilder.SYSTEM_PROMPT, temperature=0.3)
+        return self.client.generate(
+            prompt=prompt,
+            system_prompt=PromptBuilder.JSON_SYSTEM_PROMPT,
+            temperature=0.3,
+            json_mode=True,
+        )
 
     def generate_dashboard_hints(
         self,
@@ -388,7 +439,12 @@ class HealthChatService:
             dietary_rules=dietary_rules,
         )
         try:
-            return self.client.generate(prompt=prompt, system_prompt=PromptBuilder.SYSTEM_PROMPT, temperature=0.4)
+            return self.client.generate(
+                prompt=prompt,
+                system_prompt=PromptBuilder.JSON_SYSTEM_PROMPT,
+                temperature=0.4,
+                json_mode=True,
+            )
         except LLMClientError:
             if settings.AI_FALLBACK_ENABLED:
                 return self._build_fallback_dashboard_hints(analytics)
@@ -405,4 +461,6 @@ class HealthChatService:
             user_context,
             dietary_rules=dietary_rules,
         )
-        return self.client.generate(prompt=prompt, system_prompt=PromptBuilder.SYSTEM_PROMPT, temperature=0.4).strip()
+        return sanitize_llm_markdown(
+            self.client.generate(prompt=prompt, system_prompt=PromptBuilder.SYSTEM_PROMPT, temperature=0.4).strip()
+        )

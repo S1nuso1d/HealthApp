@@ -10,6 +10,7 @@ data class ProfileDto(
     val nickname: String? = null,
     val display_name: String? = null,
     val age: Int? = null,
+    val birth_date: String? = null,
     val sex: String? = null,
     val height_cm: Float? = null,
     val weight_kg: Float? = null,

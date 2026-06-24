@@ -34,3 +34,6 @@ Thumbs.db
 
 # Generated docs cache
 docs/__pycache__/
+
+# Local temp extracts
+tmp_*.txt

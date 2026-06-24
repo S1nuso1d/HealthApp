@@ -59,6 +59,11 @@ class AIRecommendationsResponse(BaseModel):
     recommendations: List[AIRecommendationItem]
 
 
+class MealPlanIngredient(BaseModel):
+    name: str = Field(description="Название продукта/компонента")
+    grams_g: float = Field(description="Граммы (или мл для жидкостей)")
+
+
 class MealPlanItem(BaseModel):
     meal_type: str = Field(description="Тип приема пищи (Завтрак, Обед, Перекус, Ужин)")
     name: str = Field(description="Название блюда")
@@ -67,6 +72,10 @@ class MealPlanItem(BaseModel):
     fat_g: float = Field(description="Жиры (г)")
     carbs_g: float = Field(description="Углеводы (г)")
     recipe: Optional[str] = Field(None, description="Краткий рецепт")
+    ingredients: List[MealPlanIngredient] = Field(
+        default_factory=list,
+        description="Граммовка по компонентам блюда",
+    )
 
 class MealPlanDay(BaseModel):
     day_name: str = Field(description="Название дня (Понедельник, Вторник...)")

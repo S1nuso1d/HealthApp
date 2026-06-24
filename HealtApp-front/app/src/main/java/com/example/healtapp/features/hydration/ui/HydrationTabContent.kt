@@ -22,7 +22,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.healtapp.core.common.UserFacingMessages
-import com.example.healtapp.core.ui.components.AppButton
 import com.example.healtapp.core.ui.components.AppDialogMessage
 import com.example.healtapp.core.ui.components.AppMessageBanner
 import com.example.healtapp.core.ui.components.AppMessageType
@@ -31,13 +30,13 @@ import com.example.healtapp.core.ui.components.AppTextField
 import com.example.healtapp.core.ui.components.CollapsibleAppCard
 import com.example.healtapp.core.ui.components.EmptyStateCard
 import com.example.healtapp.core.ui.components.GradientFormPanel
-import com.example.healtapp.core.ui.components.GradientOutlinedField
 import com.example.healtapp.core.ui.components.PendingSyncBadge
 import com.example.healtapp.core.ui.components.SectionHeader
 import com.example.healtapp.core.ui.components.progressCelebrateEffect
 import com.example.healtapp.data.network.dto.hydration.HydrationDto
 import com.example.healtapp.data.preferences.HydrationPrefs
 import com.example.healtapp.features.hydration.presentation.HydrationViewModel
+import com.example.healtapp.features.hydration.ui.components.HydrationCustomAmountKeypad
 import com.example.healtapp.features.hydration.ui.components.QuickAddWaterButtons
 
 @Composable
@@ -99,24 +98,19 @@ fun HydrationTabContent() {
             modifier = Modifier.fillMaxWidth(),
         )
 
-        SectionHeader(title = "Свой объём", subtitle = "Укажите миллилитры вручную")
+        SectionHeader(title = "Свой объём", subtitle = "Наберите миллилитры на кейпаде")
         GradientFormPanel {
-            GradientOutlinedField(
+            HydrationCustomAmountKeypad(
                 value = customMlInput,
                 onValueChange = { customMlInput = it.filter { ch -> ch.isDigit() }.take(5) },
-                label = "Сколько миллилитров выпили?",
-            )
-            AppButton(
-                text = "Добавить",
-                onClick = {
+                onAdd = {
                     val ml = customMlInput.toIntOrNull()
                     if (ml != null && ml > 0) {
                         viewModel.addWater(ml)
                         customMlInput = ""
                     }
                 },
-                enabled = customMlInput.toIntOrNull()?.let { it > 0 } == true && !uiState.isLoading,
-                modifier = Modifier.fillMaxWidth(),
+                addEnabled = customMlInput.toIntOrNull()?.let { it > 0 } == true && !uiState.isLoading,
             )
         }
 

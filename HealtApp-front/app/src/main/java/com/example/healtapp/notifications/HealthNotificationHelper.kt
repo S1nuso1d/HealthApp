@@ -203,7 +203,7 @@ object HealthNotificationHelper {
         show(
             context = context,
             notificationId = ID_AI_COACH,
-            title = "Совет от AI Тренера",
+            title = "Совет от ИИ тренера",
             body = tip,
             navRoute = "dashboard",
             channelId = HealthNotificationChannels.REMINDERS,

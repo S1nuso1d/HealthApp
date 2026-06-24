@@ -15,6 +15,7 @@ import com.example.healtapp.domain.repository.ProfileRepository
 import com.example.healtapp.domain.repository.SleepRepository
 import com.example.healtapp.features.sleep.audio.SleepSoundClip
 import com.example.healtapp.features.sleep.audio.SleepSoundStorage
+import com.example.healtapp.features.sleep.audio.SleepSoundSummaryStorage
 import com.example.healtapp.features.sleep.audio.SleepSoundTracker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -39,6 +40,7 @@ class SleepViewModel @Inject constructor(
     private val healthConnectForegroundSync: HealthConnectForegroundSync,
     private val sleepSoundTracker: SleepSoundTracker,
     private val sleepSoundStorage: SleepSoundStorage,
+    private val sleepSoundSummaryStorage: SleepSoundSummaryStorage,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -52,6 +54,7 @@ class SleepViewModel @Inject constructor(
 
     init {
         sleepSoundTracker.syncWithPersistedState()
+        sleepSoundSummaryStorage.pruneToRetention()
         load()
         viewModelScope.launch {
             AppRefreshBus.events.collect { load() }
@@ -91,6 +94,7 @@ class SleepViewModel @Inject constructor(
                 snackMessage = "Отслеживание звуков запущено",
                 showSoundPlaybackHint = false,
                 lastSessionClips = emptyList(),
+                aiSummary = null,
                 canPlaybackSounds = false,
             )
         }
@@ -124,6 +128,9 @@ class SleepViewModel @Inject constructor(
     }
 
     private fun generateSummary(clips: List<SleepSoundClipUi>) {
+        if (clips.isEmpty()) return
+        val dateKey = clips.maxByOrNull { it.recordedAtEpochMs }?.dateKey
+            ?: SleepSoundStorage.clipDayKey(System.currentTimeMillis())
         viewModelScope.launch {
             _uiState.update { it.copy(isGeneratingSummary = true, aiSummary = null) }
             val request = SleepSummaryRequestDto(
@@ -131,16 +138,29 @@ class SleepViewModel @Inject constructor(
                     SleepSoundRecordDto(
                         time = clip.timeLabel,
                         label = clip.label,
-                        peakRms = null // Optional, we don't have it easily accessible in UI
+                        peakRms = null,
                     )
-                }
+                },
             )
             aiRepository.getSleepSummary(request)
                 .onSuccess { res ->
-                    _uiState.update { it.copy(isGeneratingSummary = false, aiSummary = res.summary) }
+                    sleepSoundSummaryStorage.save(dateKey, res.summary)
+                    val refreshed = sleepSoundStorage.loadClips().map(::toClipUi)
+                    _uiState.update {
+                        it.copy(
+                            isGeneratingSummary = false,
+                            aiSummary = res.summary,
+                            soundClipGroups = groupClipsByDay(refreshed),
+                        )
+                    }
                 }
                 .onFailure {
-                    _uiState.update { it.copy(isGeneratingSummary = false) }
+                    _uiState.update {
+                        it.copy(
+                            isGeneratingSummary = false,
+                            snackMessage = "Умный анализ недоступен — показана базовая сводка по звукам",
+                        )
+                    }
                 }
         }
     }
@@ -149,6 +169,7 @@ class SleepViewModel @Inject constructor(
         if (_uiState.value.playingSoundClipId == id) stopPlayback()
         if (sleepSoundTracker.deleteClip(id)) {
             val refreshed = sleepSoundStorage.loadClips().map(::toClipUi)
+            sleepSoundSummaryStorage.deleteOrphans(refreshed.map { it.dateKey }.toSet())
             _uiState.update {
                 it.copy(
                     snackMessage = "Фрагмент удалён",
@@ -219,6 +240,7 @@ class SleepViewModel @Inject constructor(
 
     private fun groupClipsByDay(clips: List<SleepSoundClipUi>): List<SleepSoundDayGroupUi> {
         if (clips.isEmpty()) return emptyList()
+        val summaries = sleepSoundSummaryStorage.loadAll()
         val zone = ZoneId.systemDefault()
         val today = LocalDate.now(zone)
         val dateFormatter = DateTimeFormatter.ofPattern("d MMMM", Locale("ru", "RU"))
@@ -237,6 +259,7 @@ class SleepViewModel @Inject constructor(
                     dateKey = dateKey,
                     dayLabel = label,
                     clips = dayClips.sortedByDescending { it.recordedAtEpochMs },
+                    aiSummary = summaries[dateKey]?.summary,
                 )
             }
     }

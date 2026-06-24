@@ -9,7 +9,12 @@ from app.models.profile import UserProfile
 from app.models.user import User
 from app.schemas.profile import ProfileCreate, ProfileResponse
 from app.services.nutrition_targets_service import try_calculate_from_profile
-from app.services.profile_display import public_display_name, validate_nickname
+from app.services.profile_display import (
+    age_from_birth_date,
+    normalize_birth_date,
+    public_display_name,
+    validate_nickname,
+)
 from app.services.avatar_storage import (
     delete_avatar_file,
     find_existing_avatar_path,
@@ -154,6 +159,19 @@ def update_my_profile(
 
     payload = profile_data.model_dump(exclude_unset=True)
 
+    if "first_name" in payload and not str(payload.get("first_name") or "").strip():
+        raise HTTPException(status_code=400, detail="Укажите имя")
+    if "last_name" in payload and not str(payload.get("last_name") or "").strip():
+        raise HTTPException(status_code=400, detail="Укажите фамилию")
+
+    if "birth_date" in payload:
+        birth_date = normalize_birth_date(payload.get("birth_date"))
+        payload["birth_date"] = birth_date
+        if birth_date:
+            computed_age = age_from_birth_date(birth_date)
+            if computed_age is not None:
+                payload["age"] = computed_age
+
     if "nickname" in payload:
         try:
             payload["nickname"] = validate_nickname(payload.get("nickname"))
@@ -179,7 +197,7 @@ def update_my_profile(
 
     recalc_macros = payload.get("onboarding_completed") is True or (
         profile.onboarding_completed
-        and {"age", "sex", "height_cm", "weight_kg", "activity_level", "goal"} & payload.keys()
+        and {"age", "birth_date", "sex", "height_cm", "weight_kg", "activity_level", "goal"} & payload.keys()
     )
     if recalc_macros:
         targets = try_calculate_from_profile(

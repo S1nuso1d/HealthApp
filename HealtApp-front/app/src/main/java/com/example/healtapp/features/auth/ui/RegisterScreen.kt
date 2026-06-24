@@ -62,7 +62,7 @@ fun RegisterScreen(
     val (title, subtitle) = when (uiState.registerStep) {
         RegisterStep.Credentials -> "Регистрация" to "Email и пароль для входа"
         RegisterStep.Verify -> "Подтверждение" to "Введите 6-значный код из письма"
-        RegisterStep.Profile -> "О вас" to "Расскажите немного о себе — всё необязательно"
+        RegisterStep.Profile -> "О вас" to "Имя, фамилия, рост, вес, пол и цель"
         RegisterStep.Dietary -> "Ваши предпочтения" to "Религиозные, этические ограничения и аллергии"
         RegisterStep.HealthConnect -> "Health Connect" to "Подключите шаги и сон — или пропустите"
     }

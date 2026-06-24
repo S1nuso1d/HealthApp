@@ -192,7 +192,7 @@ fun MealTabContent(
         )
 
         Spacer(Modifier.height(16.dp))
-        SectionHeader(title = "AI и дневник", subtitle = "План питания и записи за сегодня")
+        SectionHeader(title = "ИИ и дневник", subtitle = "План питания и записи за сегодня")
         AppCard(onClick = onOpenPlanner) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -205,7 +205,7 @@ fun MealTabContent(
                     tint = MaterialTheme.colorScheme.primary
                 )
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("AI План питания", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("ИИ план питания", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Text("Сгенерировать меню и список покупок", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }

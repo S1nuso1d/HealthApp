@@ -71,6 +71,9 @@ class DashboardViewModel @Inject constructor(
 
     private var lastCalendarMonth: YearMonth? = null
     private var cachedActivityHistory: List<ActivityDto> = emptyList()
+    private var cachedSleepList: List<com.example.healtapp.data.network.dto.sleep.SleepDto> = emptyList()
+    private var cachedHydrationHistory: List<HydrationDto> = emptyList()
+    private var cachedMealHistory: List<com.example.healtapp.data.network.dto.meal.MealDto> = emptyList()
 
     private val _uiState = MutableStateFlow(DashboardUiState())
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
@@ -127,10 +130,12 @@ class DashboardViewModel @Inject constructor(
             runCatching {
                 dashboardApi.getGoalsCalendar(year = month.year, month = month.monthValue)
             }.onSuccess { resp ->
-                _uiState.update {
-                    it.copy(
-                        goalsCalendarDays = resp.days,
-                        goalsCalendarLoading = false,
+                _uiState.update { state ->
+                    applyLiveDashboardPatches(
+                        state.copy(
+                            goalsCalendarDays = resp.days,
+                            goalsCalendarLoading = false,
+                        ),
                     )
                 }
             }.onFailure {
@@ -142,6 +147,17 @@ class DashboardViewModel @Inject constructor(
     fun refresh() {
         loadDashboard(showFullLoading = false)
         loadGoalsCalendar(_uiState.value.goalsCalendarMonth)
+    }
+
+    fun refreshLiveSteps() {
+        viewModelScope.launch {
+            val todayKey = LocalDate.now().toString()
+            val fromRecords = ActivityStepsHelper.sumStepsForDate(cachedActivityHistory, todayKey)
+            val hcSteps = runCatching { healthConnectReader.readTodaySteps() }.getOrNull()
+            val stepsToday = resolveStepsToday(fromRecords, hcSteps, _uiState.value.stepsToday)
+            if (stepsToday == _uiState.value.stepsToday) return@launch
+            applyStepsTodayUpdate(stepsToday)
+        }
     }
 
     fun loadDashboard(showFullLoading: Boolean = false) {
@@ -264,9 +280,12 @@ class DashboardViewModel @Inject constructor(
         cachedActivityHistory = activityHistory
         val meal = phase1.mealResult.getOrNull()
         val todayKey = LocalDate.now().toString()
-        val todayActivities = activityHistory.filter { it.start_time.take(10) == todayKey }
-        val stepsFromDb = ActivityStepsHelper.sumStepsForDate(activityHistory, todayKey)
-        val stepsToday = _uiState.value.stepsToday.takeIf { it > 0 && stepsFromDb == 0 } ?: stepsFromDb
+        val todayActivities = activityHistory.filter {
+            ActivityStepsHelper.activityDateKey(it.start_time) == todayKey
+        }
+        val stepsFromRecords = ActivityStepsHelper.sumStepsForDate(activityHistory, todayKey)
+        val hcSteps = runCatching { healthConnectReader.readTodaySteps() }.getOrNull()
+        val stepsToday = resolveStepsToday(stepsFromRecords, hcSteps, previous.stepsToday)
 
         val waterTargetBase = profile?.target_water_ml?.toInt() ?: 2500
         val stepsGoalBase = profile?.target_steps?.takeIf { it > 0 } ?: 10_000
@@ -304,7 +323,8 @@ class DashboardViewModel @Inject constructor(
         val calendarSelected = _uiState.value.goalsCalendarSelectedDate
         val calendarDetail = _uiState.value.goalsCalendarDetailDate
 
-        _uiState.value = DashboardUiState(
+        _uiState.value = applyLiveDashboardPatches(
+            DashboardUiState(
             isLoading = false,
             isRefreshing = false,
             hasLoadedOnce = true,
@@ -359,7 +379,85 @@ class DashboardViewModel @Inject constructor(
             recommendationsError = previous.recommendationsError,
             dashboardHints = previous.dashboardHints,
             hintsLoading = previous.hintsLoading,
+            ),
         )
+        syncWidgetsFromState(_uiState.value)
+    }
+
+    private fun resolveStepsToday(
+        fromRecords: Int,
+        hcSteps: Int?,
+        previousSteps: Int,
+    ): Int = when {
+        hcSteps != null && hcSteps > 0 -> hcSteps
+        fromRecords > 0 -> fromRecords
+        previousSteps > 0 -> previousSteps
+        else -> 0
+    }
+
+    private fun applyLiveDashboardPatches(state: DashboardUiState): DashboardUiState {
+        val todayKey = LocalDate.now().toString()
+        val patchedCalendar = GoalsCalendarLiveMerge.patchToday(
+            days = state.goalsCalendarDays,
+            todayKey = todayKey,
+            stepsToday = state.stepsToday,
+            stepsGoal = state.stepsGoal,
+            caloriesBurnedToday = state.caloriesBurnedToday.toFloat(),
+            burnGoal = state.caloriesBurnGoal.toFloat(),
+        )
+        val weekly = if (cachedActivityHistory.isNotEmpty()) {
+            val result = WeeklySummaryCalculator.compute(
+                sleeps = cachedSleepList,
+                hydrationHistory = cachedHydrationHistory,
+                activityHistory = cachedActivityHistory,
+                mealHistory = cachedMealHistory,
+                liveStepsToday = state.stepsToday.takeIf { it > 0 },
+            )
+            WeeklySummaryUi(
+                periodLabel = result.periodLabel,
+                metrics = result.metrics.map { m ->
+                    WeeklyMetricUi(
+                        key = m.key,
+                        label = m.label,
+                        averageDisplay = m.averageDisplay,
+                        daysLogged = m.daysLogged,
+                        daysInPeriod = m.daysInPeriod,
+                        hint = m.hint,
+                    )
+                },
+            )
+        } else {
+            state.weeklySummary
+        }
+        return state.copy(
+            goalsCalendarDays = patchedCalendar,
+            weeklySummary = weekly,
+            stepsStreakDays = computeStepsStreak(
+                cachedActivityHistory,
+                state.stepsToday,
+                state.stepsGoal,
+            ),
+        )
+    }
+
+    private suspend fun applyStepsTodayUpdate(stepsToday: Int) {
+        val todayKey = LocalDate.now().toString()
+        val todayActivities = cachedActivityHistory.filter {
+            ActivityStepsHelper.activityDateKey(it.start_time) == todayKey
+        }
+        val profile = profileCache.load()
+        val stepsGoal = profile?.target_steps?.takeIf { it > 0 } ?: _uiState.value.stepsGoal
+        val burnGoal = CalorieBurnCalculator.dailyBurnGoal(stepsGoal, profile?.goal)
+        val caloriesBurned = CalorieBurnCalculator.totalBurnedToday(todayActivities, stepsToday)
+        _uiState.update { current ->
+            applyLiveDashboardPatches(
+                current.copy(
+                    stepsToday = stepsToday,
+                    caloriesBurnedToday = caloriesBurned,
+                    caloriesBurnGoal = burnGoal,
+                ),
+            )
+        }
         syncWidgetsFromState(_uiState.value)
     }
 
@@ -486,11 +584,16 @@ class DashboardViewModel @Inject constructor(
             ?.toFloat()
             ?.takeIf { it in 70f..100f }
         val activityHistory = cachedActivityHistory
+        cachedSleepList = extras.sleepList
+        cachedHydrationHistory = extras.hydrationHistory
+        cachedMealHistory = extras.mealHistory
+        val stepsToday = _uiState.value.stepsToday
         val weekly = WeeklySummaryCalculator.compute(
             sleeps = extras.sleepList,
             hydrationHistory = extras.hydrationHistory,
             activityHistory = activityHistory,
             mealHistory = extras.mealHistory,
+            liveStepsToday = stepsToday.takeIf { it > 0 },
         )
         val weeklySummary = WeeklySummaryUi(
             periodLabel = weekly.periodLabel,
@@ -507,9 +610,10 @@ class DashboardViewModel @Inject constructor(
         )
         val waterTarget = profile?.target_water_ml?.toInt() ?: _uiState.value.waterTargetMl
         val stepsGoal = profile?.target_steps?.takeIf { it > 0 } ?: _uiState.value.stepsGoal
-        val stepsToday = _uiState.value.stepsToday
         val mealCountToday = extras.mealHistory.count { it.meal_time.take(10) == todayKey }
-        val todayActivities = activityHistory.filter { it.start_time.take(10) == todayKey }
+        val todayActivities = activityHistory.filter {
+            ActivityStepsHelper.activityDateKey(it.start_time) == todayKey
+        }
         val burnGoal = CalorieBurnCalculator.dailyBurnGoal(stepsGoal, profile?.goal)
         val caloriesBurned = CalorieBurnCalculator.totalBurnedToday(todayActivities, stepsToday)
         val plan = ActionPlanAutoComplete.apply(
@@ -532,36 +636,37 @@ class DashboardViewModel @Inject constructor(
         )
 
         _uiState.update { current ->
-            current.copy(
-                isOfflineCache = false,
-                recommendations = filterAchievedRecommendations(current.recommendations),
-                sleepHours = latestSleep?.duration_hours ?: current.sleepHours,
-                sleepQuality = latestSleep?.quality_score?.toString() ?: current.sleepQuality,
-                actionPlanItems = plan,
-                weeklySummary = weeklySummary,
-                moodCheckIn = MoodCheckInUi(
-                    mood = todayState?.mood?.coerceIn(1, 10) ?: current.moodCheckIn.mood,
-                    energy = todayState?.energy?.coerceIn(1, 10) ?: current.moodCheckIn.energy,
-                    stress = todayState?.stress?.coerceIn(1, 10) ?: current.moodCheckIn.stress,
-                    savedToday = todayState != null,
+            applyLiveDashboardPatches(
+                current.copy(
+                    isOfflineCache = false,
+                    recommendations = filterAchievedRecommendations(current.recommendations),
+                    sleepHours = latestSleep?.duration_hours ?: current.sleepHours,
+                    sleepQuality = latestSleep?.quality_score?.toString() ?: current.sleepQuality,
+                    actionPlanItems = plan,
+                    weeklySummary = weeklySummary,
+                    moodCheckIn = MoodCheckInUi(
+                        mood = todayState?.mood?.coerceIn(1, 10) ?: current.moodCheckIn.mood,
+                        energy = todayState?.energy?.coerceIn(1, 10) ?: current.moodCheckIn.energy,
+                        stress = todayState?.stress?.coerceIn(1, 10) ?: current.moodCheckIn.stress,
+                        savedToday = todayState != null,
+                    ),
+                    waterStreakDays = computeWaterStreak(extras.hydrationHistory, waterTarget),
+                    heartRateBpm = vitalsHeartRate,
+                    spo2Percent = vitalsSpo2,
+                    dailyBrief = current.dailyBrief,
                 ),
-                waterStreakDays = computeWaterStreak(extras.hydrationHistory, waterTarget),
-                stepsStreakDays = computeStepsStreak(activityHistory, stepsToday, stepsGoal),
-                heartRateBpm = vitalsHeartRate,
-                spo2Percent = vitalsSpo2,
-                dailyBrief = current.dailyBrief,
             )
         }
         syncWidgetsFromState(_uiState.value)
     }
 
     private suspend fun refreshStepsFromHealthConnect() {
-        val hcSteps = runCatching { healthConnectReader.readTodaySteps() }.getOrNull() ?: return
-        if (hcSteps <= 0) return
-        val current = _uiState.value
-        if (hcSteps <= current.stepsToday) return
-        _uiState.update { it.copy(stepsToday = hcSteps) }
-        syncWidgetsFromState(_uiState.value)
+        val todayKey = LocalDate.now().toString()
+        val fromRecords = ActivityStepsHelper.sumStepsForDate(cachedActivityHistory, todayKey)
+        val hcSteps = runCatching { healthConnectReader.readTodaySteps() }.getOrNull()
+        val stepsToday = resolveStepsToday(fromRecords, hcSteps, _uiState.value.stepsToday)
+        if (stepsToday <= _uiState.value.stepsToday) return
+        applyStepsTodayUpdate(stepsToday)
     }
 
     private suspend fun loadAiRecommendations(days: Int = 7) {

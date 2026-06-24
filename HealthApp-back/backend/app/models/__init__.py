@@ -17,7 +17,7 @@ from app.models.insight import Insight
 from app.models.integration_credential import IntegrationCredential
 from app.models.pending_registration import PendingRegistration
 from app.models.gamification import UserAchievement
-from app.models.social import Friendship, FeedPost, FeedReaction, UserPrivacySettings
+from app.models.social import Friendship, FeedPost, FeedReaction, UserPrivacySettings, ClubNotification
 from app.models.health import CycleEntry
 from app.models.health import PillReminder
 from app.models.food_catalog import FoodCatalogItem

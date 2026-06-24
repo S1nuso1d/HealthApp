@@ -21,6 +21,7 @@ data class UserCardDto(
     val first_name: String? = null,
     val last_name: String? = null,
     val goal: String? = null,
+    val age: Int? = null,
     val has_avatar: Boolean = false,
     val is_self: Boolean = false,
 )
@@ -115,7 +116,10 @@ data class FeedStoryItemDto(
     val media_url: String,
     val created_at: String? = null,
     val expires_at: String? = null,
+    val view_count: Int = 0,
 )
+
+data class StoryViewResultDto(val view_count: Int = 0)
 
 data class FeedStoryDto(
     val author: UserCardDto,
@@ -156,6 +160,7 @@ data class FriendProfileResponseDto(
     val user: UserCardDto,
     val activities: List<FriendActivityDto> = emptyList(),
     val achievements: List<FriendAchievementDto> = emptyList(),
+    val posts: List<FeedPostDto> = emptyList(),
     val is_friend: Boolean = false,
     val is_blocked: Boolean = false,
 )
@@ -220,6 +225,16 @@ data class ClubUpdateDto(
 )
 
 data class ClubMemberRoleUpdateDto(val role: String)
+
+data class ClubNotificationDto(
+    val id: Int,
+    val club_id: Int,
+    val event_type: String,
+    val title: String,
+    val message: String,
+    val club_name: String,
+    val created_at: String,
+)
 
 data class ClubPostCreateDto(
     val post_type: String = "discussion",

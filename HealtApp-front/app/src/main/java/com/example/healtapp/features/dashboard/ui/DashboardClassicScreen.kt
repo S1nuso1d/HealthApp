@@ -10,6 +10,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -17,7 +18,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.example.healtapp.core.common.ShareProgressHelper
 import com.example.healtapp.core.ui.components.AppCard
 import com.example.healtapp.core.ui.components.AppMessageBanner
@@ -69,6 +73,17 @@ fun DashboardClassicScreen(
         showGuide = FeatureGuidePrefs.shouldShow(context, FeatureGuideScreen.Dashboard)
     }
 
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                dashboardViewModel.refreshLiveSteps()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     Scaffold(containerColor = androidx.compose.ui.graphics.Color.Transparent) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             PullToRefreshContainer(
@@ -78,7 +93,7 @@ fun DashboardClassicScreen(
             ) {
                 AppScreen(
                     scrollable = true,
-                    scrollStateKey = "dashboard_classic",
+                    scrollStateKey = "dashboard",
                     contentPadding = PaddingValues(20.dp),
                     extraBottomPadding = 80.dp,
                 ) {

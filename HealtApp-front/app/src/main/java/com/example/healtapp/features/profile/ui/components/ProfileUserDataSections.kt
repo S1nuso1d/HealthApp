@@ -14,7 +14,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.common.Constants
 import com.example.healtapp.core.ui.components.AppButton
@@ -50,7 +52,7 @@ fun ProfilePersonalDataSection(
         onExpandedChange = onExpandedChange,
     ) {
         Text(
-            text = "Имя, фамилия или никнейм — по ним вас найдут друзья в поиске.",
+            text = "Имя и фамилия обязательны — по ним вас найдут друзья в поиске.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -115,8 +117,20 @@ fun ProfilePersonalDataSection(
                 ),
             )
         }
-        AppTextField(uiState.height, onHeightChange, label = "Рост (см)")
-        AppTextField(uiState.weight, onWeightChange, label = "Вес (кг)")
+        AppTextField(
+            value = uiState.height,
+            onValueChange = onHeightChange,
+            label = "Рост (см)",
+            keyboardType = KeyboardType.Number,
+            enabled = !uiState.guestMode,
+        )
+        AppTextField(
+            value = uiState.weight,
+            onValueChange = onWeightChange,
+            label = "Вес (кг)",
+            keyboardType = KeyboardType.Decimal,
+            enabled = !uiState.guestMode,
+        )
         AppButton(
             text = when {
                 uiState.isSaving -> "Сохраняем..."

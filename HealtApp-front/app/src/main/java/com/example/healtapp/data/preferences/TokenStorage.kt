@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.example.healtapp.core.common.JwtUserId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -18,6 +19,7 @@ class TokenStorage(
         private val TOKEN_KEY = stringPreferencesKey("token")
         private val REFRESH_TOKEN_KEY = stringPreferencesKey("refresh_token")
         private val GUEST_MODE_KEY = booleanPreferencesKey("guest_mode")
+        private val USER_ID_KEY = stringPreferencesKey("user_id")
     }
 
     suspend fun saveTokens(accessToken: String, refreshToken: String?) {
@@ -29,6 +31,9 @@ class TokenStorage(
                 prefs.remove(REFRESH_TOKEN_KEY)
             }
             prefs[GUEST_MODE_KEY] = false
+            JwtUserId.fromAccessToken(accessToken)?.let { id ->
+                prefs[USER_ID_KEY] = id.toString()
+            }
         }
     }
 
@@ -36,6 +41,9 @@ class TokenStorage(
         context.dataStore.edit { prefs ->
             prefs[TOKEN_KEY] = token
             prefs[GUEST_MODE_KEY] = false
+            JwtUserId.fromAccessToken(token)?.let { id ->
+                prefs[USER_ID_KEY] = id.toString()
+            }
         }
     }
 
@@ -71,10 +79,21 @@ class TokenStorage(
         return refreshTokenFlow().first()
     }
 
+    suspend fun getUserId(): Int? =
+        context.dataStore.data.first()[USER_ID_KEY]?.toIntOrNull()
+            ?: JwtUserId.fromAccessToken(getToken())
+
+    suspend fun setUserId(userId: Int) {
+        context.dataStore.edit { prefs ->
+            prefs[USER_ID_KEY] = userId.toString()
+        }
+    }
+
     suspend fun clearToken() {
         context.dataStore.edit { prefs ->
             prefs.remove(TOKEN_KEY)
             prefs.remove(REFRESH_TOKEN_KEY)
+            prefs.remove(USER_ID_KEY)
             prefs[GUEST_MODE_KEY] = false
         }
     }

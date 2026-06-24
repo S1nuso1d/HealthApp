@@ -9,6 +9,7 @@ import com.example.healtapp.data.network.dto.social.FeedCommentsResponseDto
 import com.example.healtapp.data.network.dto.social.FeedCommentCreateDto
 import com.example.healtapp.data.network.dto.social.FeedCommentDto
 import com.example.healtapp.data.network.dto.social.FeedStoriesResponseDto
+import com.example.healtapp.data.network.dto.social.StoryViewResultDto
 import com.example.healtapp.data.network.dto.social.LinkableActivitiesResponseDto
 import com.example.healtapp.data.network.dto.social.FriendProfileResponseDto
 import com.example.healtapp.data.network.dto.social.FriendRequestDto
@@ -28,6 +29,7 @@ import com.example.healtapp.data.network.dto.social.ClubPostResponseDto
 import com.example.healtapp.data.network.dto.social.ClubPollVoteDto
 import com.example.healtapp.data.network.dto.social.ClubUpdateDto
 import com.example.healtapp.data.network.dto.social.ClubMemberRoleUpdateDto
+import com.example.healtapp.data.network.dto.social.ClubNotificationDto
 import retrofit2.http.PATCH
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -93,6 +95,9 @@ interface SocialApi {
     @GET("social/stories")
     suspend fun getStories(): FeedStoriesResponseDto
 
+    @POST("social/stories/{storyId}/view")
+    suspend fun recordStoryView(@Path("storyId") storyId: Int): StoryViewResultDto
+
     @GET("social/activities/linkable")
     suspend fun getLinkableActivities(): LinkableActivitiesResponseDto
 
@@ -153,6 +158,18 @@ interface SocialApi {
         @Path("userId") userId: Int,
         @Body body: ClubMemberRoleUpdateDto,
     ): Map<String, String>
+
+    @DELETE("social/clubs/{id}/members/{userId}")
+    suspend fun removeClubMember(
+        @Path("id") clubId: Int,
+        @Path("userId") userId: Int,
+    ): Map<String, String>
+
+    @GET("social/clubs/notifications/recent")
+    suspend fun getClubNotificationsRecent(): List<ClubNotificationDto>
+
+    @POST("social/clubs/notifications/{id}/read")
+    suspend fun markClubNotificationRead(@Path("id") notificationId: Int): Map<String, String>
 
     @GET("social/clubs/{id}/posts")
     suspend fun getClubPosts(@Path("id") clubId: Int): List<ClubPostResponseDto>

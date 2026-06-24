@@ -1,31 +1,27 @@
 package com.example.healtapp.features.auth.presentation
 
 import com.example.healtapp.core.common.AgeUtils
+import com.example.healtapp.core.common.Constants
 import com.example.healtapp.data.network.dto.auth.RegisterProfileDraftDto
 
 object AuthRegistrationMapper {
 
-    fun buildProfileDraft(state: AuthUiState): RegisterProfileDraftDto? {
+    fun buildProfileDraft(state: AuthUiState): RegisterProfileDraftDto {
         val age = AgeUtils.ageFromBirthDate(state.birthDate)
         val dietaryText = buildDietaryText(state)
         val hasDietary = dietaryText != null
-
-        if (
-            state.firstName.isBlank() &&
-            state.lastName.isBlank() &&
-            state.nickname.isBlank() &&
-            age == null &&
-            !hasDietary &&
-            !state.isVegetarian
-        ) {
-            return null
-        }
 
         return RegisterProfileDraftDto(
             first_name = state.firstName.trim().ifBlank { null },
             last_name = state.lastName.trim().ifBlank { null },
             nickname = state.nickname.trim().ifBlank { null },
             age = age,
+            birth_date = state.birthDate.trim().take(10).ifBlank { null },
+            sex = state.sex,
+            height_cm = state.height.trim().replace(',', '.').toFloatOrNull(),
+            weight_kg = state.weight.trim().replace(',', '.').toFloatOrNull(),
+            goal = state.goal,
+            activity_level = Constants.ActivityLevel.MEDIUM,
             is_vegetarian = state.isVegetarian ||
                 "vegetarian" in state.dietaryExclusions ||
                 "vegan" in state.dietaryExclusions,

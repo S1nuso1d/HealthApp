@@ -68,4 +68,5 @@ data class SleepSoundDayGroupUi(
     val dateKey: String,
     val dayLabel: String,
     val clips: List<SleepSoundClipUi>,
+    val aiSummary: String? = null,
 )

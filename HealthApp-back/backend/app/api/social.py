@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import or_
+from sqlalchemy import or_, and_, func
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -13,10 +14,34 @@ from app.db.database import get_db
 from app.models.activity import ActivityRecord
 from app.models.gamification import UserAchievement
 from app.models.profile import UserProfile
-from app.models.social import FeedPost, FeedReaction, FeedComment, Friendship, UserPrivacySettings, Challenge, ChallengeParticipant, UserBlock, FeedStory, Club, ClubMember, ClubPost
+from app.models.social import (
+    FeedPost,
+    FeedReaction,
+    FeedComment,
+    Friendship,
+    UserPrivacySettings,
+    Challenge,
+    ChallengeParticipant,
+    UserBlock,
+    FeedStory,
+    FeedStoryView,
+    Club,
+    ClubMember,
+    ClubPost,
+    ClubNotification,
+)
 from app.models.user import User
 from app.services.profile_display import public_display_name
+from app.services.user_search import user_matches_search_query
 router = APIRouter(prefix="/social", tags=["Social"])
+
+
+def _as_utc_aware(dt: datetime | None) -> datetime | None:
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 
 class PrivacyUpdate(BaseModel):
@@ -107,6 +132,16 @@ class ClubMemberRoleUpdate(BaseModel):
     role: str = Field(pattern="^(admin|member)$")
 
 
+class ClubNotificationResponse(BaseModel):
+    id: int
+    club_id: int
+    event_type: str
+    title: str
+    message: str
+    club_name: str
+    created_at: str
+
+
 class ClubPostCreate(BaseModel):
     post_type: str = Field(default="discussion", pattern="^(discussion|achievement|poll)$")
     body: str | None = None
@@ -171,6 +206,23 @@ def _is_blocked(db: Session, user_a: int, user_b: int) -> bool:
         is not None
     )
 
+def _share_club(db: Session, a: int, b: int) -> bool:
+    if a == b:
+        return True
+    club_ids = [
+        row[0]
+        for row in db.query(ClubMember.club_id).filter(ClubMember.user_id == a).all()
+    ]
+    if not club_ids:
+        return False
+    return (
+        db.query(ClubMember)
+        .filter(ClubMember.user_id == b, ClubMember.club_id.in_(club_ids))
+        .first()
+        is not None
+    )
+
+
 def _can_view_profile(db: Session, viewer_id: int, target_id: int) -> bool:
     if viewer_id == target_id:
         return True
@@ -181,7 +233,7 @@ def _can_view_profile(db: Session, viewer_id: int, target_id: int) -> bool:
         return True
     if p.profile_visibility == "private":
         return False
-    return _are_friends(db, viewer_id, target_id)
+    return _are_friends(db, viewer_id, target_id) or _share_club(db, viewer_id, target_id)
 
 
 def _can_view_feed(db: Session, viewer_id: int, author_id: int, post_visibility: str) -> bool:
@@ -199,7 +251,7 @@ def _can_view_feed(db: Session, viewer_id: int, author_id: int, post_visibility:
         return False
     if privacy.feed_visibility == "public":
         return True
-    return _are_friends(db, viewer_id, author_id)
+    return _are_friends(db, viewer_id, author_id) or _share_club(db, viewer_id, author_id)
 
 
 def _activity_payload(a: ActivityRecord) -> dict:
@@ -277,6 +329,7 @@ def _user_card(db: Session, user: User, viewer_id: int) -> dict:
         "first_name": (profile.first_name or "").strip() or None if profile else None,
         "last_name": (profile.last_name or "").strip() or None if profile else None,
         "goal": profile.goal if profile else None,
+        "age": profile.age if profile and profile.age and profile.age > 0 else None,
         "has_avatar": bool(profile and profile.has_avatar),
         "is_self": user.id == viewer_id,
     }
@@ -317,27 +370,20 @@ def search_users(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    from sqlalchemy import func
-
-    needle = q.strip().lower()
-    pattern = f"%{needle}%"
-    users = (
-        db.query(User)
+    rows = (
+        db.query(User, UserProfile)
         .outerjoin(UserProfile, UserProfile.user_id == User.id)
         .filter(User.id != current_user.id)
-        .filter(
-            or_(
-                User.email.ilike(pattern),
-                func.lower(UserProfile.nickname).like(pattern),
-                func.lower(UserProfile.first_name).like(pattern),
-                func.lower(UserProfile.last_name).like(pattern),
-            ),
-        )
-        .limit(100)
+        .limit(500)
         .all()
     )
-    valid_users = [u for u in users if not _is_blocked(db, current_user.id, u.id)]
-    return {"users": [_user_card(db, u, current_user.id) for u in valid_users[:20]]}
+    matched: list[User] = []
+    for user, profile in rows:
+        if _is_blocked(db, current_user.id, user.id):
+            continue
+        if user_matches_search_query(user, profile, q):
+            matched.append(user)
+    return {"users": [_user_card(db, u, current_user.id) for u in matched[:20]]}
 
 
 @router.get("/friends")
@@ -547,6 +593,26 @@ def get_feed(
 class StoryCreate(BaseModel):
     media_url: str
 
+
+def _story_view_counts(db: Session, story_ids: list[int], owner_id: int) -> dict[int, int]:
+    if not story_ids:
+        return {}
+    rows = (
+        db.query(FeedStoryView.story_id, func.count(FeedStoryView.id))
+        .filter(FeedStoryView.story_id.in_(story_ids))
+        .filter(FeedStoryView.viewer_id != owner_id)
+        .group_by(FeedStoryView.story_id)
+        .all()
+    )
+    return {story_id: int(count) for story_id, count in rows}
+
+
+def _can_view_story(db: Session, viewer_id: int, story: FeedStory) -> bool:
+    if story.user_id == viewer_id:
+        return True
+    return story.user_id in _friend_user_ids(db, viewer_id)
+
+
 @router.post("/stories", summary="Создать историю")
 def create_story(
     body: StoryCreate,
@@ -588,15 +654,23 @@ def get_friend_stories(
     active_stories = (
         db.query(FeedStory)
         .filter(FeedStory.user_id.in_(user_ids))
-        .filter(FeedStory.expires_at > now)
         .order_by(FeedStory.created_at.asc())
         .all()
     )
+    active_stories = [
+        s for s in active_stories
+        if _as_utc_aware(s.expires_at) and _as_utc_aware(s.expires_at) > now
+    ]
     
     # Group by user
     by_user = {}
     for s in active_stories:
         by_user.setdefault(s.user_id, []).append(s)
+
+    view_counts_by_story: dict[int, int] = {}
+    for uid, user_stories in by_user.items():
+        if uid == current_user.id:
+            view_counts_by_story.update(_story_view_counts(db, [s.id for s in user_stories], uid))
         
     stories_response = []
     for uid, user_stories in by_user.items():
@@ -618,6 +692,7 @@ def get_friend_stories(
                         "media_url": s.media_url,
                         "created_at": s.created_at.isoformat() if s.created_at else None,
                         "expires_at": s.expires_at.isoformat() if s.expires_at else None,
+                        "view_count": view_counts_by_story.get(s.id, 0) if uid == current_user.id else 0,
                     }
                     for s in user_stories
                 ]
@@ -625,6 +700,40 @@ def get_friend_stories(
         )
         
     return {"stories": stories_response}
+
+
+@router.post("/stories/{story_id}/view", summary="Отметить просмотр истории")
+def record_story_view(
+    story_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    story = db.query(FeedStory).filter(FeedStory.id == story_id).first()
+    if not story:
+        raise HTTPException(404, detail="История не найдена")
+
+    now = datetime.now(timezone.utc)
+    if _as_utc_aware(story.expires_at) <= now:
+        raise HTTPException(404, detail="История истекла")
+
+    if not _can_view_story(db, current_user.id, story):
+        raise HTTPException(403, detail="Нет доступа")
+
+    if story.user_id != current_user.id:
+        existing = (
+            db.query(FeedStoryView)
+            .filter(
+                FeedStoryView.story_id == story_id,
+                FeedStoryView.viewer_id == current_user.id,
+            )
+            .first()
+        )
+        if not existing:
+            db.add(FeedStoryView(story_id=story_id, viewer_id=current_user.id))
+            db.commit()
+
+    view_count = _story_view_counts(db, [story.id], story.user_id).get(story.id, 0)
+    return {"view_count": view_count}
 
 
 @router.get("/activities/linkable")
@@ -912,19 +1021,21 @@ def friend_profile(
     card = _user_card(db, user, current_user.id)
     activities = []
     achievements = []
+    posts = []
 
     if not has_blocked_target:
-        p = _privacy(db, user_id)
-        can_view = False
-        if current_user.id == user_id or p.profile_visibility == "public":
-            can_view = True
-        elif p.profile_visibility == "friends" and _are_friends(db, current_user.id, user_id):
-            can_view = True
-            
+        can_view = _can_view_profile(db, current_user.id, user_id)
+
         if not can_view:
             raise HTTPException(403, detail="Профиль закрыт настройками приватности")
 
-        if p.show_activity_to_friends or current_user.id == user_id:
+        p = _privacy(db, user_id)
+        can_see_details = (
+            current_user.id == user_id
+            or _are_friends(db, current_user.id, user_id)
+            or _share_club(db, current_user.id, user_id)
+        )
+        if p.show_activity_to_friends and can_see_details:
             acts = (
                 db.query(ActivityRecord)
                 .filter(ActivityRecord.user_id == user_id)
@@ -943,7 +1054,7 @@ def friend_profile(
                 }
                 for a in acts
             ]
-        if p.show_achievements_to_friends or current_user.id == user_id:
+        if p.show_achievements_to_friends and can_see_details:
             unlocked = (
                 db.query(UserAchievement)
                 .filter(UserAchievement.user_id == user_id)
@@ -961,10 +1072,36 @@ def friend_profile(
                 }
                 for u in unlocked
             ]
+
+        feed_posts = (
+            db.query(FeedPost)
+            .filter(FeedPost.user_id == user_id)
+            .order_by(FeedPost.created_at.desc())
+            .limit(30)
+            .all()
+        )
+        visible_posts: list[FeedPost] = [
+            p
+            for p in feed_posts
+            if _can_view_feed(db, current_user.id, p.user_id, p.visibility)
+        ]
+        post_ids = [p.id for p in visible_posts]
+        reactions_map = _reactions_for_posts(db, post_ids, current_user.id)
+        posts = [
+            _serialize_post(
+                db,
+                p,
+                user,
+                current_user.id,
+                reactions_map.get(p.id, {"counts": [], "total": 0, "my_reaction": None}),
+            )
+            for p in visible_posts[:20]
+        ]
     return {
         "user": card,
         "activities": activities,
         "achievements": achievements,
+        "posts": posts,
         "is_friend": _are_friends(db, current_user.id, user_id) if not has_blocked_target else False,
         "is_blocked": has_blocked_target,
     }
@@ -1222,8 +1359,24 @@ def leave_club(
     m = db.query(ClubMember).filter(ClubMember.club_id == club_id, ClubMember.user_id == current_user.id).first()
     if not m:
         return {"status": "ok", "message": "Не состоит в клубе"}
-    
+
+    club = db.query(Club).filter(Club.id == club_id).first()
+    club_name = club.name if club else "Клуб"
+    was_sole_admin = False
+    if m.role == "admin":
+        admin_count = (
+            db.query(ClubMember)
+            .filter(ClubMember.club_id == club_id, ClubMember.role == "admin")
+            .count()
+        )
+        was_sole_admin = admin_count == 1
+
     db.delete(m)
+    db.flush()
+
+    if was_sole_admin:
+        _transfer_admin_if_sole_leaving(db, club_id, club_name)
+
     db.commit()
     return {"status": "ok"}
 
@@ -1264,6 +1417,49 @@ def _club_member(db: Session, club_id: int, user_id: int) -> ClubMember:
     if not member:
         raise HTTPException(status_code=403, detail="Вы не состоите в этом клубе")
     return member
+
+
+def _create_club_notification(
+    db: Session,
+    *,
+    user_id: int,
+    club_id: int,
+    event_type: str,
+    title: str,
+    message: str,
+    club_name: str,
+) -> None:
+    db.add(
+        ClubNotification(
+            user_id=user_id,
+            club_id=club_id,
+            event_type=event_type,
+            title=title,
+            message=message,
+            club_name=club_name,
+        )
+    )
+
+
+def _transfer_admin_if_sole_leaving(db: Session, club_id: int, club_name: str) -> None:
+    next_admin = (
+        db.query(ClubMember)
+        .filter(ClubMember.club_id == club_id)
+        .order_by(ClubMember.joined_at.asc())
+        .first()
+    )
+    if not next_admin:
+        return
+    next_admin.role = "admin"
+    _create_club_notification(
+        db,
+        user_id=next_admin.user_id,
+        club_id=club_id,
+        event_type="admin_transferred",
+        title="Новый администратор",
+        message=f"Вы назначены администратором клуба «{club_name}» — прежний админ покинул сообщество",
+        club_name=club_name,
+    )
 
 
 @router.put("/clubs/{club_id}", response_model=ClubResponse, summary="Обновить клуб")
@@ -1309,9 +1505,128 @@ def update_club_member_role(
         raise HTTPException(status_code=404, detail="Участник не найден")
     if target.user_id == current_user.id:
         raise HTTPException(status_code=400, detail="Нельзя изменить собственную роль")
+    if target.role == "admin" and payload.role == "member":
+        admin_count = (
+            db.query(ClubMember)
+            .filter(ClubMember.club_id == club_id, ClubMember.role == "admin")
+            .count()
+        )
+        if admin_count <= 1:
+            raise HTTPException(status_code=400, detail="В клубе должен остаться хотя бы один администратор")
+
+    club = db.query(Club).filter(Club.id == club_id).first()
+    club_name = club.name if club else "Клуб"
+    old_role = target.role
     target.role = payload.role
+    if old_role != payload.role:
+        if payload.role == "admin":
+            _create_club_notification(
+                db,
+                user_id=target.user_id,
+                club_id=club_id,
+                event_type="promoted_admin",
+                title="Права администратора",
+                message=f"Вам выданы права администратора в клубе «{club_name}»",
+                club_name=club_name,
+            )
+        else:
+            _create_club_notification(
+                db,
+                user_id=target.user_id,
+                club_id=club_id,
+                event_type="demoted_member",
+                title="Изменение роли",
+                message=f"В клубе «{club_name}» с вас сняты права администратора",
+                club_name=club_name,
+            )
     db.commit()
     return {"status": "ok", "role": target.role}
+
+
+@router.delete("/clubs/{club_id}/members/{member_user_id}", summary="Исключить участника")
+def remove_club_member(
+    club_id: int,
+    member_user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _club_admin(db, club_id, current_user.id)
+    target = db.query(ClubMember).filter(ClubMember.club_id == club_id, ClubMember.user_id == member_user_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="Участник не найден")
+    if target.user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Нельзя исключить себя — используйте выход из клуба")
+    if target.role == "admin":
+        admin_count = (
+            db.query(ClubMember)
+            .filter(ClubMember.club_id == club_id, ClubMember.role == "admin")
+            .count()
+        )
+        if admin_count <= 1:
+            raise HTTPException(status_code=400, detail="Сначала назначьте другого администратора")
+
+    club = db.query(Club).filter(Club.id == club_id).first()
+    club_name = club.name if club else "Клуб"
+    _create_club_notification(
+        db,
+        user_id=target.user_id,
+        club_id=club_id,
+        event_type="kicked",
+        title="Исключение из клуба",
+        message=f"Вас исключили из клуба «{club_name}»",
+        club_name=club_name,
+    )
+    db.delete(target)
+    db.commit()
+    return {"status": "ok"}
+
+
+@router.get("/clubs/notifications/recent", response_model=list[ClubNotificationResponse], summary="Недавние уведомления клубов")
+def get_club_notifications_recent(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=30)
+    rows = (
+        db.query(ClubNotification)
+        .filter(
+            ClubNotification.user_id == current_user.id,
+            ClubNotification.read_at.is_(None),
+            ClubNotification.created_at >= cutoff,
+        )
+        .order_by(ClubNotification.created_at.asc())
+        .limit(20)
+        .all()
+    )
+    return [
+        ClubNotificationResponse(
+            id=n.id,
+            club_id=n.club_id,
+            event_type=n.event_type,
+            title=n.title,
+            message=n.message,
+            club_name=n.club_name,
+            created_at=n.created_at.isoformat() if n.created_at else "",
+        )
+        for n in rows
+    ]
+
+
+@router.post("/clubs/notifications/{notification_id}/read", summary="Отметить уведомление прочитанным")
+def mark_club_notification_read(
+    notification_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    n = (
+        db.query(ClubNotification)
+        .filter(ClubNotification.id == notification_id, ClubNotification.user_id == current_user.id)
+        .first()
+    )
+    if n and n.read_at is None:
+        n.read_at = datetime.now(timezone.utc)
+        db.commit()
+    return {"status": "ok"}
 
 
 @router.get("/clubs/{club_id}/posts", response_model=list[ClubPostResponse], summary="Посты клуба")

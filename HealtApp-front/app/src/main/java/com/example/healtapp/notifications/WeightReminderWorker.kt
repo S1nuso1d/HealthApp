@@ -3,7 +3,6 @@ package com.example.healtapp.notifications
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.example.healtapp.data.preferences.WeightHistoryStore
 import com.example.healtapp.di.ReminderEntryPoint
 import dagger.hilt.android.EntryPointAccessors
 
@@ -23,7 +22,7 @@ class WeightReminderWorker(
         }
         if (!HealthNotificationHelper.canPost(applicationContext)) return Result.success()
 
-        val store = WeightHistoryStore(applicationContext)
+        val store = entry.weightHistoryStore()
         if (store.shouldShowWeeklyReminder()) {
             HealthNotificationHelper.weightUpdateReminder(applicationContext)
             store.markWeeklyPromptShown()

@@ -40,7 +40,7 @@ object LocalDemoData {
         ),
         dailyBrief = DailyBriefUi(
             title = "Демо-сводка дня",
-            summary = "Пример AI-брифа: сон близок к цели, воды пока мало — добавьте стакан.",
+            summary = "Пример ИИ-брифа: сон близок к цели, воды пока мало — добавьте стакан.",
             keyPoints = listOf("Сон 7,5 ч", "Вода ~48% цели", "Шаги на хорошем уровне"),
         ),
         actionPlanItems = listOf(

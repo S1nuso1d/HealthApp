@@ -28,6 +28,12 @@ class ProfileCreate(BaseModel):
         description="Возраст пользователя",
         examples=[22]
     )
+    birth_date: Optional[str] = Field(
+        None,
+        max_length=10,
+        description="Дата рождения ISO (YYYY-MM-DD)",
+        examples=["2000-03-15"],
+    )
     sex: Optional[str] = Field(
         None,
         description="Пол пользователя",
@@ -109,6 +115,7 @@ class ProfileResponse(BaseModel):
         description="Как вас видят в сообществе",
     )
     age: Optional[int] = None
+    birth_date: Optional[str] = None
     sex: Optional[str] = None
     height_cm: Optional[float] = None
     weight_kg: Optional[float] = None

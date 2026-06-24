@@ -47,6 +47,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -78,6 +79,7 @@ import com.example.healtapp.features.auth.ui.components.ChangePasswordForm
 import com.example.healtapp.features.auth.ui.components.ChangePasswordFormHeader
 import com.example.healtapp.features.profile.PoliticalRecommendations
 import com.example.healtapp.features.profile.presentation.ProfileEditViewModel
+import com.example.healtapp.features.profile.presentation.ProfileEditViewModel.Companion.PROFILE_SAVE_SUCCESS
 import com.example.healtapp.features.profile.ui.components.ProfileBodyStatsCard
 import com.example.healtapp.features.profile.ui.components.ProfileDietSection
 import com.example.healtapp.features.profile.ui.components.ProfileGoalsEditSheet
@@ -87,8 +89,7 @@ import com.example.healtapp.features.profile.ui.components.ProfileHeroBlock
 import com.example.healtapp.features.profile.ui.components.ProfileLogoutCard
 import com.example.healtapp.features.profile.ui.components.ProfileNavLink
 import com.example.healtapp.features.profile.ui.components.ProfilePersonalDataSection
-import com.example.healtapp.data.preferences.DashboardUiPrefs
-import com.example.healtapp.features.profile.ui.components.ProfileDashboardLayoutSelector
+import com.example.healtapp.features.profile.ui.components.ProfileSaveSuccessOverlay
 import com.example.healtapp.features.profile.ui.components.ProfileThemeSelector
 import dagger.hilt.android.EntryPointAccessors
 import java.io.File
@@ -135,7 +136,6 @@ fun ProfileScreen(
     }
 
     var showAvatarSheet by remember { mutableStateOf(false) }
-    var dashboardLayout by remember { mutableStateOf(DashboardUiPrefs.getLayoutMode(context)) }
     var showGoalsSheet by remember { mutableStateOf(false) }
     var goalsCardExpanded by remember { mutableStateOf(false) }
     var basicsCardExpanded by remember { mutableStateOf(false) }
@@ -144,9 +144,19 @@ fun ProfileScreen(
     var collapsingSection by remember { mutableStateOf<ProfileSaveSection?>(null) }
     var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
     var showGuide by remember { mutableStateOf(false) }
+    var showSaveSuccessAnim by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         showGuide = FeatureGuidePrefs.shouldShow(context, FeatureGuideScreen.Profile)
+    }
+
+    LaunchedEffect(uiState.success) {
+        if (uiState.success == PROFILE_SAVE_SUCCESS) {
+            showSaveSuccessAnim = true
+            delay(1800)
+            showSaveSuccessAnim = false
+            viewModel.dismissSuccess()
+        }
     }
 
     LaunchedEffect(uiState.isSaving, uiState.success) {
@@ -271,8 +281,6 @@ fun ProfileScreen(
                 displayName = displayName,
                 avatarUrl = avatarUrl,
                 imageLoader = imageLoader,
-                goal = uiState.goal,
-                activityLevel = uiState.activityLevel,
                 age = uiState.age,
                 guestMode = uiState.guestMode,
                 isUploadingAvatar = uiState.isUploadingAvatar,
@@ -326,7 +334,7 @@ fun ProfileScreen(
             uiState.error?.let {
                 AppMessageBanner(text = it, type = AppMessageType.Error)
             }
-            uiState.success?.let {
+            uiState.success?.takeIf { it != PROFILE_SAVE_SUCCESS }?.let {
                 AppMessageBanner(text = it, type = AppMessageType.Success)
             }
 
@@ -390,14 +398,6 @@ fun ProfileScreen(
                 ProfileThemeSelector(
                     selected = uiState.themeMode,
                     onSelected = viewModel::setThemeMode,
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                ProfileDashboardLayoutSelector(
-                    selected = dashboardLayout,
-                    onSelected = { mode ->
-                        DashboardUiPrefs.setLayoutMode(context, mode)
-                        dashboardLayout = mode
-                    },
                 )
             }
 
@@ -562,6 +562,13 @@ fun ProfileScreen(
                 onLogout = { viewModel.logout(onLogout) },
             )
         }
+
+        ProfileSaveSuccessOverlay(
+            visible = showSaveSuccessAnim,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 12.dp),
+        )
 
         FeatureGuideOverlay(
             visible = showGuide,

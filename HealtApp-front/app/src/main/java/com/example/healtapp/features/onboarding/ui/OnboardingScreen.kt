@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -241,8 +242,18 @@ private fun BodyStep(
 ) {
     Text(text = "Параметры тела", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
     AppTextField(uiState.age, { onEvent(OnboardingEvent.AgeChanged(it)) }, label = "Возраст")
-    AppTextField(uiState.height, { onEvent(OnboardingEvent.HeightChanged(it)) }, label = "Рост (см)")
-    AppTextField(uiState.weight, { onEvent(OnboardingEvent.WeightChanged(it)) }, label = "Вес (кг)")
+    AppTextField(
+        value = uiState.height,
+        onValueChange = { onEvent(OnboardingEvent.HeightChanged(it)) },
+        label = "Рост (см)",
+        keyboardType = KeyboardType.Number,
+    )
+    AppTextField(
+        value = uiState.weight,
+        onValueChange = { onEvent(OnboardingEvent.WeightChanged(it)) },
+        label = "Вес (кг)",
+        keyboardType = KeyboardType.Decimal,
+    )
     Text(text = "Пол", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         FilterChip(

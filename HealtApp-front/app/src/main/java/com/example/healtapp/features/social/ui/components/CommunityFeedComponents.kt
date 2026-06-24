@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -60,7 +61,12 @@ import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledIconButtonDefaults
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -80,6 +86,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -88,16 +95,26 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
+import coil.request.ImageRequest
 import com.example.healtapp.core.ui.animation.AppMotion
+import com.example.healtapp.di.ApiServerConfigEntryPoint
+import com.example.healtapp.di.ImageLoaderEntryPoint
+import com.example.healtapp.features.social.util.SocialMediaUrls
+import dagger.hilt.android.EntryPointAccessors
 import com.example.healtapp.core.ui.components.AppButton
 import com.example.healtapp.core.ui.components.AppCard
 import com.example.healtapp.core.ui.components.AppTextField
 import com.example.healtapp.core.ui.components.BrandedFilterChip
+import com.example.healtapp.core.ui.components.FeatureCollapsibleCard
+import com.example.healtapp.core.ui.components.FeatureGlassCard
+import com.example.healtapp.core.ui.components.FeatureSectionTitle
 import com.example.healtapp.core.ui.components.GradientFormPanel
 import com.example.healtapp.core.ui.components.PersonAvatar
 import com.example.healtapp.core.ui.theme.brandingGradient
+import com.example.healtapp.core.ui.theme.contentPrimaryColor
+import com.example.healtapp.core.ui.theme.contentSecondaryColor
 import com.example.healtapp.data.network.dto.social.ChallengeLeaderboardEntryDto
 import com.example.healtapp.data.network.dto.social.ChallengeResponseDto
 import com.example.healtapp.data.network.dto.social.ClubPostResponseDto
@@ -107,19 +124,20 @@ import com.example.healtapp.data.network.dto.social.FeedCommentDto
 import com.example.healtapp.data.network.dto.social.FeedPostDto
 import com.example.healtapp.data.network.dto.social.FeedReactionDto
 import com.example.healtapp.data.network.dto.social.FeedStoryDto
+import com.example.healtapp.data.network.dto.social.UserCardDto
 import com.example.healtapp.features.activity.presentation.activityTitleFromApi
 import com.example.healtapp.features.social.presentation.COMMUNITY_REACTIONS
-import java.io.File
 
 enum class PostShareKind(
     val label: String,
+    val shortLabel: String,
     val placeholder: String,
     val icon: ImageVector,
 ) {
-    WORKOUT("Тренировка", "Расскажите о тренировке, маршруте или самочувствии…", Icons.Filled.DirectionsRun),
-    RECIPE("Рецепт ПП", "Поделитесь рецептом, ингредиентами и КБЖУ…", Icons.Filled.Restaurant),
-    ACHIEVEMENT("Достижение", "Чем гордитесь сегодня? Закрыли цель, рекорд, streak…", Icons.Filled.EmojiEvents),
-    LIFEHACK("Лайфхак", "Полезный совет по питанию, сну или привычкам…", Icons.Filled.Lightbulb),
+    WORKOUT("Тренировка", "Спорт", "Как прошла тренировка?", Icons.Filled.DirectionsRun),
+    RECIPE("Рецепт ПП", "Еда", "Что приготовили?", Icons.Filled.Restaurant),
+    ACHIEVEMENT("Достижение", "Успех", "Чем гордитесь сегодня?", Icons.Filled.EmojiEvents),
+    LIFEHACK("Лайфхак", "Совет", "Поделитесь полезным советом…", Icons.Filled.Lightbulb),
 }
 
 fun inferPostKind(post: FeedPostDto): PostShareKind? {
@@ -235,79 +253,21 @@ fun CommunityPostDeleteOverlay(
 }
 
 @Composable
-fun CommunityFeedTopBar(
-    onOpenFriends: () -> Unit,
-    postsCount: Int,
-    clubPostsCount: Int = 0,
-    modifier: Modifier = Modifier,
-) {
-    val totalCount = postsCount + clubPostsCount
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "Лента",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-            )
-            Text(
-                text = when {
-                    totalCount == 0 -> "Пока тихо — будьте первым"
-                    clubPostsCount > 0 -> "$totalCount публикаций · друзья и клубы"
-                    else -> "$totalCount публикаций"
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Surface(
-            onClick = onOpenFriends,
-            shape = RoundedCornerShape(18.dp),
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-            border = androidx.compose.foundation.BorderStroke(
-                1.dp,
-                MaterialTheme.colorScheme.outline.copy(alpha = 0.12f),
-            ),
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Icon(
-                    Icons.Filled.Groups,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp),
-                )
-                Text(
-                    "Друзья",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-        }
-    }
-}
-
-@Composable
 fun CommunityStoriesRail(
     stories: List<FeedStoryDto>,
+    currentUser: UserCardDto? = null,
     onAddStory: () -> Unit,
     onOpenStory: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val selfAuthor = stories.firstOrNull { it.author.is_self }?.author ?: currentUser
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text(
-            text = "Истории",
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
+        FeatureSectionTitle(
+            title = "Истории",
+            subtitle = if (stories.isEmpty()) "Добавьте короткую историю за день" else "${stories.size} активных",
         )
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -316,16 +276,18 @@ fun CommunityStoriesRail(
             item(key = "add_story") {
                 StoryAvatarItem(
                     label = "Вы",
-                    isAdd = true,
+                    author = selfAuthor,
                     previewUrl = null,
+                    isAdd = true,
                     onClick = onAddStory,
                 )
             }
             itemsIndexed(stories, key = { _, s -> "story_${s.author.user_id}" }) { index, story ->
                 StoryAvatarItem(
-                    label = story.author.display_name,
-                    isAdd = false,
+                    label = if (story.author.is_self) "Вы" else story.author.display_name,
+                    author = story.author,
                     previewUrl = story.preview_url,
+                    isAdd = false,
                     onClick = { onOpenStory(index) },
                 )
             }
@@ -336,10 +298,27 @@ fun CommunityStoriesRail(
 @Composable
 private fun StoryAvatarItem(
     label: String,
-    isAdd: Boolean,
+    author: UserCardDto?,
     previewUrl: String?,
+    isAdd: Boolean,
     onClick: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val imageLoader = remember {
+        EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            ImageLoaderEntryPoint::class.java,
+        ).imageLoader()
+    }
+    val baseUrl = remember {
+        EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            ApiServerConfigEntryPoint::class.java,
+        ).apiServerConfig().baseUrl()
+    }
+    val resolvedPreview = remember(previewUrl, baseUrl) {
+        SocialMediaUrls.resolveMediaUrl(baseUrl, previewUrl)
+    }
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -367,30 +346,78 @@ private fun StoryAvatarItem(
                 .clickable(interactionSource = interactionSource, indication = null, onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {
-            if (isAdd) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(Icons.Filled.Add, null, tint = MaterialTheme.colorScheme.primary)
+            when {
+                isAdd -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Filled.Add,
+                            contentDescription = "Добавить историю",
+                            modifier = Modifier.size(32.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                 }
-            } else if (!previewUrl.isNullOrBlank()) {
-                AsyncImage(
-                    model = previewUrl,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                )
-            } else {
-                Box(
-                    Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(Icons.Filled.Person, null, tint = MaterialTheme.colorScheme.primary)
+                resolvedPreview != null -> {
+                    SubcomposeAsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(resolvedPreview)
+                            .crossfade(true)
+                            .build(),
+                        imageLoader = imageLoader,
+                        contentDescription = label,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                        loading = {
+                            if (author != null) {
+                                SocialUserAvatar(
+                                    user = author,
+                                    modifier = Modifier.fillMaxSize(),
+                                    size = null,
+                                )
+                            }
+                        },
+                        error = {
+                            if (author != null) {
+                                SocialUserAvatar(
+                                    user = author,
+                                    modifier = Modifier.fillMaxSize(),
+                                    size = null,
+                                )
+                            } else {
+                                Box(
+                                    Modifier
+                                        .fillMaxSize()
+                                        .background(MaterialTheme.colorScheme.primaryContainer),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(Icons.Filled.Person, null, tint = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                        },
+                    )
+                }
+                author != null -> {
+                    SocialUserAvatar(
+                        user = author,
+                        modifier = Modifier.fillMaxSize(),
+                        size = null,
+                        useGradientFallback = true,
+                    )
+                }
+                else -> {
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Filled.Person, null, tint = MaterialTheme.colorScheme.primary)
+                    }
                 }
             }
         }
@@ -408,74 +435,23 @@ private fun StoryAvatarItem(
 fun CommunityChallengeBanner(
     challenge: ChallengeResponseDto,
     leaderboard: List<ChallengeLeaderboardEntryDto>,
-    expanded: Boolean,
-    onToggleExpand: () -> Unit,
     onJoin: () -> Unit,
     onLeave: () -> Unit,
     onOpenFriend: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    AppCard(modifier = modifier.fillMaxWidth()) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onToggleExpand),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Brush.linearGradient(brandingGradient())),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        challengeIcon(challenge.challenge_type),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                    )
-                }
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        "Челлендж",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    Text(
-                        challenge.title,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = if (expanded) Int.MAX_VALUE else 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        "${challenge.participants_count} участников",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Text(
-                    if (expanded) "Свернуть" else "Подробнее",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-
-            AnimatedVisibility(
-                visible = expanded,
-                enter = fadeIn(AppMotion.tweenMedium()) + slideInVertically(AppMotion.tweenMedium()) { it / 3 },
-            ) {
-                CommunityChallengeDetails(
-                    challenge = challenge,
-                    leaderboard = leaderboard,
-                    onJoin = onJoin,
-                    onLeave = onLeave,
-                    onOpenFriend = onOpenFriend,
-                )
-            }
-        }
+    FeatureCollapsibleCard(
+        modifier = modifier,
+        title = challenge.title,
+        subtitle = "Челлендж · ${challenge.participants_count} участников",
+    ) {
+        CommunityChallengeDetails(
+            challenge = challenge,
+            leaderboard = leaderboard,
+            onJoin = onJoin,
+            onLeave = onLeave,
+            onOpenFriend = onOpenFriend,
+        )
     }
 }
 
@@ -542,13 +518,6 @@ private fun CommunityChallengeDetails(
     }
 }
 
-private fun challengeIcon(type: String?): ImageVector = when (type) {
-    "steps" -> Icons.Filled.DirectionsRun
-    "calories" -> Icons.Filled.Whatshot
-    "water" -> Icons.Filled.LocalDrink
-    else -> Icons.Filled.EmojiEvents
-}
-
 @Composable
 fun CommunityFeedPostCard(
     post: FeedPostDto,
@@ -567,7 +536,7 @@ fun CommunityFeedPostCard(
         label = "postScale",
     )
 
-    AppCard(
+    FeatureGlassCard(
         modifier = modifier
             .fillMaxWidth()
             .then(
@@ -872,7 +841,6 @@ private fun formatFeedTime(iso: String): String {
     return iso.take(16).replace('T', ' ')
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CommunityComposeSheet(
     text: String,
@@ -885,99 +853,301 @@ fun CommunityComposeSheet(
     onPublish: () -> Unit,
     onDismiss: () -> Unit,
     isLoading: Boolean,
+    currentUser: UserCardDto? = null,
 ) {
     var shareKind by remember { mutableStateOf(PostShareKind.WORKOUT) }
-    val context = LocalContext.current
-    var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
+    val openCamera = rememberSocialCameraLauncher(filePrefix = "feed_post", onCaptured = onMediaChange)
 
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
         onResult = { uri -> if (uri != null) onMediaChange(uri) },
     )
-    val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicture(),
-        onResult = { success -> if (success && tempCameraUri != null) onMediaChange(tempCameraUri) },
-    )
 
-    fun createTempImageUri(): Uri {
-        val file = File(context.cacheDir, "camera_image_${System.currentTimeMillis()}.jpg")
-        return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-    }
+    val canPublish = !isLoading && (text.isNotBlank() || mediaUri != null || selectedActivityId != null)
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(horizontal = 20.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Text("Поделиться", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text(
-            "Рецепты, тренировки, достижения и советы — всё в одной ленте.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "Новая публикация",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+            )
+            IconButton(onClick = onDismiss) {
+                Icon(Icons.Filled.Close, contentDescription = "Закрыть")
+            }
+        }
 
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
             PostShareKind.entries.forEach { kind ->
-                BrandedFilterChip(
+                ComposeKindOption(
+                    kind = kind,
                     selected = shareKind == kind,
                     onClick = { shareKind = kind },
-                    label = kind.label,
                 )
             }
         }
 
-        GradientFormPanel {
-            AppTextField(
-                value = text,
-                onValueChange = onTextChange,
-                label = shareKind.placeholder,
-            )
-        }
-
-        MediaPickerRow(
-            mediaUri = mediaUri,
-            onGallery = {
-                galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-            },
-            onCamera = {
-                val uri = createTempImageUri()
-                tempCameraUri = uri
-                cameraLauncher.launch(uri)
-            },
-            onClear = { onMediaChange(null) },
-        )
-
-        if (shareKind == PostShareKind.WORKOUT && activities.isNotEmpty()) {
-            Text("Привязать тренировку", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(22.dp),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                MaterialTheme.colorScheme.outline.copy(alpha = 0.1f),
+            ),
+        ) {
+            Column(
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                activities.take(8).forEach { act ->
-                    val id = act.id ?: return@forEach
-                    BrandedFilterChip(
-                        selected = selectedActivityId == id,
-                        onClick = { onSelectActivity(id) },
-                        label = "${activityTitleFromApi(act.activity_type.orEmpty())} · ${act.duration_minutes ?: 0} мин",
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    if (currentUser != null) {
+                        SocialUserAvatar(user = currentUser, size = 44.dp)
+                    }
+                    OutlinedTextField(
+                        value = text,
+                        onValueChange = onTextChange,
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 96.dp),
+                        placeholder = {
+                            Text(
+                                shareKind.placeholder,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        },
+                        textStyle = MaterialTheme.typography.bodyLarge,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent,
+                            disabledBorderColor = Color.Transparent,
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                        ),
+                        maxLines = 8,
                     )
+                }
+
+                if (mediaUri != null) {
+                    Box(contentAlignment = Alignment.TopEnd) {
+                        AsyncImage(
+                            model = mediaUri,
+                            contentDescription = "Выбранное фото",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(180.dp)
+                                .clip(RoundedCornerShape(16.dp)),
+                            contentScale = ContentScale.Crop,
+                        )
+                        IconButton(
+                            onClick = { onMediaChange(null) },
+                            modifier = Modifier
+                                .padding(6.dp)
+                                .size(32.dp)
+                                .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.45f), CircleShape),
+                        ) {
+                            Icon(
+                                Icons.Filled.Close,
+                                contentDescription = "Удалить фото",
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        ComposeToolbarIcon(
+                            icon = Icons.Filled.PhotoLibrary,
+                            contentDescription = "Галерея",
+                            onClick = {
+                                galleryLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                                )
+                            },
+                        )
+                        ComposeToolbarIcon(
+                            icon = Icons.Filled.PhotoCamera,
+                            contentDescription = "Камера",
+                            onClick = openCamera,
+                        )
+                    }
+                    FilledIconButton(
+                        onClick = onPublish,
+                        enabled = canPublish,
+                        colors = FilledIconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
+                            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        ),
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(22.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                            )
+                        } else {
+                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Опубликовать")
+                        }
+                    }
                 }
             }
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AppButton(text = "Отмена", onClick = onDismiss, modifier = Modifier.weight(1f))
-            AppButton(
-                text = if (isLoading) "Публикация…" else "В ленту",
-                onClick = onPublish,
-                modifier = Modifier.weight(1f),
-                enabled = !isLoading && (text.isNotBlank() || mediaUri != null || selectedActivityId != null),
+        AnimatedVisibility(
+            visible = shareKind == PostShareKind.WORKOUT && activities.isNotEmpty(),
+            enter = fadeIn(AppMotion.tweenShort()) + slideInVertically(AppMotion.tweenShort()) { it / 3 },
+            exit = fadeOut(AppMotion.tweenShort()),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Привязать тренировку",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(activities.take(8), key = { it.id ?: it.hashCode() }) { act ->
+                        val id = act.id ?: return@items
+                        ComposeActivityChip(
+                            label = "${activityTitleFromApi(act.activity_type.orEmpty())} · ${act.duration_minutes ?: 0} мин",
+                            selected = selectedActivityId == id,
+                            onClick = {
+                                onSelectActivity(if (selectedActivityId == id) null else id)
+                            },
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(28.dp))
+    }
+}
+
+@Composable
+private fun ComposeKindOption(
+    kind: PostShareKind,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .widthIn(min = 64.dp)
+            .clickable(onClick = onClick),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .then(
+                    if (selected) {
+                        Modifier.background(Brush.linearGradient(brandingGradient()))
+                    } else {
+                        Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                    },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                kind.icon,
+                contentDescription = kind.label,
+                tint = if (selected) {
+                    MaterialTheme.colorScheme.onPrimary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                modifier = Modifier.size(24.dp),
             )
         }
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(4.dp))
+        Text(
+            kind.shortLabel,
+            style = MaterialTheme.typography.labelSmall,
+            color = if (selected) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            maxLines = 1,
+        )
+    }
+}
+
+@Composable
+private fun ComposeToolbarIcon(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+) {
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(40.dp)
+            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f), CircleShape),
+    ) {
+        Icon(
+            icon,
+            contentDescription = contentDescription,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(22.dp),
+        )
+    }
+}
+
+@Composable
+private fun ComposeActivityChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = if (selected) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+        },
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (selected) {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+            } else {
+                MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
+            },
+        ),
+    ) {
+        Text(
+            label,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            style = MaterialTheme.typography.labelMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -987,23 +1157,13 @@ fun CommunityStoryComposeSheet(
     onDismiss: () -> Unit,
     isLoading: Boolean,
 ) {
-    val context = LocalContext.current
     var mediaUri by remember { mutableStateOf<Uri?>(null) }
-    var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
+    val openCamera = rememberSocialCameraLauncher(filePrefix = "story") { uri -> mediaUri = uri }
 
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
         onResult = { uri -> if (uri != null) mediaUri = uri },
     )
-    val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicture(),
-        onResult = { success -> if (success && tempCameraUri != null) mediaUri = tempCameraUri },
-    )
-
-    fun createTempImageUri(): Uri {
-        val file = File(context.cacheDir, "story_${System.currentTimeMillis()}.jpg")
-        return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-    }
 
     Column(
         modifier = Modifier
@@ -1024,11 +1184,7 @@ fun CommunityStoryComposeSheet(
             onGallery = {
                 galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
             },
-            onCamera = {
-                val uri = createTempImageUri()
-                tempCameraUri = uri
-                cameraLauncher.launch(uri)
-            },
+            onCamera = openCamera,
             onClear = { mediaUri = null },
         )
 
@@ -1196,52 +1352,6 @@ fun CommunityCommentsSheet(
 }
 
 @Composable
-fun CommunityClubsRail(
-    clubs: List<ClubResponseDto>,
-    onOpenClub: (Int) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    if (clubs.isEmpty()) return
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(
-            text = "Мои клубы",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-        )
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(clubs, key = { it.id }) { club ->
-                AppCard(
-                    onClick = { onOpenClub(club.id) },
-                    animateEnter = false,
-                    modifier = Modifier.width(220.dp),
-                ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        ClubAvatar(club = club, size = 44.dp)
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(
-                                text = club.name,
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Text(
-                                text = "${club.members_count} участников",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
 fun CommunityClubPostCard(
     club: ClubResponseDto,
     post: ClubPostResponseDto,
@@ -1254,9 +1364,10 @@ fun CommunityClubPostCard(
         "poll" -> "Опрос"
         else -> "Обсуждение"
     }
-    AppCard(
-        modifier = modifier.fillMaxWidth(),
-        onClick = onOpenClub,
+    FeatureGlassCard(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onOpenClub),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(

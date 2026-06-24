@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -251,19 +250,25 @@ fun DashboardStreaksRow(
 ) {
     Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         StreakChip("Вода", waterStreak, Modifier.weight(1f))
-        StreakChip("Шаги", stepsStreak, Modifier.weight(1f), hint = "подряд с сегодня")
+        StreakChip("Шаги", stepsStreak, Modifier.weight(1f))
     }
 }
 
 @Composable
-private fun StreakChip(label: String, days: Int, modifier: Modifier = Modifier, hint: String? = null) {
+private fun StreakChip(label: String, days: Int, modifier: Modifier = Modifier) {
     AppCard(modifier = modifier) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-            Text("$days", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = contentPrimaryColor())
-            Text("$label · дней подряд", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            hint?.let {
-                Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
-            }
+            Text(
+                text = "$days",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = contentPrimaryColor(),
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -426,22 +431,58 @@ fun DashboardQuickLinksRow(
     modifier: Modifier = Modifier,
 ) {
     Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        QuickLinkCard("AI-чат", Icons.AutoMirrored.Filled.Chat, onOpenAi, Modifier.weight(1f))
-        QuickLinkCard("Сообщество", Icons.Filled.Groups, onOpenTimeline, Modifier.weight(1f))
+        DashboardQuickLinkCard(
+            title = "ИИ чат",
+            icon = Icons.Filled.AutoAwesome,
+            onClick = onOpenAi,
+            modifier = Modifier.weight(1f),
+        )
+        DashboardQuickLinkCard(
+            title = "Сообщество",
+            icon = Icons.Filled.Groups,
+            onClick = onOpenTimeline,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 
 @Composable
-private fun QuickLinkCard(
+private fun DashboardQuickLinkCard(
     title: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     AppCard(modifier = modifier, onClick = onClick) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-            Icon(icon, null, tint = iconTintColor())
-            Text(title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Brush.linearGradient(heroBlockGradient())),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = heroContentColor(),
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            Text(
+                text = title,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = contentPrimaryColor(),
+                maxLines = 1,
+            )
         }
     }
 }

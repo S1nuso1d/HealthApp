@@ -17,7 +17,7 @@ data class MealPlannerUiState(
     val plan: MealPlanResponseDto? = null,
     val error: String? = null,
     val info: String? = null,
-    val planDays: Int = 7,
+    val planDays: Int = 3,
     val llmAvailable: Boolean? = null,
 )
 
@@ -45,7 +45,7 @@ class MealPlannerViewModel @Inject constructor(
                         it.copy(
                             llmAvailable = status.llm_available,
                             info = if (!status.llm_available) {
-                                "LLM офлайн: ${status.message}. План будет шаблонным с учётом профиля."
+                                "На сервере ИИ недоступен: ${status.message}"
                             } else {
                                 null
                             },
@@ -62,10 +62,20 @@ class MealPlannerViewModel @Inject constructor(
             aiRepository.getMealPlan(days)
                 .onSuccess { plan ->
                     val info = when (plan.source) {
-                        "fallback" -> "Сгенерирован базовый план (Ollama/OpenAI недоступны). Запустите LLM для персонального меню."
-                        else -> _uiState.value.info
+                        "fallback" -> "Составлен шаблонный план. ИИ не смог сгенерировать меню (таймаут или формат ответа) — попробуйте ещё раз через минуту."
+                        else -> null
                     }
-                    _uiState.update { it.copy(isLoading = false, plan = plan, info = info) }
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            plan = plan,
+                            info = info,
+                            llmAvailable = if (plan.source == "llm") true else it.llmAvailable,
+                        )
+                    }
+                    if (plan.source == "llm") {
+                        refreshAiStatus()
+                    }
                 }
                 .onFailure { e ->
                     _uiState.update {

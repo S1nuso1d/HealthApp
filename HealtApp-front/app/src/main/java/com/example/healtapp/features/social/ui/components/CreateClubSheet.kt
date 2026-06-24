@@ -56,9 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
-import com.example.healtapp.BuildConfig
 import com.example.healtapp.core.ui.components.AppButton
 import com.example.healtapp.core.ui.components.GradientFormPanel
 import com.example.healtapp.core.ui.components.GradientOutlinedField
@@ -68,7 +66,6 @@ import com.example.healtapp.core.ui.theme.brandingGradient
 import com.example.healtapp.core.ui.theme.contentPrimaryColor
 import com.example.healtapp.core.ui.theme.contentSecondaryColor
 import com.example.healtapp.core.ui.theme.subtleFillGradient
-import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -220,17 +217,6 @@ fun CreateClubSheet(
             )
         }
     }
-}
-
-private fun launchClubCamera(context: android.content.Context, onUri: (Uri) -> Unit) {
-    val dir = File(context.cacheDir, "camera").apply { mkdirs() }
-    val file = File(dir, "club_avatar_${System.currentTimeMillis()}.jpg")
-    val uri = FileProvider.getUriForFile(
-        context,
-        "${BuildConfig.APPLICATION_ID}.fileprovider",
-        file,
-    )
-    onUri(uri)
 }
 
 @Composable

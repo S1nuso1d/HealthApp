@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.healtapp.core.common.AppRefreshBus
 import com.example.healtapp.data.network.ApiServerConfig
 import com.example.healtapp.data.network.dto.social.ClubCreateDto
 import com.example.healtapp.data.network.dto.social.ClubMemberResponseDto
@@ -64,6 +65,9 @@ class ClubsViewModel @Inject constructor(
 
     init {
         refreshClubs()
+        viewModelScope.launch {
+            AppRefreshBus.events.collect { refreshClubs() }
+        }
     }
 
     fun refreshClubs() {
@@ -127,17 +131,32 @@ class ClubsViewModel @Inject constructor(
         }
     }
 
-    fun joinClub(clubId: Int) {
+    fun joinClub(clubId: Int, onComplete: (() -> Unit)? = null) {
         viewModelScope.launch {
-            repository.joinClub(clubId).onSuccess { refreshClubs() }
+            repository.joinClub(clubId)
+                .onSuccess {
+                    refreshClubs()
+                    loadClubDetail(clubId)
+                    AppRefreshBus.notifyDataChanged()
+                    onComplete?.invoke()
+                }
                 .onFailure { e -> _clubsState.update { it.copy(error = e.message) } }
         }
     }
 
-    fun leaveClub(clubId: Int) {
+    fun leaveClub(clubId: Int, onComplete: (() -> Unit)? = null) {
         viewModelScope.launch {
-            repository.leaveClub(clubId).onSuccess { refreshClubs() }
-                .onFailure { e -> _clubsState.update { it.copy(error = e.message) } }
+            repository.leaveClub(clubId)
+                .onSuccess {
+                    refreshClubs()
+                    loadClubDetail(clubId)
+                    AppRefreshBus.notifyDataChanged()
+                    onComplete?.invoke()
+                }
+                .onFailure { e ->
+                    _detailState.update { it.copy(error = e.message) }
+                    _clubsState.update { it.copy(error = e.message) }
+                }
         }
     }
 
@@ -163,27 +182,59 @@ class ClubsViewModel @Inject constructor(
         _detailState.update { it.copy(selectedTab = index) }
     }
 
-    fun updateClub(clubId: Int, name: String, description: String?, rules: String?, avatarUrl: String?) {
+    fun updateClub(
+        clubId: Int,
+        name: String,
+        description: String?,
+        rules: String?,
+        avatarUri: Uri? = null,
+        keepAvatarUrl: String? = null,
+    ) {
         viewModelScope.launch {
+            _detailState.update { it.copy(isLoading = true, error = null) }
+            val avatarUrl = when {
+                avatarUri != null -> uploadClubImage(avatarUri).getOrElse { error ->
+                    _detailState.update { it.copy(isLoading = false, error = error.message) }
+                    return@launch
+                }
+                else -> keepAvatarUrl?.trim()?.takeIf { it.isNotBlank() }
+            }
             repository.updateClub(
                 clubId,
                 ClubUpdateDto(
                     name = name.trim().takeIf { it.isNotBlank() },
                     description = description?.trim()?.takeIf { it.isNotBlank() },
                     rules = rules?.trim()?.takeIf { it.isNotBlank() },
-                    avatar_url = avatarUrl?.trim()?.takeIf { it.isNotBlank() },
+                    avatar_url = avatarUrl,
                 ),
             ).onSuccess {
                 loadClubDetail(clubId)
                 refreshClubs()
-            }.onFailure { e -> _detailState.update { it.copy(error = e.message) } }
+                AppRefreshBus.notifyDataChanged()
+                _detailState.update { it.copy(message = "Настройки клуба сохранены") }
+            }.onFailure { e -> _detailState.update { it.copy(isLoading = false, error = e.message) } }
+        }
+    }
+
+    fun removeMember(clubId: Int, userId: Int) {
+        viewModelScope.launch {
+            repository.removeClubMember(clubId, userId)
+                .onSuccess {
+                    loadClubDetail(clubId)
+                    refreshClubs()
+                    AppRefreshBus.notifyDataChanged()
+                }
+                .onFailure { e -> _detailState.update { it.copy(error = e.message) } }
         }
     }
 
     fun setMemberRole(clubId: Int, userId: Int, role: String) {
         viewModelScope.launch {
             repository.updateClubMemberRole(clubId, userId, ClubMemberRoleUpdateDto(role))
-                .onSuccess { loadClubDetail(clubId) }
+                .onSuccess {
+                    loadClubDetail(clubId)
+                    AppRefreshBus.notifyDataChanged()
+                }
                 .onFailure { e -> _detailState.update { it.copy(error = e.message) } }
         }
     }

@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.sql import func
 
 from app.db.database import Base
@@ -75,6 +75,18 @@ class FeedStory(Base):
     expires_at = Column(DateTime(timezone=True), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+
+class FeedStoryView(Base):
+    __tablename__ = "feed_story_views"
+    __table_args__ = (
+        UniqueConstraint("story_id", "viewer_id", name="uq_feed_story_view"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    story_id = Column(Integer, ForeignKey("feed_stories.id", ondelete="CASCADE"), nullable=False, index=True)
+    viewer_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    viewed_at = Column(DateTime(timezone=True), server_default=func.now())
+
 class Challenge(Base):
     __tablename__ = "challenges"
 
@@ -132,4 +144,18 @@ class ClubPost(Base):
     poll_options = Column(Text, nullable=True)
     poll_votes = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class ClubNotification(Base):
+    __tablename__ = "club_notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    club_id = Column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False, index=True)
+    event_type = Column(String(32), nullable=False)
+    title = Column(String(128), nullable=False)
+    message = Column(Text, nullable=False)
+    club_name = Column(String(128), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    read_at = Column(DateTime(timezone=True), nullable=True)
 

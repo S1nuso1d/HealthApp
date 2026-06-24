@@ -8,6 +8,10 @@ sealed interface AuthEvent {
     data class FirstNameChanged(val value: String) : AuthEvent
     data class LastNameChanged(val value: String) : AuthEvent
     data class NicknameChanged(val value: String) : AuthEvent
+    data class SexChanged(val value: String) : AuthEvent
+    data class HeightChanged(val value: String) : AuthEvent
+    data class WeightChanged(val value: String) : AuthEvent
+    data class GoalChanged(val value: String) : AuthEvent
     data class BirthDateChanged(val value: String) : AuthEvent
     data class IsVegetarianChanged(val value: Boolean) : AuthEvent
     data class HasAllergiesChanged(val value: Boolean) : AuthEvent

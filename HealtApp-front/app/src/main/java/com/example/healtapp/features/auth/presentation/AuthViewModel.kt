@@ -7,6 +7,8 @@ import com.example.healtapp.core.common.UserFacingMessages
 import com.example.healtapp.data.preferences.TokenStorage
 import com.example.healtapp.domain.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,6 +30,7 @@ class AuthViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
+    private var nicknameCheckJob: Job? = null
 
     fun onEvent(event: AuthEvent) {
         when (event) {
@@ -50,8 +53,18 @@ class AuthViewModel @Inject constructor(
             is AuthEvent.LastNameChanged -> {
                 _uiState.value = _uiState.value.copy(lastName = event.value, error = null)
             }
-            is AuthEvent.NicknameChanged -> {
-                _uiState.value = _uiState.value.copy(nickname = event.value, error = null)
+            is AuthEvent.NicknameChanged -> onNicknameChanged(event.value)
+            is AuthEvent.SexChanged -> {
+                _uiState.value = _uiState.value.copy(sex = event.value, error = null)
+            }
+            is AuthEvent.HeightChanged -> {
+                _uiState.value = _uiState.value.copy(height = event.value, error = null)
+            }
+            is AuthEvent.WeightChanged -> {
+                _uiState.value = _uiState.value.copy(weight = event.value, error = null)
+            }
+            is AuthEvent.GoalChanged -> {
+                _uiState.value = _uiState.value.copy(goal = event.value, error = null)
             }
             is AuthEvent.BirthDateChanged -> {
                 _uiState.value = _uiState.value.copy(birthDate = event.value, error = null)
@@ -113,6 +126,35 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    private fun onNicknameChanged(value: String) {
+        _uiState.value = _uiState.value.copy(
+            nickname = value,
+            nicknameError = null,
+            error = null,
+        )
+        nicknameCheckJob?.cancel()
+        val trimmed = value.trim()
+        if (trimmed.length < 3) return
+        nicknameCheckJob = viewModelScope.launch {
+            delay(450)
+            _uiState.value = _uiState.value.copy(nicknameChecking = true)
+            authRepository.checkNickname(trimmed)
+                .onSuccess { availability ->
+                    _uiState.value = _uiState.value.copy(
+                        nicknameChecking = false,
+                        nicknameError = if (availability.available) {
+                            null
+                        } else {
+                            availability.message ?: "Этот никнейм уже занят"
+                        },
+                    )
+                }
+                .onFailure {
+                    _uiState.value = _uiState.value.copy(nicknameChecking = false)
+                }
+        }
+    }
+
     private fun login() {
         val state = _uiState.value
         if (state.email.isBlank() || state.password.isBlank()) {
@@ -147,10 +189,43 @@ class AuthViewModel @Inject constructor(
                 _uiState.value = state.copy(registerStep = RegisterStep.Profile, error = null)
             }
             RegisterStep.Profile -> {
-                if (!skipValidation && state.birthDate.isNotBlank()) {
-                    val age = AgeUtils.ageFromBirthDate(state.birthDate)
-                    if (age == null) {
-                        _uiState.value = state.copy(error = "Проверьте дату рождения")
+                if (!skipValidation) {
+                    validateProfileStep(state)?.let { message ->
+                        _uiState.value = state.copy(error = message)
+                        return
+                    }
+                    val nick = state.nickname.trim()
+                    if (nick.isNotEmpty()) {
+                        viewModelScope.launch {
+                            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+                            authRepository.checkNickname(nick)
+                                .onSuccess { availability ->
+                                    if (!availability.available) {
+                                        val message = availability.message ?: "Этот никнейм уже занят"
+                                        _uiState.value = _uiState.value.copy(
+                                            isLoading = false,
+                                            nicknameError = message,
+                                            error = message,
+                                        )
+                                    } else {
+                                        _uiState.value = _uiState.value.copy(
+                                            isLoading = false,
+                                            registerStep = RegisterStep.Dietary,
+                                            error = null,
+                                            nicknameError = null,
+                                        )
+                                    }
+                                }
+                                .onFailure { throwable ->
+                                    _uiState.value = _uiState.value.copy(
+                                        isLoading = false,
+                                        error = UserFacingMessages.fromThrowable(
+                                            throwable,
+                                            "Не удалось проверить никнейм",
+                                        ),
+                                    )
+                                }
+                        }
                         return
                     }
                 }
@@ -161,6 +236,33 @@ class AuthViewModel @Inject constructor(
             }
             RegisterStep.HealthConnect -> confirmRegistration()
         }
+    }
+
+    private fun validateProfileStep(state: AuthUiState): String? {
+        if (state.firstName.isBlank()) {
+            return "Укажите имя"
+        }
+        if (state.lastName.isBlank()) {
+            return "Укажите фамилию"
+        }
+        val height = state.height.trim().replace(',', '.').toFloatOrNull()
+        if (height == null || height < 100f || height > 250f) {
+            return "Укажите рост от 100 до 250 см"
+        }
+        val weight = state.weight.trim().replace(',', '.').toFloatOrNull()
+        if (weight == null || weight < 30f || weight > 300f) {
+            return "Укажите вес от 30 до 300 кг"
+        }
+        if (state.birthDate.isNotBlank() && AgeUtils.ageFromBirthDate(state.birthDate) == null) {
+            return "Проверьте дату рождения"
+        }
+        if (state.nicknameError != null) {
+            return state.nicknameError
+        }
+        if (state.nicknameChecking) {
+            return "Подождите — проверяем никнейм"
+        }
+        return null
     }
 
     private fun goBackRegisterStep() {
@@ -195,13 +297,13 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = state.copy(isLoading = true, error = null, infoMessage = null)
             authRepository.sendRegistrationCode(state.email.trim(), state.password)
-                .onSuccess { message ->
+                .onSuccess {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         registerStep = RegisterStep.Verify,
                         verificationCode = "",
                         error = null,
-                        infoMessage = message,
+                        infoMessage = null,
                     )
                 }
                 .onFailure { throwable ->

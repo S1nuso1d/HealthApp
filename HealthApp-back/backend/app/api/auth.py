@@ -3,7 +3,7 @@ import secrets
 import smtplib
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -23,6 +23,7 @@ from app.models.user import User
 from app.schemas.user import (
     ChangePasswordBody,
     ForgotPasswordBody,
+    NicknameCheckResponse,
     PasswordConfirmBody,
     RegisterProfileDraft,
     RegisterStartResponse,
@@ -31,18 +32,44 @@ from app.schemas.user import (
     UserCreate,
     RefreshTokenRequest,
 )
+from app.services.nutrition_targets_service import try_calculate_from_profile
 from app.services.account_deletion import delete_user_and_related_data
 from app.services.registration_email import (
     send_password_reset_email,
     send_registration_verification_email,
 )
-from app.services.profile_display import validate_nickname
+from app.services.profile_display import age_from_birth_date, normalize_birth_date, validate_nickname
 
 from jose import JWTError, jwt
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
+
+
+@router.get(
+    "/check-nickname",
+    response_model=NicknameCheckResponse,
+    summary="Проверить, свободен ли никнейм",
+)
+def check_nickname(
+    nickname: str = Query(..., min_length=1, max_length=32),
+    db: Session = Depends(get_db),
+):
+    try:
+        validated = validate_nickname(nickname.strip())
+    except ValueError as exc:
+        return NicknameCheckResponse(available=False, message=str(exc))
+    if not validated:
+        return NicknameCheckResponse(available=False, message="Укажите никнейм")
+    taken = (
+        db.query(UserProfile)
+        .filter(func.lower(UserProfile.nickname) == validated.lower())
+        .first()
+    )
+    if taken:
+        return NicknameCheckResponse(available=False, message="Этот никнейм уже занят")
+    return NicknameCheckResponse(available=True, message=None)
 
 
 def _smtp_failure_user_message(exc: BaseException) -> str:
@@ -211,6 +238,15 @@ def register_complete(body: RegisterVerify, db: Session = Depends(get_db)):
     profile = UserProfile(user_id=new_user.id)
     draft: RegisterProfileDraft | None = body.profile
     if draft is not None:
+        first_name = (draft.first_name or "").strip()
+        last_name = (draft.last_name or "").strip()
+        if not first_name or not last_name:
+            db.delete(new_user)
+            db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Укажите имя и фамилию",
+            )
         nickname_raw = (draft.nickname or "").strip() or None
         nickname = None
         if nickname_raw:
@@ -235,13 +271,43 @@ def register_complete(body: RegisterVerify, db: Session = Depends(get_db)):
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Этот никнейм уже занят",
                 )
-        profile.first_name = (draft.first_name or "").strip() or None
-        profile.last_name = (draft.last_name or "").strip() or None
+        profile.first_name = first_name
+        profile.last_name = last_name
         profile.nickname = nickname
-        profile.age = draft.age
+        birth_date = normalize_birth_date(draft.birth_date)
+        if birth_date:
+            profile.birth_date = birth_date
+            profile.age = age_from_birth_date(birth_date) or draft.age
+        else:
+            profile.age = draft.age
+        if draft.sex:
+            profile.sex = draft.sex.strip()
+        if draft.height_cm is not None:
+            profile.height_cm = draft.height_cm
+        if draft.weight_kg is not None:
+            profile.weight_kg = draft.weight_kg
+        if draft.goal:
+            profile.goal = draft.goal.strip()
+        profile.activity_level = (draft.activity_level or "medium").strip() or "medium"
         profile.is_vegetarian = draft.is_vegetarian
         profile.has_allergies = draft.has_allergies
         profile.allergies_text = (draft.allergies_text or "").strip() or None
+        targets = try_calculate_from_profile(
+            profile.age,
+            profile.sex,
+            profile.height_cm,
+            profile.weight_kg,
+            profile.activity_level,
+            profile.goal,
+        )
+        if targets:
+            profile.target_daily_calories = targets.target_daily_calories
+            profile.target_protein_g = targets.target_protein_g
+            profile.target_fat_g = targets.target_fat_g
+            profile.target_carbs_g = targets.target_carbs_g
+            profile.target_water_ml = targets.target_water_ml
+            profile.target_sleep_hours = targets.target_sleep_hours
+            profile.target_steps = targets.target_steps
     profile.onboarding_completed = True
     db.add(profile)
     db.commit()

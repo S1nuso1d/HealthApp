@@ -148,8 +148,6 @@ fun DashboardGoalsCalendarBlock(
                             }
                         }
                     }
-
-                    GoalsCalendarLegend(mutedText = mutedText)
                 }
             }
         }
@@ -168,52 +166,6 @@ fun DashboardGoalsCalendarBlock(
                 GoalsDayDetailEmpty(date = date, onClose = onDismissDetail)
             }
         }
-    }
-}
-
-@Composable
-private fun GoalsCalendarLegend(mutedText: Color) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            text = "Под датой — четыре полоски: сон, вода, шаги, сожжённые ккал. Длина = прогресс к цели.",
-            style = MaterialTheme.typography.labelMedium,
-            color = mutedText,
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            LegendItem("Сон", sleepColor, Modifier.weight(1f), mutedText)
-            LegendItem("Вода", waterColor, Modifier.weight(1f), mutedText)
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            LegendItem("Шаги", stepsColor, Modifier.weight(1f), mutedText)
-            LegendItem("Сожжено", burnedColor, Modifier.weight(1f), mutedText)
-        }
-    }
-}
-
-@Composable
-private fun LegendItem(label: String, color: Color, modifier: Modifier = Modifier, textColor: Color) {
-    Row(
-        modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(10.dp)
-                .clip(CircleShape)
-                .background(color),
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = textColor,
-        )
     }
 }
 

@@ -10,6 +10,7 @@ interface ProfileRepository {
         lastName: String? = null,
         nickname: String? = null,
         age: Int?,
+        birthDate: String? = null,
         sex: String?,
         heightCm: Float?,
         weightKg: Float?,

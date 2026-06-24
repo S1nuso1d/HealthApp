@@ -37,12 +37,16 @@ class Settings:
 
     # LLM / Ollama
     LLM_ENABLED: bool = os.getenv("LLM_ENABLED", "true").lower() == "true"
-    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "openai")
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "ollama")
     LLM_BASE_URL: str = os.getenv(
         "LLM_BASE_URL",
-        "https://api.openai.com/v1"
+        "http://127.0.0.1:11434",
     )
-    LLM_MODEL_NAME: str = os.getenv("LLM_MODEL_NAME", "gpt-4o-mini")
+    LLM_MODEL_NAME: str = os.getenv("LLM_MODEL_NAME", "qwen2.5:14b")
+    # Отдельная модель для плана питания (7b быстрее 14b в 2–3 раза)
+    LLM_MEAL_PLAN_MODEL: str = _env_strip("LLM_MEAL_PLAN_MODEL") or os.getenv(
+        "LLM_MODEL_NAME", "qwen2.5:14b"
+    )
     LLM_TIMEOUT_SECONDS: int = int(os.getenv("LLM_TIMEOUT_SECONDS", "120"))
     LLM_TEMPERATURE: float = float(os.getenv("LLM_TEMPERATURE", "0.3"))
     LLM_API_KEY: str = _env_strip("LLM_API_KEY")
@@ -53,6 +57,9 @@ class Settings:
         "true"
     ).lower() == "true"
     AI_MAX_PROMPT_CHARS: int = int(os.getenv("AI_MAX_PROMPT_CHARS", "16000"))
+
+    # Локальная таймзона для советов ИИ (сон, вода, активность по времени суток)
+    APP_TIMEZONE: str = os.getenv("APP_TIMEZONE", "Europe/Moscow")
 
     # FatSecret Platform (OAuth 1.0) — ключи приложения с https://platform.fatsecret.com/api/
     # Публичные методы (foods.search и т.д.) подписываются только consumer key/secret.

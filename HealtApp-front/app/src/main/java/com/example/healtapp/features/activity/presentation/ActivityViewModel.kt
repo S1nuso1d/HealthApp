@@ -130,8 +130,15 @@ class ActivityViewModel @Inject constructor(
             val trainingCountWeek = weekTrainings.size
             val totalBurned = CalorieBurnCalculator.totalBurnedToday(all, stepsToday)
 
+            val hcStepsByDay = runCatching { healthConnectReader.readStepsAggregatedForLastDays(7) }
+                .getOrDefault(emptyMap())
             val weeklySteps = ActivityStepsHelper.weeklySteps(all).map { day ->
-                if (day.dateKey == todayKey) day.copy(steps = stepsToday) else day
+                val fromHc = hcStepsByDay[day.dateKey] ?: 0
+                val resolved = when (day.dateKey) {
+                    todayKey -> stepsToday
+                    else -> maxOf(day.steps, fromHc)
+                }
+                day.copy(steps = resolved)
             }
 
             _uiState.update {

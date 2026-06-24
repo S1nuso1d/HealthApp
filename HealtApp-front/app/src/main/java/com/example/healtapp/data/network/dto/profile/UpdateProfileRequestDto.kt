@@ -5,6 +5,7 @@ data class UpdateProfileRequestDto(
     val last_name: String? = null,
     val nickname: String? = null,
     val age: Int? = null,
+    val birth_date: String? = null,
     val sex: String? = null,
     val height_cm: Float? = null,
     val weight_kg: Float? = null,

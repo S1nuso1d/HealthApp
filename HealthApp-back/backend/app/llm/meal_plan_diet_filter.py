@@ -50,22 +50,9 @@ FISH_KEYWORDS = (
 )
 
 
-def profile_implies_vegetarian(is_vegetarian: bool | None, allergies_text: str | None) -> bool:
-    if is_vegetarian:
-        return True
-    if not allergies_text:
-        return False
-    lower = allergies_text.lower()
-    return any(
-        token in lower
-        for token in (
-            "вегетариан",
-            "vegetarian",
-            "vegan",
-            "веган",
-            "без мяса",
-        )
-    )
+def profile_implies_vegetarian(is_vegetarian: bool | None, allergies_text: str | None = None) -> bool:
+    """Вегетарианство только по явному флагу профиля, не по тексту аллергий."""
+    return is_vegetarian is True
 
 
 def _contains_meat_or_fish(text: str) -> bool:
@@ -96,6 +83,7 @@ def _sanitize_meal(meal: dict) -> dict:
     updated["protein_g"] = new_prot
     updated["fat_g"] = new_fat
     updated["carbs_g"] = new_carbs
+    updated.pop("ingredients", None)
     return updated
 
 

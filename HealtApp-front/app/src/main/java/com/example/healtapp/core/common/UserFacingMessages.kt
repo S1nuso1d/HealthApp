@@ -55,7 +55,7 @@ object UserFacingMessages {
             lower.contains("unable to resolve host") || lower.contains("failed to connect") ->
                 "Не удалось подключиться к серверу. Проверьте адрес API и Wi‑Fi."
             lower.contains("llm") && lower.contains("недоступ") ->
-                "AI-сервис недоступен. Ответ будет по сохранённой аналитике."
+                "ИИ-сервис недоступен. Ответ будет по сохранённой аналитике."
             else -> raw
         }
     }

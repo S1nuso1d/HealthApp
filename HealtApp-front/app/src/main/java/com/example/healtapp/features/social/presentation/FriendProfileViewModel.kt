@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.healtapp.data.preferences.TokenStorage
 import com.example.healtapp.data.network.dto.social.FriendAchievementDto
 import com.example.healtapp.data.network.dto.social.FriendActivityDto
+import com.example.healtapp.data.network.dto.social.FeedPostDto
 import com.example.healtapp.data.network.dto.social.UserCardDto
 import com.example.healtapp.domain.repository.SocialRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -22,6 +23,7 @@ data class FriendProfileUiState(
     val user: UserCardDto? = null,
     val activities: List<FriendActivityDto> = emptyList(),
     val achievements: List<FriendAchievementDto> = emptyList(),
+    val posts: List<FeedPostDto> = emptyList(),
     val isFriend: Boolean = false,
     val isBlocked: Boolean = false,
     val actionMessage: String? = null,
@@ -34,7 +36,10 @@ class FriendProfileViewModel @Inject constructor(
     private val tokenStorage: TokenStorage,
 ) : ViewModel() {
 
-    private val userId: Int = savedStateHandle.get<String>("userId")?.toIntOrNull() ?: 0
+    private val userId: Int =
+        savedStateHandle.get<Int>("userId")
+            ?: savedStateHandle.get<String>("userId")?.toIntOrNull()
+            ?: 0
 
     private val _uiState = MutableStateFlow(FriendProfileUiState())
     val uiState: StateFlow<FriendProfileUiState> = _uiState.asStateFlow()
@@ -67,6 +72,7 @@ class FriendProfileViewModel @Inject constructor(
                         user = dto.user,
                         activities = dto.activities,
                         achievements = dto.achievements,
+                        posts = dto.posts,
                         isFriend = dto.is_friend,
                         isBlocked = dto.is_blocked,
                     )

@@ -32,6 +32,7 @@ class SocialRepositoryImpl @Inject constructor(
     override suspend fun getFeed() = runCatching { api.getFeed() }
     override suspend fun getStories() = runCatching { api.getStories() }
     override suspend fun createStory(body: com.example.healtapp.data.network.dto.social.StoryCreateDto) = runCatching { api.createStory(body) }
+    override suspend fun recordStoryView(storyId: Int) = runCatching { api.recordStoryView(storyId) }
     override suspend fun getLinkableActivities() =
         runCatching { api.getLinkableActivities().activities }
     override suspend fun toggleReaction(postId: Int, emoji: String) =
@@ -60,6 +61,11 @@ class SocialRepositoryImpl @Inject constructor(
     override suspend fun updateClub(clubId: Int, body: ClubUpdateDto) = runCatching { api.updateClub(clubId, body) }
     override suspend fun updateClubMemberRole(clubId: Int, userId: Int, body: ClubMemberRoleUpdateDto) =
         runCatching { api.updateClubMemberRole(clubId, userId, body) }
+    override suspend fun removeClubMember(clubId: Int, userId: Int) =
+        runCatching { api.removeClubMember(clubId, userId) }
+    override suspend fun getClubNotificationsRecent() = runCatching { api.getClubNotificationsRecent() }
+    override suspend fun markClubNotificationRead(notificationId: Int) =
+        runCatching { api.markClubNotificationRead(notificationId) }
     override suspend fun getClubPosts(clubId: Int) = runCatching { api.getClubPosts(clubId) }
     override suspend fun createClubPost(clubId: Int, body: ClubPostCreateDto) = runCatching { api.createClubPost(clubId, body) }
     override suspend fun voteClubPoll(clubId: Int, postId: Int, body: ClubPollVoteDto) =

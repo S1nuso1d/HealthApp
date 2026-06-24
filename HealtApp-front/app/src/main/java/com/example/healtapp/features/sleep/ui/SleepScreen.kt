@@ -157,7 +157,7 @@ fun SleepScreen(
                     )
                 }
 
-                SectionHeader("Умный диктофон (Сон)", "Анализ звуков во время сна")
+                SectionHeader("Умный диктофон", "Анализ звуков во время сна")
                 SleepSoundRecorderCard(
                     isTracking = uiState.isSoundTracking,
                     clipsThisSession = uiState.soundClipsThisSession,

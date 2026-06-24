@@ -2,6 +2,7 @@ package com.example.healtapp.data.network.api
 
 import com.example.healtapp.data.network.dto.auth.ChangePasswordRequestDto
 import com.example.healtapp.data.network.dto.auth.ForgotPasswordRequestDto
+import com.example.healtapp.data.network.dto.auth.NicknameCheckResponseDto
 import com.example.healtapp.data.network.dto.auth.PasswordConfirmDto
 import com.example.healtapp.data.network.dto.auth.RegisterRequestDto
 import com.example.healtapp.data.network.dto.auth.RegisterStartResponseDto
@@ -10,11 +11,16 @@ import com.example.healtapp.data.network.dto.auth.TokenResponseDto
 import retrofit2.http.Body
 import retrofit2.http.Field
 import retrofit2.http.FormUrlEncoded
+import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.Query
 
 import com.example.healtapp.data.network.dto.auth.RefreshTokenRequestDto
 
 interface AuthApi {
+
+    @GET("auth/check-nickname")
+    suspend fun checkNickname(@Query("nickname") nickname: String): NicknameCheckResponseDto
 
     @POST("auth/refresh")
     suspend fun refreshToken(@Body body: RefreshTokenRequestDto): TokenResponseDto

@@ -15,6 +15,7 @@ class UserProfile(Base):
     nickname = Column(String(32), nullable=True, index=True)
 
     age = Column(Integer, nullable=True)
+    birth_date = Column(String(10), nullable=True)
     sex = Column(String, nullable=True)
     height_cm = Column(Float, nullable=True)
     weight_kg = Column(Float, nullable=True)

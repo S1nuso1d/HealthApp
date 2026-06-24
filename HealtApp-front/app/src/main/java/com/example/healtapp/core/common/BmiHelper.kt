@@ -40,6 +40,12 @@ object BmiHelper {
 
     fun formatValue(bmi: Float): String = "%.1f".format(bmi)
 
+    fun parseMetric(text: String): Float? =
+        text.trim().replace(',', '.').toFloatOrNull()
+
+    fun calculate(heightText: String, weightText: String): Result? =
+        calculate(parseMetric(heightText), parseMetric(weightText))
+
     fun categoryLabel(category: Category): String = when (category) {
         Category.UNDERWEIGHT -> "Недостаточный вес"
         Category.NORMAL -> "Норма"

@@ -6,6 +6,7 @@ interface AuthRepository {
     suspend fun login(email: String, password: String): Result<Unit>
     /** @return сообщение с сервера (куда смотреть, если почта не настроена). */
     suspend fun sendRegistrationCode(email: String, password: String): Result<String>
+    suspend fun checkNickname(nickname: String): Result<NicknameAvailability>
     suspend fun confirmRegistration(
         email: String,
         password: String,

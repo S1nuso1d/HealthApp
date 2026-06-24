@@ -1,7 +1,8 @@
 package com.example.healtapp.features.auth.presentation
 
-data class AuthUiState(
-    val email: String = "",
+import com.example.healtapp.core.common.Constants
+
+data class AuthUiState(    val email: String = "",
     val password: String = "",
     val repeatPassword: String = "",
     val verificationCode: String = "",
@@ -9,6 +10,12 @@ data class AuthUiState(
     val firstName: String = "",
     val lastName: String = "",
     val nickname: String = "",
+    val nicknameError: String? = null,
+    val nicknameChecking: Boolean = false,
+    val sex: String = Constants.Sex.MALE,
+    val height: String = "",
+    val weight: String = "",
+    val goal: String = Constants.Goals.IMPROVE_ENERGY,
     val birthDate: String = "",
     val isVegetarian: Boolean = false,
     val hasAllergies: Boolean = false,

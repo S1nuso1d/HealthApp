@@ -12,9 +12,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -25,15 +24,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Restaurant
-import androidx.compose.material.icons.filled.WaterDrop
-import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -48,9 +43,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import com.example.healtapp.core.ui.components.AppCard
 import com.example.healtapp.core.ui.components.FeatureHeroBar
 import com.example.healtapp.core.ui.components.AppFormMetrics
 import com.example.healtapp.core.ui.theme.MintPrimary
@@ -60,23 +58,19 @@ import com.example.healtapp.core.ui.theme.WarningColor
 import com.example.healtapp.core.ui.theme.brandingGradient
 import com.example.healtapp.core.ui.theme.contentPrimaryColor
 import com.example.healtapp.core.ui.theme.contentSecondaryColor
-import com.example.healtapp.core.ui.theme.heroBlockGradient
 import com.example.healtapp.core.ui.theme.heroContentColor
-import com.example.healtapp.core.ui.theme.heroIconBackdrop
 import com.example.healtapp.core.ui.theme.iconBadgeGradient
 import com.example.healtapp.core.ui.theme.isAppDarkTheme
-import com.example.healtapp.core.ui.theme.metricIconGradient
 import com.example.healtapp.core.ui.theme.subtleFillGradient
 import com.example.healtapp.core.ui.theme.themedCardBlue
+import com.example.healtapp.core.ui.theme.themedCardLavender
 import com.example.healtapp.core.ui.theme.themedCardMint
+import com.example.healtapp.core.ui.theme.metricIconGradient
+import com.example.healtapp.features.aicoach.presentation.AiHealthTopic
+import com.example.healtapp.features.aicoach.presentation.AiHealthTopics
+import com.example.healtapp.features.aicoach.presentation.ChatHistoryEntryUi
+import com.example.healtapp.features.aicoach.presentation.ChatHistorySessionUi
 import com.example.healtapp.features.aicoach.presentation.ChatMessageUi
-
-private val AiCapabilityItems = listOf(
-    Triple(Icons.Filled.Bedtime, "Сон", "качество и режим"),
-    Triple(Icons.Filled.WaterDrop, "Вода", "гидратация"),
-    Triple(Icons.Filled.Restaurant, "Питание", "КБЖУ и цели"),
-    Triple(Icons.AutoMirrored.Filled.DirectionsWalk, "Активность", "шаги и нагрузка"),
-)
 
 @Composable
 fun AiCoachHeroBar(
@@ -85,26 +79,36 @@ fun AiCoachHeroBar(
     isGuestMode: Boolean,
     onRefreshStatus: () -> Unit,
     onNewChat: () -> Unit,
+    onOpenHistory: () -> Unit,
     showNewChat: Boolean,
     enabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
     FeatureHeroBar(
-        title = "AI Coach",
+        title = "ИИ помощник",
         subtitle = if (isGuestMode) {
             "Войдите, чтобы видеть ваш дневник"
         } else {
-            "Персональный коуч · данные за 14 дней"
+            ""
         },
         icon = Icons.Filled.AutoAwesome,
         onBack = onBack,
         modifier = modifier,
         actions = {
+            if (!isGuestMode) {
+                IconButton(onClick = onOpenHistory, enabled = enabled) {
+                    Icon(
+                        Icons.Outlined.History,
+                        contentDescription = "История",
+                        tint = heroContentColor(),
+                    )
+                }
+            }
             if (!isGuestMode && llmAvailable == false) {
                 IconButton(onClick = onRefreshStatus, enabled = enabled) {
                     Icon(
                         Icons.Filled.Refresh,
-                        contentDescription = "Проверить LLM",
+                        contentDescription = "Проверить ИИ",
                         tint = heroContentColor(),
                     )
                 }
@@ -134,8 +138,8 @@ fun AiCoachHeroBar(
 private fun AiLlmStatusChip(llmAvailable: Boolean?) {
     val (dotColor, label) = when (llmAvailable) {
         true -> SuccessColor to "Нейросеть онлайн"
-        false -> WarningColor to "Локальный режим · без LLM"
-        null -> heroContentColor().copy(alpha = 0.6f) to "Проверяем LLM…"
+        false -> WarningColor to "ИИ недоступен на сервере"
+        null -> heroContentColor().copy(alpha = 0.6f) to "Проверяем ИИ…"
     }
     Row(
         modifier = Modifier
@@ -161,51 +165,9 @@ private fun AiLlmStatusChip(llmAvailable: Boolean?) {
 }
 
 @Composable
-fun AiContextStrip(modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(Brush.linearGradient(subtleFillGradient()))
-            .border(
-                1.dp,
-                MaterialTheme.colorScheme.outline.copy(alpha = 0.12f),
-                RoundedCornerShape(18.dp),
-            )
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        AiContextStripItem(Icons.Filled.Bedtime, "Сон")
-        AiContextStripItem(Icons.Filled.WaterDrop, "Вода")
-        AiContextStripItem(Icons.Filled.Restaurant, "Еда")
-        AiContextStripItem(Icons.AutoMirrored.Filled.DirectionsWalk, "Шаги")
-    }
-}
-
-@Composable
-private fun AiContextStripItem(icon: ImageVector, label: String) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp),
-            tint = MaterialTheme.colorScheme.primary,
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = contentSecondaryColor(),
-        )
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
 fun AiWelcomePanel(
+    topics: List<AiHealthTopic> = AiHealthTopics,
+    onTopicClick: (AiHealthTopic) -> Unit,
     prompts: List<String>,
     onPromptClick: (String) -> Unit,
     enabled: Boolean,
@@ -222,35 +184,23 @@ fun AiWelcomePanel(
                 fontWeight = FontWeight.Bold,
             )
             Text(
-                text = "Я вижу ваш дневник и могу разобрать сон, воду, питание и активность. Выберите тему или задайте свой вопрос.",
+                text = "Выберите тему — разберу ваши данные, что мешает и какие шаги помогут улучшить показатели.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = contentSecondaryColor(),
             )
         }
 
-        AiContextStrip()
-
         Text(
-            text = "Что я умею",
+            text = "Разбор по темам",
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.SemiBold,
             color = contentSecondaryColor(),
         )
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            maxItemsInEachRow = 2,
-        ) {
-            AiCapabilityItems.forEachIndexed { index, (icon, title, subtitle) ->
-                AiCapabilityTile(
-                    icon = icon,
-                    title = title,
-                    subtitle = subtitle,
-                    mintTint = index % 2 == 0,
-                )
-            }
-        }
+        AiTopicFocusGrid(
+            topics = topics,
+            onTopicClick = onTopicClick,
+            enabled = enabled,
+        )
 
         Text(
             text = "Быстрые вопросы",
@@ -271,40 +221,84 @@ fun AiWelcomePanel(
 }
 
 @Composable
-private fun AiCapabilityTile(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-    mintTint: Boolean,
+private fun AiTopicFocusGrid(
+    topics: List<AiHealthTopic>,
+    onTopicClick: (AiHealthTopic) -> Unit,
+    enabled: Boolean,
 ) {
-    val cardBase = if (mintTint) themedCardMint() else themedCardBlue()
-    Row(
-        modifier = Modifier
-            .widthIn(min = 148.dp, max = 180.dp)
-            .clip(RoundedCornerShape(20.dp))
+    val gradients = listOf(
+        metricIconGradient(themedCardBlue()),
+        metricIconGradient(themedCardMint()),
+        metricIconGradient(themedCardLavender()),
+        metricIconGradient(themedCardBlue(), mintTint = true),
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        topics.chunked(2).forEachIndexed { rowIndex, rowTopics ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                rowTopics.forEachIndexed { colIndex, topic ->
+                    val gradient = gradients[(rowIndex * 2 + colIndex) % gradients.size]
+                    AiTopicFocusCard(
+                        topic = topic,
+                        iconGradient = gradient,
+                        onClick = { if (enabled) onTopicClick(topic) },
+                        enabled = enabled,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                if (rowTopics.size == 1) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AiTopicFocusCard(
+    topic: AiHealthTopic,
+    iconGradient: List<Color>,
+    onClick: () -> Unit,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .alpha(if (enabled) 1f else 0.55f)
+            .clip(RoundedCornerShape(22.dp))
             .background(MaterialTheme.colorScheme.surface)
             .border(
                 1.dp,
-                MaterialTheme.colorScheme.outline.copy(alpha = 0.08f),
-                RoundedCornerShape(20.dp),
+                MaterialTheme.colorScheme.outline.copy(alpha = 0.1f),
+                RoundedCornerShape(22.dp),
             )
-            .padding(12.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 14.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Box(
             modifier = Modifier
-                .size(40.dp)
+                .size(44.dp)
                 .clip(RoundedCornerShape(14.dp))
-                .background(Brush.linearGradient(metricIconGradient(cardBase, mintTint))),
+                .background(Brush.linearGradient(iconGradient)),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+            Icon(
+                topic.icon,
+                contentDescription = topic.label,
+                modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.primary,
+            )
         }
-        Column {
-            Text(text = title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-            Text(text = subtitle, style = MaterialTheme.typography.labelSmall, color = contentSecondaryColor())
-        }
+        Text(
+            text = topic.label,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = contentPrimaryColor(),
+        )
     }
 }
 
@@ -417,17 +411,13 @@ fun AiAssistantBubble(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
         ) {
             Text(
-                text = "AI Coach",
+                text = "ИИ помощник",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.SemiBold,
                 color = MintPrimary,
             )
             Spacer(Modifier.height(4.dp))
-            Text(
-                text = text,
-                style = MaterialTheme.typography.bodyLarge,
-                color = contentPrimaryColor(),
-            )
+            AiFormattedText(text = text)
         }
     }
 }
@@ -569,7 +559,7 @@ fun AiGuestPanel(modifier: Modifier = Modifier) {
             fontWeight = FontWeight.Bold,
         )
         Text(
-            text = "Войдите или зарегистрируйтесь — тогда AI Coach увидит сон, воду, питание и шаги из вашего дневника.",
+            text = "Войдите или зарегистрируйтесь — тогда ИИ помощник увидит сон, воду, питание и шаги из вашего дневника.",
             style = MaterialTheme.typography.bodyMedium,
             color = contentSecondaryColor(),
         )
@@ -640,6 +630,93 @@ fun AiComposerDock(
                 contentDescription = "Отправить",
                 tint = if (enabled && value.isNotBlank()) Color.White else contentSecondaryColor(),
             )
+        }
+    }
+}
+
+@Composable
+fun AiChatHistorySheet(
+    sessions: List<ChatHistorySessionUi>,
+    modifier: Modifier = Modifier,
+) {
+    if (sessions.isEmpty()) {
+        AppCard(modifier = modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = "История пока пуста",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = "Здесь появятся ваши вопросы и рекомендации ИИ. При «Новом диалоге» прошлая переписка сохраняется в историю.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        return
+    }
+
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        items(sessions, key = { it.id }) { session ->
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = session.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = contentPrimaryColor(),
+                )
+                session.entries.forEach { entry ->
+                    AiHistoryEntryCard(entry = entry)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AiHistoryEntryCard(entry: ChatHistoryEntryUi) {
+    val label = if (entry.isUser) "Ваш вопрос" else "Рекомендация ИИ"
+    val gradient = if (entry.isUser) {
+        Brush.linearGradient(listOf(themedCardMint(), themedCardBlue()))
+    } else {
+        Brush.linearGradient(listOf(themedCardLavender(), themedCardBlue()))
+    }
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = Color.Transparent,
+    ) {
+        Column(
+            modifier = Modifier
+                .background(gradient)
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            if (entry.isUser) {
+                Text(
+                    text = entry.text,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = contentPrimaryColor(),
+                )
+            } else {
+                AiFormattedText(text = entry.text)
+            }
         }
     }
 }

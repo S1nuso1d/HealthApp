@@ -32,7 +32,6 @@ import com.example.healtapp.core.ui.theme.heroBlockGradient
 import com.example.healtapp.core.ui.theme.heroContentColor
 import com.example.healtapp.core.ui.theme.heroIconBackdrop
 import com.example.healtapp.core.ui.theme.isAppDarkTheme
-import com.example.healtapp.features.profile.ProfileRus
 
 @Composable
 fun ProfileHeroBlock(
@@ -40,8 +39,6 @@ fun ProfileHeroBlock(
     displayName: String,
     avatarUrl: String?,
     imageLoader: ImageLoader,
-    goal: String,
-    activityLevel: String,
     age: String,
     guestMode: Boolean,
     isUploadingAvatar: Boolean,
@@ -119,22 +116,6 @@ fun ProfileHeroBlock(
                     text = "$age лет",
                     style = MaterialTheme.typography.bodyMedium,
                     color = heroContentColor().copy(alpha = 0.88f),
-                )
-            }
-            Text(
-                text = if (goal.isNotBlank()) {
-                    "Цель: ${ProfileRus.goalLabel(goal)}"
-                } else {
-                    "Заполни данные — рекомендации станут точнее"
-                },
-                style = MaterialTheme.typography.bodyMedium,
-                color = heroContentColor().copy(alpha = 0.92f),
-            )
-            if (activityLevel.isNotBlank()) {
-                Text(
-                    text = "Активность: ${ProfileRus.activityLevelLabel(activityLevel)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = heroContentColor().copy(alpha = 0.85f),
                 )
             }
             if (guestMode) {

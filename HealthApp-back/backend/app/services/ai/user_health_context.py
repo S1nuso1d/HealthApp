@@ -38,19 +38,29 @@ def build_user_health_context_text(
     db: Session,
     user_id: int,
     period_days: int = 14,
+    *,
+    compact: bool = False,
 ) -> str:
+    if compact:
+        period_days = min(period_days, 3)
     period_days = max(3, min(period_days, 30))
     end_date = date.today()
     start_date = end_date - timedelta(days=period_days - 1)
 
     profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
+    sleep_target = float(profile.target_sleep_hours or 8) if profile else 8.0
+
+    from app.services.ai.time_context import build_time_context_block
+
+    lines: list[str] = [
+        build_time_context_block(sleep_target_hours=sleep_target),
+        "",
+        "=== ПРОФИЛЬ И ЦЕЛИ ===",
+    ]
     goals = collect_today_goals(db, user_id)
     scores = compute_today_scores(db, user_id)
     trends = compute_user_trends(db, user_id, days=period_days)
 
-    lines: list[str] = [
-        "=== ПРОФИЛЬ И ЦЕЛИ ===",
-    ]
     if profile:
         lines.append(
             f"Возраст: {profile.age or '—'}, пол: {profile.sex or '—'}, "
@@ -94,16 +104,9 @@ def build_user_health_context_text(
             lines.append(f"Аллергии/ограничения: {profile.allergies_text}")
         elif profile.has_allergies:
             lines.append("Аллергии/ограничения: указаны в профиле, уточните список продуктов")
-        is_veg = profile.is_vegetarian or (
-            profile.allergies_text
-            and any(
-                token in profile.allergies_text.lower()
-                for token in ("вегетариан", "vegetarian", "vegan", "веган", "без мяса")
-            )
-        )
-        if is_veg:
+        if profile.is_vegetarian is True:
             lines.append(
-                "Питание: СТРОГО ВЕГЕТАРИАНСКОЕ — без мяса, птицы, рыбы, морепродуктов и рыбных соусов"
+                "Питание: вегетарианское — без мяса, птицы, рыбы и морепродуктов"
             )
     else:
         lines.append("Профиль не заполнен")
@@ -129,7 +132,7 @@ def build_user_health_context_text(
         ]
     )
 
-    if trends.days_with_data > 0:
+    if trends.days_with_data > 0 and not compact:
         lines.extend(
             [
                 "",
@@ -158,7 +161,7 @@ def build_user_health_context_text(
             DailyHealthSummary.summary_date <= end_date,
         )
         .order_by(DailyHealthSummary.summary_date.desc())
-        .limit(7)
+        .limit(3 if compact else 7)
         .all()
     )
     if summaries:
@@ -187,7 +190,7 @@ def build_user_health_context_text(
         .limit(8)
         .all()
     )
-    if sleeps:
+    if sleeps and not compact:
         lines.append("")
         lines.append("=== СОН (последние записи) ===")
         for s in sleeps:
@@ -205,7 +208,7 @@ def build_user_health_context_text(
             MealRecord.meal_time < period_end,
         )
         .order_by(MealRecord.meal_time.desc())
-        .limit(12)
+        .limit(5 if compact else 12)
         .all()
     )
     if meals:
@@ -232,7 +235,7 @@ def build_user_health_context_text(
         .limit(15)
         .all()
     )
-    if hydrations:
+    if hydrations and not compact:
         today_water = sum(
             float(h.amount_ml or 0) * (float(h.hydration_factor) if h.hydration_factor else 1.0)
             for h in hydrations
@@ -254,7 +257,7 @@ def build_user_health_context_text(
         .limit(10)
         .all()
     )
-    if activities:
+    if activities and not compact:
         lines.append("")
         lines.append("=== АКТИВНОСТЬ (последние) ===")
         for a in activities:
@@ -275,7 +278,7 @@ def build_user_health_context_text(
         .limit(8)
         .all()
     )
-    if states:
+    if states and not compact:
         lines.append("")
         lines.append("=== САМОЧУВСТВИЕ (отметки) ===")
         for st in states:
@@ -289,22 +292,24 @@ def build_user_health_context_text(
                 + (f". {st.notes}" if st.notes else "")
             )
 
-    personal = PersonalizedAdvisor.generate_recommendations(db, user_id, period_days=period_days)[:6]
-    merged = build_merged_recommendation_items(db, user_id, period_days)[:6]
-    rec_titles = {r["title"] for r in personal}
-    for r in merged:
-        if r.title not in rec_titles and len(personal) < 8:
-            personal.append(
-                {
-                    "title": r.title,
-                    "description": r.description,
-                    "action": r.action,
-                    "category": r.category,
-                    "priority": r.priority,
-                }
-            )
+    personal: list[dict] = []
+    if not compact:
+        personal = PersonalizedAdvisor.generate_recommendations(db, user_id, period_days=period_days)[:6]
+        merged = build_merged_recommendation_items(db, user_id, period_days)[:6]
+        rec_titles = {r["title"] for r in personal}
+        for r in merged:
+            if r.title not in rec_titles and len(personal) < 8:
+                personal.append(
+                    {
+                        "title": r.title,
+                        "description": r.description,
+                        "action": r.action,
+                        "category": r.category,
+                        "priority": r.priority,
+                    }
+                )
 
-    if personal:
+    if personal and not compact:
         lines.append("")
         lines.append("=== ПЕРСОНАЛЬНЫЕ РЕКОМЕНДАЦИИ СИСТЕМЫ ===")
         for r in personal[:8]:
@@ -313,4 +318,52 @@ def build_user_health_context_text(
             if action:
                 lines.append(f"  Действие: {action}")
 
+    return "\n".join(lines)
+
+
+def build_meal_plan_context(
+    db: Session,
+    user_id: int,
+) -> str:
+    """Минимальный контекст для плана питания — быстрее обрабатывается LLM."""
+    profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
+    lines: list[str] = ["=== ПРОФИЛЬ ДЛЯ МЕНЮ ==="]
+    if not profile:
+        lines.append("Профиль не заполнен — ориентир 1800 ккал, обычное домашнее меню.")
+        return "\n".join(lines)
+
+    lines.append(
+        f"Цель: {profile.goal or '—'}, активность: {profile.activity_level or '—'}"
+    )
+    cal = profile.target_daily_calories
+    prot = profile.target_protein_g
+    fat = profile.target_fat_g
+    carbs = profile.target_carbs_g
+    if prot is None or fat is None or carbs is None or cal is None:
+        from app.services.nutrition_targets_service import try_calculate_from_profile
+
+        computed = try_calculate_from_profile(
+            age=profile.age,
+            sex=profile.sex,
+            height_cm=profile.height_cm,
+            weight_kg=profile.weight_kg,
+            activity_level=profile.activity_level,
+            goal=profile.goal,
+        )
+        if computed:
+            cal = cal or computed.target_daily_calories
+            prot = prot or computed.target_protein_g
+            fat = fat or computed.target_fat_g
+            carbs = carbs or computed.target_carbs_g
+    if cal and prot is not None and fat is not None and carbs is not None:
+        lines.append(
+            f"Цель КБЖУ в день: {int(cal)} ккал, "
+            f"Б {prot:.0f} г, Ж {fat:.0f} г, У {carbs:.0f} г"
+        )
+    if profile.is_vegetarian is True:
+        lines.append("Вегетарианство: да")
+    else:
+        lines.append("Вегетарианство: нет — мясо, птица и рыба разрешены")
+    if profile.has_allergies and profile.allergies_text:
+        lines.append(f"Исключить из меню: {profile.allergies_text}")
     return "\n".join(lines)

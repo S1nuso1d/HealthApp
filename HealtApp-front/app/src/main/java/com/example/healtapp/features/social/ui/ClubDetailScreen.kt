@@ -9,16 +9,18 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -34,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import android.net.Uri
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -56,8 +59,12 @@ import com.example.healtapp.data.network.dto.social.ClubPostResponseDto
 import com.example.healtapp.data.network.dto.social.ClubResponseDto
 import com.example.healtapp.features.social.presentation.ClubsViewModel
 import com.example.healtapp.features.social.ui.components.ClubAvatar
+import com.example.healtapp.features.social.ui.components.ClubImagePickerSection
 import com.example.healtapp.features.social.ui.components.ClubPostComposerSheet
 import com.example.healtapp.features.social.ui.components.SocialUserAvatar
+import com.example.healtapp.features.social.util.SocialMediaUrls
+import com.example.healtapp.di.ApiServerConfigEntryPoint
+import dagger.hilt.android.EntryPointAccessors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -106,7 +113,7 @@ fun ClubDetailScreen(
                     extraBottomPadding = if (showFab) 72.dp else 16.dp,
                     heroActions = {
                         if (club.is_member) {
-                            IconButton(onClick = { viewModel.leaveClub(clubId); onBack() }) {
+                            IconButton(onClick = { viewModel.leaveClub(clubId) { onBack() } }) {
                                 Icon(
                                     Icons.AutoMirrored.Filled.ExitToApp,
                                     contentDescription = "Выйти из клуба",
@@ -135,6 +142,28 @@ fun ClubDetailScreen(
                     uiState.error?.let { FeatureInlineNotice(text = it, isError = true) }
                     uiState.message?.let { FeatureInlineNotice(text = it) }
 
+                    if (!club.is_member) {
+                        AppCard {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text(
+                                    text = "Открытый клуб",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Text(
+                                    text = "Вступите, чтобы публиковать, голосовать в опросах и видеть участников",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                AppButton(
+                                    text = "Вступить в клуб",
+                                    onClick = { viewModel.joinClub(clubId) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                        }
+                    }
+
                     club.rules?.takeIf { it.isNotBlank() }?.let { rules ->
                         AppCard {
                             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -155,21 +184,33 @@ fun ClubDetailScreen(
 
                     val tabs = buildList {
                         add(RoundedTabItem(0, "Лента", Icons.Filled.Chat))
-                        add(RoundedTabItem(1, "Участники", Icons.Filled.Groups))
-                        if (uiState.myRole == "admin") {
-                            add(RoundedTabItem(2, "Настройки", Icons.Filled.Settings))
+                        if (club.is_member) {
+                            add(RoundedTabItem(1, "Участники", Icons.Filled.Groups))
+                            if (uiState.myRole == "admin") {
+                                add(RoundedTabItem(2, "Настройки", Icons.Filled.Settings))
+                            }
                         }
                     }
-                    RoundedSectionTabs(tabs = tabs, selected = tab, onSelect = { tab = it })
+                    if (tabs.size > 1) {
+                        RoundedSectionTabs(tabs = tabs, selected = tab, onSelect = { tab = it })
+                    }
 
-                    when (tab) {
-                        0 -> ClubFeedTab(
+                    when {
+                        !club.is_member -> ClubFeedTab(
+                            clubId = clubId,
+                            posts = uiState.posts,
+                            isMember = false,
+                            onOpenMember = onOpenMember,
+                            viewModel = viewModel,
+                        )
+                        tab ==                         0 -> ClubFeedTab(
                             clubId = clubId,
                             posts = uiState.posts,
                             isMember = club.is_member,
+                            onOpenMember = onOpenMember,
                             viewModel = viewModel,
                         )
-                        1 -> ClubMembersTab(
+                        tab == 1 -> ClubMembersTab(
                             members = uiState.members,
                             isAdmin = uiState.myRole == "admin",
                             clubId = clubId,
@@ -247,6 +288,7 @@ private fun ClubFeedTab(
     clubId: Int,
     posts: List<ClubPostResponseDto>,
     isMember: Boolean,
+    onOpenMember: (Int) -> Unit,
     viewModel: ClubsViewModel,
 ) {
     SectionHeader(
@@ -271,7 +313,13 @@ private fun ClubFeedTab(
     } else {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             posts.forEach { post ->
-                ClubPostCard(clubId = clubId, post = post, isMember = isMember, viewModel = viewModel)
+                ClubPostCard(
+                    clubId = clubId,
+                    post = post,
+                    isMember = isMember,
+                    onOpenMember = onOpenMember,
+                    viewModel = viewModel,
+                )
             }
         }
     }
@@ -282,6 +330,7 @@ private fun ClubPostCard(
     clubId: Int,
     post: ClubPostResponseDto,
     isMember: Boolean,
+    onOpenMember: (Int) -> Unit,
     viewModel: ClubsViewModel,
 ) {
     val typeLabel = when (post.post_type) {
@@ -297,6 +346,8 @@ private fun ClubPostCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Row(
+                    modifier = Modifier
+                        .clickable { onOpenMember(post.user.user_id) },
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -368,38 +419,91 @@ private fun ClubMembersTab(
     )
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         members.forEach { member ->
-            AppCard {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable { onOpenMember(member.user.user_id) },
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+            ClubMemberRow(
+                member = member,
+                isAdmin = isAdmin,
+                clubId = clubId,
+                onOpenMember = onOpenMember,
+                viewModel = viewModel,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ClubMemberRow(
+    member: ClubMemberResponseDto,
+    isAdmin: Boolean,
+    clubId: Int,
+    onOpenMember: (Int) -> Unit,
+    viewModel: ClubsViewModel,
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
+
+    AppCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onOpenMember(member.user.user_id) },
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SocialUserAvatar(user = member.user, size = 48.dp)
+                Column {
+                    Text(member.user.display_name, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        if (member.role == "admin") "Администратор" else "Участник",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            if (isAdmin && !member.user.is_self) {
+                Box {
+                    IconButton(onClick = { menuExpanded = true }) {
+                        Icon(
+                            Icons.Filled.MoreVert,
+                            contentDescription = "Действия с участником",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false },
                     ) {
-                        SocialUserAvatar(user = member.user)
-                        Column {
-                            Text(member.user.display_name, fontWeight = FontWeight.SemiBold)
-                            Text(
-                                if (member.role == "admin") "Администратор" else "Участник",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        if (member.role != "admin") {
+                            DropdownMenuItem(
+                                text = { Text("Назначить администратором") },
+                                onClick = {
+                                    menuExpanded = false
+                                    viewModel.setMemberRole(clubId, member.user.user_id, "admin")
+                                },
+                            )
+                        } else {
+                            DropdownMenuItem(
+                                text = { Text("Снять права администратора") },
+                                onClick = {
+                                    menuExpanded = false
+                                    viewModel.setMemberRole(clubId, member.user.user_id, "member")
+                                },
                             )
                         }
-                    }
-                    if (isAdmin && !member.user.is_self) {
-                        AppButton(
-                            text = if (member.role == "admin") "−" else "Админ",
-                            onClick = {
-                                val next = if (member.role == "admin") "member" else "admin"
-                                viewModel.setMemberRole(clubId, member.user.user_id, next)
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    "Исключить из клуба",
+                                    color = MaterialTheme.colorScheme.error,
+                                )
                             },
-                            isSecondary = true,
-                            modifier = Modifier.width(88.dp),
+                            onClick = {
+                                menuExpanded = false
+                                viewModel.removeMember(clubId, member.user.user_id)
+                            },
                         )
                     }
                 }
@@ -413,20 +517,74 @@ private fun ClubSettingsTab(
     club: ClubResponseDto,
     viewModel: ClubsViewModel,
 ) {
+    val context = LocalContext.current
+    val baseUrl = remember {
+        EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            ApiServerConfigEntryPoint::class.java,
+        ).apiServerConfig().baseUrl()
+    }
+    val resolvedAvatarUrl = remember(club.id, club.avatar_url, baseUrl) {
+        SocialMediaUrls.resolveMediaUrl(baseUrl, club.avatar_url)
+    }
+
     var name by remember(club.id) { mutableStateOf(club.name) }
     var description by remember(club.id) { mutableStateOf(club.description.orEmpty()) }
     var rules by remember(club.id) { mutableStateOf(club.rules.orEmpty()) }
-    var avatarUrl by remember(club.id) { mutableStateOf(club.avatar_url.orEmpty()) }
+    var avatarUri by remember(club.id) { mutableStateOf<Uri?>(null) }
 
-    GradientFormPanel {
-        SectionHeader(title = "Настройки клуба", subtitle = "Только для администратора")
-        GradientOutlinedField(value = name, onValueChange = { name = it }, label = "Название")
-        GradientOutlinedField(value = description, onValueChange = { description = it }, label = "Описание")
-        GradientOutlinedField(value = rules, onValueChange = { rules = it }, label = "Правила")
-        GradientOutlinedField(value = avatarUrl, onValueChange = { avatarUrl = it }, label = "URL фото клуба")
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        SectionHeader(
+            title = "Настройки клуба",
+            subtitle = "Обложка, название и правила сообщества",
+        )
+
+        AppCard {
+            ClubImagePickerSection(
+                clubName = name,
+                avatarUri = avatarUri,
+                existingAvatarUrl = if (avatarUri == null) resolvedAvatarUrl else null,
+                onAvatarChange = { avatarUri = it },
+            )
+        }
+
+        AppCard {
+            GradientFormPanel {
+                Text(
+                    text = "Основное",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                GradientOutlinedField(value = name, onValueChange = { name = it }, label = "Название")
+                GradientOutlinedField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = "Описание",
+                    singleLine = false,
+                    maxLines = 4,
+                )
+                GradientOutlinedField(
+                    value = rules,
+                    onValueChange = { rules = it },
+                    label = "Правила участия",
+                    singleLine = false,
+                    maxLines = 4,
+                )
+            }
+        }
+
         AppButton(
-            text = "Сохранить",
-            onClick = { viewModel.updateClub(club.id, name, description, rules, avatarUrl) },
+            text = "Сохранить изменения",
+            onClick = {
+                viewModel.updateClub(
+                    clubId = club.id,
+                    name = name,
+                    description = description,
+                    rules = rules,
+                    avatarUri = avatarUri,
+                    keepAvatarUrl = club.avatar_url,
+                )
+            },
             modifier = Modifier.fillMaxWidth(),
         )
     }

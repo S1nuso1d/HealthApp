@@ -11,7 +11,9 @@ import com.example.healtapp.data.network.realtime.RealtimeUpdatesClient
 import com.example.healtapp.data.preferences.DashboardCache
 import com.example.healtapp.data.preferences.ProfileCache
 import com.example.healtapp.data.preferences.TokenStorage
+import com.example.healtapp.data.preferences.TrainingPrefs
 import com.example.healtapp.domain.repository.AuthRepository
+import com.example.healtapp.domain.repository.NicknameAvailability
 import javax.inject.Inject
 
 class AuthRepositoryImpl @Inject constructor(
@@ -19,11 +21,19 @@ class AuthRepositoryImpl @Inject constructor(
     private val tokenStorage: TokenStorage,
     private val profileCache: ProfileCache,
     private val dashboardCache: DashboardCache,
+    private val trainingPrefs: TrainingPrefs,
     private val realtimeUpdatesClient: RealtimeUpdatesClient,
 ) : AuthRepository {
 
+    private suspend fun clearLocalUserData() {
+        profileCache.clear()
+        dashboardCache.clear()
+        trainingPrefs.clear()
+    }
+
     override suspend fun login(email: String, password: String): Result<Unit> {
         return runCatching {
+            clearLocalUserData()
             val response = authApi.login(
                 username = email,
                 password = password
@@ -44,6 +54,16 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun checkNickname(nickname: String): Result<NicknameAvailability> {
+        return runCatching {
+            val response = authApi.checkNickname(nickname.trim())
+            NicknameAvailability(
+                available = response.available,
+                message = response.message,
+            )
+        }
+    }
+
     override suspend fun confirmRegistration(
         email: String,
         password: String,
@@ -51,6 +71,7 @@ class AuthRepositoryImpl @Inject constructor(
         profile: RegisterProfileDraftDto?,
     ): Result<Unit> {
         return runCatching {
+            clearLocalUserData()
             val response = authApi.registerComplete(
                 RegisterVerifyDto(
                     email = email,
@@ -67,8 +88,7 @@ class AuthRepositoryImpl @Inject constructor(
     override suspend fun logout() {
         realtimeUpdatesClient.stop()
         tokenStorage.clearToken()
-        profileCache.clear()
-        dashboardCache.clear()
+        clearLocalUserData()
     }
 
     override suspend fun deleteAccount(password: String): Result<Unit> {
@@ -76,8 +96,7 @@ class AuthRepositoryImpl @Inject constructor(
             authApi.deleteAccount(PasswordConfirmDto(password = password))
             realtimeUpdatesClient.stop()
             tokenStorage.clearToken()
-            profileCache.clear()
-            dashboardCache.clear()
+            clearLocalUserData()
         }
     }
 

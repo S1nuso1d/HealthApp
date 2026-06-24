@@ -46,6 +46,7 @@ object WeeklySummaryCalculator {
         hydrationHistory: List<HydrationDto>,
         activityHistory: List<ActivityDto>,
         mealHistory: List<MealDto>,
+        liveStepsToday: Int? = null,
     ): Result {
         val weekStart = currentWeekMonday(today)
         val weekEnd = weekStart.plusDays(6)
@@ -79,7 +80,10 @@ object WeeklySummaryCalculator {
         val stepsByDay = mutableMapOf<LocalDate, Int>()
         for (day in weekStart.datesUntil(periodEnd.plusDays(1))) {
             val key = day.toString()
-            val steps = ActivityStepsHelper.sumStepsForDate(activityHistory, key)
+            val steps = when {
+                day == today && liveStepsToday != null && liveStepsToday > 0 -> liveStepsToday
+                else -> ActivityStepsHelper.sumStepsForDate(activityHistory, key)
+            }
             if (steps > 0) stepsByDay[day] = steps
         }
 

@@ -196,13 +196,14 @@ class HealthConnectReader @Inject constructor(
 
         for ((day, total) in stepsByDay) {
             if (total <= 0) continue
-            val dayStart = java.time.LocalDate.parse(day).atStartOfDay(zone).toInstant()
-            val dayEnd = dayStart.plusSeconds(3600L)
+            val localDate = java.time.LocalDate.parse(day)
+            val startLdt = localDate.atTime(0, 1)
+            val endLdt = localDate.atTime(23, 59)
             activities.add(
                 ActivityCreateRequestDto(
                     activity_type = "walk",
-                    start_time = dayStart.toString(),
-                    end_time = dayEnd.toString(),
+                    start_time = startLdt.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+                    end_time = endLdt.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME),
                     duration_minutes = 60,
                     steps = total.toInt().coerceAtMost(Int.MAX_VALUE),
                     distance_km = null,
@@ -478,14 +479,20 @@ class HealthConnectReader @Inject constructor(
 
     /** Шаги за сегодня из Health Connect (агрегат COUNT_TOTAL, без суммирования сырых записей). */
     suspend fun readTodaySteps(): Int? {
-        val client = getClient() ?: return null
-        if (!areReadPermissionsGranted()) return null
+        val today = LocalDate.now(ZoneId.systemDefault()).toString()
+        return readStepsAggregatedForLastDays(1)[today]
+    }
+
+    /** Дневные шаги из Health Connect за последние [days] календарных дней (локальное время). */
+    suspend fun readStepsAggregatedForLastDays(days: Int = 7): Map<String, Int> {
+        val client = getClient() ?: return emptyMap()
+        if (!areReadPermissionsGranted()) return emptyMap()
         val zone = ZoneId.systemDefault()
         val today = LocalDate.now(zone)
-        val start = today.atStartOfDay(zone).toInstant()
+        val start = today.minusDays((days - 1).coerceAtLeast(0).toLong()).atStartOfDay(zone).toInstant()
         val end = Instant.now()
-        val byDay = readStepsAggregatedByDay(client, start, end, zone)
-        return byDay[today.toString()]?.toInt()?.coerceAtMost(Int.MAX_VALUE)
+        return readStepsAggregatedByDay(client, start, end, zone)
+            .mapValues { it.value.toInt().coerceAtMost(Int.MAX_VALUE) }
     }
 
     /**

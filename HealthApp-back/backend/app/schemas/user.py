@@ -61,9 +61,20 @@ class RegisterProfileDraft(BaseModel):
     last_name: Optional[str] = Field(None, max_length=64)
     nickname: Optional[str] = Field(None, max_length=32)
     age: Optional[int] = Field(None, ge=1, le=120)
+    birth_date: Optional[str] = Field(None, max_length=10)
+    sex: Optional[str] = Field(None, max_length=16)
+    height_cm: Optional[float] = Field(None, ge=80, le=260)
+    weight_kg: Optional[float] = Field(None, ge=25, le=400)
+    goal: Optional[str] = Field(None, max_length=64)
+    activity_level: Optional[str] = Field(None, max_length=32)
     is_vegetarian: Optional[bool] = None
     has_allergies: Optional[bool] = None
     allergies_text: Optional[str] = Field(None, max_length=500)
+
+
+class NicknameCheckResponse(BaseModel):
+    available: bool = Field(description="Можно ли использовать никнейм")
+    message: Optional[str] = Field(None, description="Причина, если занят или неверный формат")
 
 
 RegisterVerify.model_rebuild()

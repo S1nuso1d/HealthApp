@@ -21,6 +21,19 @@ data class ChatMessageUi(
     val id: Long,
     val isUser: Boolean,
     val text: String,
+    val apiText: String? = null,
+)
+
+data class ChatHistorySessionUi(
+    val id: String,
+    val title: String,
+    val isCurrent: Boolean = false,
+    val entries: List<ChatHistoryEntryUi>,
+)
+
+data class ChatHistoryEntryUi(
+    val isUser: Boolean,
+    val text: String,
 )
 
 data class AiAssistantUiState(
@@ -33,14 +46,14 @@ data class AiAssistantUiState(
     val contextReady: Boolean = false,
     val llmAvailable: Boolean? = null,
     val llmStatusMessage: String? = null,
+    val showHistorySheet: Boolean = false,
+    val historySessions: List<ChatHistorySessionUi> = emptyList(),
 )
 
 val AiSuggestedPrompts = listOf(
     "Что улучшить сегодня до вечера?",
     "Почему мало энергии и что сделать?",
-    "Как добрать воду и шаги?",
-    "Разбор моего сна за неделю",
-    "Что поесть с учётом моих целей?",
+    "Краткий обзор всех показателей за неделю",
 )
 
 private const val FALLBACK_MARKER = "не удалось связаться с языковой моделью"
@@ -79,7 +92,7 @@ class AiAssistantViewModel @Inject constructor(
                 } else {
                     _uiState.value = AiAssistantUiState(contextReady = true)
                     addBotMessage(
-                        "Здравствуйте! Я ваш AI-помощник HealthApp. Вижу данные из дневника и отвечаю на вопросы о здоровье, сне, питании и активности. Чем помочь?",
+                        "Здравствуйте! Я ваш ИИ помощник HealthApp. Вижу данные из дневника и отвечаю на вопросы о здоровье, сне, питании и активности. Чем помочь?",
                     )
                 }
                 refreshLlmStatus()
@@ -90,6 +103,9 @@ class AiAssistantViewModel @Inject constructor(
     fun refreshLlmStatus() {
         if (_uiState.value.isGuestMode) return
         viewModelScope.launch {
+            if (_uiState.value.llmAvailable != true) {
+                _uiState.update { it.copy(llmAvailable = null) }
+            }
             aiRepository.getAiStatus()
                 .onSuccess { status ->
                     _uiState.update {
@@ -97,11 +113,17 @@ class AiAssistantViewModel @Inject constructor(
                             llmAvailable = status.llm_available,
                             llmStatusMessage = status.message,
                             info = if (!status.llm_available) {
-                                "LLM офлайн (${status.llm_provider}): ${status.message}. Ответы будут по данным дневника без нейросети."
+                                "На сервере ИИ недоступен: ${status.message}"
                             } else {
                                 null
                             },
+                            error = null,
                         )
+                    }
+                }
+                .onFailure { e ->
+                    _uiState.update { state ->
+                        state.copy(llmStatusMessage = e.message)
                     }
                 }
         }
@@ -111,11 +133,12 @@ class AiAssistantViewModel @Inject constructor(
         _uiState.update { it.copy(input = value, error = null) }
     }
 
-    fun sendMessage(text: String? = null) {
+    fun sendMessage(text: String? = null, userDisplayText: String? = null) {
         val question = (text ?: _uiState.value.input).trim()
         if (question.isBlank() || _uiState.value.isLoading || _uiState.value.isGuestMode) return
 
-        addUserMessage(question)
+        val shown = (userDisplayText ?: question).trim()
+        addUserMessage(shown, apiText = if (userDisplayText != null) question else null)
         _uiState.update { it.copy(input = "", isLoading = true, error = null) }
 
         val history = _uiState.value.messages
@@ -124,7 +147,7 @@ class AiAssistantViewModel @Inject constructor(
             .map { msg ->
                 ChatHistoryMessageDto(
                     role = if (msg.isUser) "user" else "assistant",
-                    content = msg.text,
+                    content = msg.apiText ?: msg.text,
                 )
             }
 
@@ -152,12 +175,25 @@ class AiAssistantViewModel @Inject constructor(
                                     }
                                 }
                                 val lastText = updatedMessages.lastOrNull()?.text.orEmpty()
-                                val fallbackInfo = if (lastText.contains(FALLBACK_MARKER, ignoreCase = true)) {
-                                    "Ответ сформирован без LLM — по данным дневника. Запустите Ollama для полноценного диалога."
+                                val usedFallback = lastText.contains(FALLBACK_MARKER, ignoreCase = true)
+                                val fallbackInfo = if (usedFallback) {
+                                    "Ответ сформирован без ИИ — по данным дневника. Запустите нейросеть на сервере для полноценного диалога."
                                 } else {
                                     state.info
                                 }
-                                state.copy(messages = updatedMessages, info = fallbackInfo)
+                                state.copy(
+                                    messages = updatedMessages,
+                                    info = fallbackInfo,
+                                    llmAvailable = if (usedFallback) false else state.llmAvailable,
+                                )
+                            }
+                        }
+                        _uiState.update { state ->
+                            val lastText = state.messages.lastOrNull()?.text.orEmpty()
+                            if (!lastText.contains(FALLBACK_MARKER, ignoreCase = true) && lastText.isNotBlank()) {
+                                state.copy(llmAvailable = true, info = null)
+                            } else {
+                                state
                             }
                         }
                         persistMessages()
@@ -175,7 +211,7 @@ class AiAssistantViewModel @Inject constructor(
                         it.copy(
                             isLoading = false,
                             error = e.message?.takeIf { m -> m.isNotBlank() }
-                                ?: "Не удалось получить ответ от сервера. Проверьте, что бэкенд запущен и Ollama включена.",
+                                ?: "Не удалось получить ответ от сервера. Проверьте, что бэкенд запущен и ИИ включён.",
                         )
                     }
                 }
@@ -186,37 +222,90 @@ class AiAssistantViewModel @Inject constructor(
         sendMessage(prompt)
     }
 
+    fun sendTopicAnalysis(topic: AiHealthTopic) {
+        sendMessage(
+            text = topic.analysisPrompt,
+            userDisplayText = "Разбор: ${topic.label}",
+        )
+    }
+
     fun clearError() {
         _uiState.update { it.copy(error = null) }
     }
 
-    fun clearChat() {
-        messageId = 0L
-        viewModelScope.launch { chatHistoryStore.clear() }
-        if (_uiState.value.isGuestMode) {
-            _uiState.value = AiAssistantUiState(isGuestMode = true, contextReady = true)
-            addBotMessage(
-                "Войдите в аккаунт — тогда я увижу ваш дневник (сон, воду, питание, шаги, настроение) и смогу отвечать персонально.",
-            )
-        } else {
-            val info = _uiState.value.info
-            val llmAvailable = _uiState.value.llmAvailable
-            val llmStatus = _uiState.value.llmStatusMessage
-            _uiState.value = AiAssistantUiState(
-                contextReady = true,
-                info = info,
-                llmAvailable = llmAvailable,
-                llmStatusMessage = llmStatus,
-            )
-            addBotMessage(
-                "Новый диалог. Я ваш AI-помощник HealthApp — спрашивайте о сне, питании, воде и активности.",
-            )
+    fun openHistorySheet() {
+        if (_uiState.value.isGuestMode) return
+        viewModelScope.launch {
+            val sessions = buildHistorySessions()
+            _uiState.update { it.copy(showHistorySheet = true, historySessions = sessions) }
         }
     }
 
-    private fun addUserMessage(text: String) {
+    fun closeHistorySheet() {
+        _uiState.update { it.copy(showHistorySheet = false) }
+    }
+
+    fun clearChat() {
+        viewModelScope.launch {
+            val toArchive = _uiState.value.messages
+            if (toArchive.any { it.isUser }) {
+                chatHistoryStore.archiveSession(
+                    toArchive.map { StoredChatMessage(id = it.id, isUser = it.isUser, text = it.text) },
+                )
+            }
+            messageId = 0L
+            chatHistoryStore.clear()
+            if (_uiState.value.isGuestMode) {
+                _uiState.value = AiAssistantUiState(isGuestMode = true, contextReady = true)
+                addBotMessage(
+                    "Войдите в аккаунт — тогда я увижу ваш дневник (сон, воду, питание, шаги, настроение) и смогу отвечать персонально.",
+                )
+            } else {
+                val info = _uiState.value.info
+                val llmAvailable = _uiState.value.llmAvailable
+                val llmStatus = _uiState.value.llmStatusMessage
+                _uiState.value = AiAssistantUiState(
+                    contextReady = true,
+                    info = info,
+                    llmAvailable = llmAvailable,
+                    llmStatusMessage = llmStatus,
+                )
+                addBotMessage(
+                    "Новый диалог. Я ваш ИИ помощник HealthApp — выберите тему разбора или задайте свой вопрос.",
+                )
+            }
+        }
+    }
+
+    private suspend fun buildHistorySessions(): List<ChatHistorySessionUi> {
+        val archived = chatHistoryStore.loadArchivedSessions().map { session ->
+            ChatHistorySessionUi(
+                id = session.id,
+                title = AiChatHistoryStore.sessionTitle(session.savedAt, session.messages),
+                entries = session.messages.map { ChatHistoryEntryUi(it.isUser, it.text) },
+            )
+        }.toMutableList()
+
+        val current = _uiState.value.messages.dropWhile { !it.isUser }
+        if (current.any { it.isUser }) {
+            archived.add(
+                0,
+                ChatHistorySessionUi(
+                    id = "current",
+                    title = "Текущий диалог",
+                    isCurrent = true,
+                    entries = current.map { ChatHistoryEntryUi(it.isUser, it.text) },
+                ),
+            )
+        }
+        return archived
+    }
+
+    private fun addUserMessage(text: String, apiText: String? = null) {
         messageId++
-        _uiState.update { it.copy(messages = it.messages + ChatMessageUi(messageId, true, text)) }
+        _uiState.update {
+            it.copy(messages = it.messages + ChatMessageUi(messageId, true, text, apiText))
+        }
         persistMessages()
     }
 

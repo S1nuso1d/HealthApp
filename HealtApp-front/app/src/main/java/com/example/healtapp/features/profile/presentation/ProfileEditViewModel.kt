@@ -46,6 +46,10 @@ class ProfileEditViewModel @Inject constructor(
     private val healthConnectManager: HealthConnectManager,
 ) : ViewModel() {
 
+    companion object {
+        const val PROFILE_SAVE_SUCCESS = "PROFILE_SAVE_SUCCESS"
+    }
+
     private val _uiState = MutableStateFlow(ProfileEditUiState())
     val uiState: StateFlow<ProfileEditUiState> = _uiState.asStateFlow()
 
@@ -83,6 +87,7 @@ class ProfileEditViewModel @Inject constructor(
             val result = getProfileUseCase()
             result.onSuccess { profile ->
                 cachedProfile = profile
+                tokenStorage.setUserId(profile.user_id)
                 savedWeightKg = profile.weight_kg
 
                 var tCalories = profile.target_daily_calories?.toString()
@@ -123,7 +128,8 @@ class ProfileEditViewModel @Inject constructor(
                     lastName = profile.last_name.orEmpty(),
                     nickname = profile.nickname.orEmpty(),
                     publicDisplayName = profile.display_name.orEmpty(),
-                    birthDate = profile.age?.let { AgeUtils.estimatedBirthDateFromAge(it) }.orEmpty(),
+                    birthDate = profile.birth_date?.take(10)
+                        ?: profile.age?.let { AgeUtils.estimatedBirthDateFromAge(it) }.orEmpty(),
                     age = profile.age?.toString().orEmpty(),
                     sex = profile.sex ?: _uiState.value.sex,
                     height = profile.height_cm?.toString().orEmpty(),
@@ -304,6 +310,15 @@ class ProfileEditViewModel @Inject constructor(
             }
             _uiState.value = state.copy(isSaving = true, error = null, success = null)
 
+            if (state.firstName.isBlank()) {
+                _uiState.value = state.copy(isSaving = false, error = "Укажите имя")
+                return@launch
+            }
+            if (state.lastName.isBlank()) {
+                _uiState.value = state.copy(isSaving = false, error = "Укажите фамилию")
+                return@launch
+            }
+
             val ageYears = AgeUtils.ageFromBirthDate(state.birthDate)
                 ?: state.age.toIntOrNull()
 
@@ -312,6 +327,7 @@ class ProfileEditViewModel @Inject constructor(
                 lastName = state.lastName.trim().ifBlank { null },
                 nickname = state.nickname.trim().ifBlank { null },
                 age = ageYears,
+                birthDate = state.birthDate.trim().take(10).ifBlank { null },
                 sex = state.sex,
                 heightCm = state.height.toFloatOrNull(),
                 weightKg = state.weight.toFloatOrNull(),
@@ -331,9 +347,14 @@ class ProfileEditViewModel @Inject constructor(
 
             result.onSuccess { profile ->
                 cachedProfile = profile
+                tokenStorage.setUserId(profile.user_id)
                 val newWeight = state.weight.toFloatOrNull()
                 val previousWeight = savedWeightKg
                 if (newWeight != null && previousWeight != null && kotlin.math.abs(newWeight - previousWeight) > 0.05f) {
+                    val history = weightHistoryStore.loadEntries()
+                    if (history.isEmpty()) {
+                        weightHistoryStore.append(previousWeight, date = java.time.LocalDate.now().minusDays(1))
+                    }
                     weightHistoryStore.append(newWeight)
                 }
                 savedWeightKg = newWeight ?: previousWeight
@@ -343,11 +364,13 @@ class ProfileEditViewModel @Inject constructor(
                     ?: state.age
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,
-                    success = "Профиль успешно сохранён",
+                    success = PROFILE_SAVE_SUCCESS,
                     firstName = profile.first_name.orEmpty(),
                     lastName = profile.last_name.orEmpty(),
                     nickname = profile.nickname.orEmpty(),
                     publicDisplayName = profile.display_name.orEmpty(),
+                    birthDate = profile.birth_date?.take(10)
+                        ?: state.birthDate.trim().take(10),
                     age = ageStr,
                     weightHistory = weightHistoryStore.loadEntries(),
                     weightWeeklyReminder = null,
@@ -404,6 +427,10 @@ class ProfileEditViewModel @Inject constructor(
 
     private inline fun update(block: ProfileEditUiState.() -> ProfileEditUiState) {
         _uiState.value = _uiState.value.block()
+    }
+
+    fun dismissSuccess() {
+        _uiState.update { it.copy(success = null) }
     }
 
     val healthConnectPermissions = healthConnectManager.permissions

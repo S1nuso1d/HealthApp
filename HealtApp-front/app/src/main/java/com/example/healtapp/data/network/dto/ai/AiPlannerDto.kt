@@ -16,6 +16,11 @@ data class MealPlanDayDto(
     val total_carbs: Float
 )
 
+data class MealPlanIngredientDto(
+    val name: String,
+    val grams_g: Float,
+)
+
 data class MealPlanItemDto(
     val meal_type: String,
     val name: String,
@@ -23,7 +28,8 @@ data class MealPlanItemDto(
     val protein_g: Float,
     val fat_g: Float,
     val carbs_g: Float,
-    val recipe: String?
+    val recipe: String?,
+    val ingredients: List<MealPlanIngredientDto> = emptyList(),
 )
 
 data class GroceryListItemDto(

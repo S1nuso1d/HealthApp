@@ -25,6 +25,7 @@ import com.example.healtapp.data.network.dto.social.ClubPostResponseDto
 import com.example.healtapp.data.network.dto.social.ClubPollVoteDto
 import com.example.healtapp.data.network.dto.social.ClubUpdateDto
 import com.example.healtapp.data.network.dto.social.ClubMemberRoleUpdateDto
+import com.example.healtapp.data.network.dto.social.ClubNotificationDto
 
 interface SocialRepository {
     suspend fun getChallenges(): Result<List<ChallengeResponseDto>>
@@ -43,6 +44,7 @@ interface SocialRepository {
     suspend fun getFeed(): Result<FeedResponseDto>
     suspend fun getStories(): Result<FeedStoriesResponseDto>
     suspend fun createStory(body: com.example.healtapp.data.network.dto.social.StoryCreateDto): Result<com.example.healtapp.data.network.dto.social.FeedStoryItemDto>
+    suspend fun recordStoryView(storyId: Int): Result<com.example.healtapp.data.network.dto.social.StoryViewResultDto>
     suspend fun getLinkableActivities(): Result<List<FeedActivityDto>>
     suspend fun toggleReaction(postId: Int, emoji: String): Result<FeedReactionResultDto>
     suspend fun getPostComments(postId: Int): Result<FeedCommentsResponseDto>
@@ -63,6 +65,9 @@ interface SocialRepository {
     suspend fun getClubMembers(clubId: Int): Result<List<ClubMemberResponseDto>>
     suspend fun updateClub(clubId: Int, body: ClubUpdateDto): Result<ClubResponseDto>
     suspend fun updateClubMemberRole(clubId: Int, userId: Int, body: ClubMemberRoleUpdateDto): Result<Map<String, String>>
+    suspend fun removeClubMember(clubId: Int, userId: Int): Result<Map<String, String>>
+    suspend fun getClubNotificationsRecent(): Result<List<ClubNotificationDto>>
+    suspend fun markClubNotificationRead(notificationId: Int): Result<Map<String, String>>
     suspend fun getClubPosts(clubId: Int): Result<List<ClubPostResponseDto>>
     suspend fun createClubPost(clubId: Int, body: ClubPostCreateDto): Result<ClubPostResponseDto>
     suspend fun voteClubPoll(clubId: Int, postId: Int, body: ClubPollVoteDto): Result<Map<String, String>>

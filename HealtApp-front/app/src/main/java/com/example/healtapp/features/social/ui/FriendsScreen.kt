@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -24,10 +25,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,6 +62,7 @@ import com.example.healtapp.data.network.dto.social.WeeklyChallengeEntryDto
 import androidx.compose.foundation.layout.width
 import com.example.healtapp.features.social.presentation.SocialViewModel
 import com.example.healtapp.features.social.ui.components.SocialUserAvatar
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -264,6 +268,13 @@ private fun SearchTab(
     viewModel: SocialViewModel,
     onOpenFriend: (Int) -> Unit,
 ) {
+    val query = uiState.searchQuery.trim()
+    LaunchedEffect(query) {
+        if (query.length < 2) return@LaunchedEffect
+        delay(400)
+        viewModel.search()
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -273,14 +284,14 @@ private fun SearchTab(
     ) {
         FeatureSectionTitle(
             title = "Найти друзей",
-            subtitle = "Поиск по имени, email или никнейму",
+            subtitle = "Поиск по имени, фамилии, никнейму или email",
         )
 
         GradientFormPanel {
             GradientOutlinedField(
                 value = uiState.searchQuery,
                 onValueChange = viewModel::updateSearchQuery,
-                label = "Имя, email или никнейм",
+                label = "Имя, фамилия, никнейм или email",
                 imeAction = ImeAction.Search,
                 onImeAction = viewModel::search,
             )
@@ -293,69 +304,108 @@ private fun SearchTab(
             uiState.searchHint?.let {
                 Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
             }
+            uiState.error?.let {
+                FeatureInlineNotice(text = it, isError = true)
+            }
         }
 
         if (uiState.isSearching) {
             CircularProgressIndicator(modifier = Modifier.padding(top = 4.dp))
         }
 
-        if (uiState.searchQuery.isNotBlank() && uiState.searchResults.isEmpty() && !uiState.isSearching) {
-            EmptyStateCard("Ничего не найдено")
+        if (query.length >= 2 && uiState.searchResults.isEmpty() && !uiState.isSearching && uiState.error == null) {
+            EmptyStateCard(
+                "Ничего не найдено. Убедитесь, что у человека заполнены имя и фамилия в профиле, или попробуйте email / никнейм.",
+            )
         }
 
         uiState.searchResults.forEach { user ->
-            SocialListCard {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable { onOpenFriend(user.user_id) },
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        SocialUserAvatar(user = user)
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                user.display_name,
-                                fontWeight = FontWeight.SemiBold,
-                                color = contentPrimaryColor(),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            user.nickname?.let {
-                                Text(
-                                    "@$it",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = contentSecondaryColor(),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                            user.goal?.let {
-                                Text(
-                                    it,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                        }
+            SearchUserRow(
+                user = user,
+                onOpen = { onOpenFriend(user.user_id) },
+                onAdd = { viewModel.requestFriend(user.user_id) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun SearchUserRow(
+    user: UserCardDto,
+    onOpen: () -> Unit,
+    onAdd: () -> Unit,
+) {
+    SocialListCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable(onClick = onOpen),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SocialUserAvatar(user = user, size = 44.dp)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        user.display_name,
+                        fontWeight = FontWeight.SemiBold,
+                        color = contentPrimaryColor(),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    user.nickname?.let {
+                        Text(
+                            "@$it",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = contentSecondaryColor(),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
-                    AppButton(
-                        text = "Добавить",
-                        onClick = { viewModel.requestFriend(user.user_id) },
-                        isSecondary = true,
-                        modifier = Modifier.width(112.dp),
+                    formatUserAge(user.age)?.let { ageText ->
+                        Text(
+                            ageText,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+            Surface(
+                onClick = onAdd,
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.size(40.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                    Icon(
+                        Icons.Filled.PersonAdd,
+                        contentDescription = "Добавить в друзья",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp),
                     )
                 }
             }
         }
     }
+}
+
+private fun formatUserAge(age: Int?): String? {
+    if (age == null || age <= 0) return null
+    val mod10 = age % 10
+    val mod100 = age % 100
+    val suffix = when {
+        mod100 in 11..14 -> "лет"
+        mod10 == 1 -> "год"
+        mod10 in 2..4 -> "года"
+        else -> "лет"
+    }
+    return "$age $suffix"
 }
 
 @Composable
@@ -458,13 +508,12 @@ private fun UserRow(
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    user.goal?.let {
+                    formatUserAge(user.age)?.let { ageText ->
                         Text(
-                            it,
+                            ageText,
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }

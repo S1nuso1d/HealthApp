@@ -5,7 +5,6 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,10 +17,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -45,12 +46,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.healtapp.data.network.dto.social.FeedStoryDto
+import com.example.healtapp.features.social.ui.components.SocialUserAvatar
 
 @Composable
 fun StoryViewerScreen(
     stories: List<FeedStoryDto>,
     initialIndex: Int,
     onClose: () -> Unit,
+    onStoryViewed: (Int) -> Unit = {},
 ) {
     if (stories.isEmpty()) {
         onClose()
@@ -73,6 +76,10 @@ fun StoryViewerScreen(
         return
     }
 
+    LaunchedEffect(currentStory.id) {
+        onStoryViewed(currentStory.id)
+    }
+
     val progress = remember { Animatable(0f) }
 
     LaunchedEffect(currentUserIndex, currentStoryIndex, isPaused) {
@@ -84,7 +91,6 @@ fun StoryViewerScreen(
                     easing = LinearEasing
                 )
             )
-            // Animation finished
             if (currentStoryIndex < currentUserStories.items.lastIndex) {
                 currentStoryIndex++
                 progress.snapTo(0f)
@@ -115,11 +121,9 @@ fun StoryViewerScreen(
                             isPaused = false
                             val pressDuration = System.currentTimeMillis() - pressStartTime
                             if (pressDuration < 200) {
-                                // It was a tap
                                 val x = it.x
                                 val width = size.width
                                 if (x < width * 0.3f) {
-                                    // Go back
                                     if (currentStoryIndex > 0) {
                                         currentStoryIndex--
                                         progress.snapTo(0f)
@@ -129,7 +133,6 @@ fun StoryViewerScreen(
                                         progress.snapTo(0f)
                                     }
                                 } else {
-                                    // Go forward
                                     if (currentStoryIndex < currentUserStories.items.lastIndex) {
                                         currentStoryIndex++
                                         progress.snapTo(0f)
@@ -160,7 +163,6 @@ fun StoryViewerScreen(
             )
         }
 
-        // Gradient overlay at top for better text visibility
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -177,7 +179,6 @@ fun StoryViewerScreen(
                 .fillMaxWidth()
                 .padding(top = 48.dp, start = 16.dp, end = 16.dp)
         ) {
-            // Progress bars
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -203,42 +204,26 @@ fun StoryViewerScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // User info
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = currentUserStories.author.display_name.take(1).uppercase(),
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
+                SocialUserAvatar(
+                    user = currentUserStories.author,
+                    modifier = Modifier.border(1.5.dp, Color.White.copy(alpha = 0.85f), CircleShape),
+                    size = 36.dp,
+                    useGradientFallback = true,
+                )
 
                 Spacer(modifier = Modifier.width(8.dp))
 
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = currentUserStories.author.display_name,
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    currentStory.created_at?.let {
-                        Text(
-                            text = it.take(16).replace('T', ' '),
-                            color = Color.White.copy(alpha = 0.7f),
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
-                }
+                Text(
+                    text = currentUserStories.author.display_name,
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
+                )
 
                 IconButton(onClick = onClose) {
                     Icon(
@@ -247,6 +232,31 @@ fun StoryViewerScreen(
                         tint = Color.White
                     )
                 }
+            }
+        }
+
+        if (currentUserStories.author.is_self) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 20.dp, bottom = 32.dp)
+                    .background(Color.Black.copy(alpha = 0.45f), RoundedCornerShape(20.dp))
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Visibility,
+                    contentDescription = "Просмотры",
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp),
+                )
+                Text(
+                    text = currentStory.view_count.toString(),
+                    color = Color.White,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
             }
         }
     }

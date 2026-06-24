@@ -15,6 +15,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.Period
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -74,15 +75,13 @@ class HealthConnectManager @Inject constructor(
             }
 
             if (totalSteps > 0) {
-                val startInstant = startLdt.atZone(zone).toInstant()
-                val endInstant = endLdt.atZone(zone).toInstant()
-                
-                val durationMinutes = java.time.Duration.between(startInstant, endInstant).toMinutes().toInt().coerceAtLeast(1)
+                val durationMinutes = java.time.Duration.between(startLdt, endLdt).toMinutes().toInt().coerceAtLeast(1)
+                val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
 
                 val request = ActivityCreateRequestDto(
                     activity_type = "walk",
-                    start_time = startInstant.toString(),
-                    end_time = endInstant.toString(),
+                    start_time = startLdt.format(formatter),
+                    end_time = endLdt.format(formatter),
                     duration_minutes = durationMinutes,
                     steps = totalSteps.toInt(),
                     distance_km = null,

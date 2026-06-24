@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 
+from app.llm.text_sanitizer import sanitize_llm_markdown
 from app.schemas.ai import AIBriefResponse, AIResponse
 
 
@@ -7,7 +8,7 @@ class ResponseFormatter:
     @staticmethod
     def format_chat_response(text: str, source: str = "llm") -> AIResponse:
         return AIResponse(
-            answer=text.strip(),
+            answer=sanitize_llm_markdown(text),
             generated_at=datetime.now(timezone.utc),
             source=source,
         )
@@ -18,7 +19,8 @@ class ResponseFormatter:
         default_title: str,
         source: str = "llm",
     ) -> AIBriefResponse:
-        lines = [line.strip("- ").strip() for line in raw_text.splitlines() if line.strip()]
+        cleaned = sanitize_llm_markdown(raw_text)
+        lines = [line.strip("- ").strip() for line in cleaned.splitlines() if line.strip()]
 
         title = default_title
         summary = raw_text.strip()
@@ -31,7 +33,7 @@ class ResponseFormatter:
             summary = lines[1]
             key_points = lines[2:5]
         else:
-            summary = raw_text.strip()
+            summary = cleaned
 
         return AIBriefResponse(
             title=title,

@@ -86,7 +86,14 @@ class SocialViewModel @Inject constructor(
     }
 
     fun updateSearchQuery(q: String) {
-        _uiState.update { it.copy(searchQuery = q, searchHint = null) }
+        val trimmed = q.trim()
+        _uiState.update {
+            it.copy(
+                searchQuery = q,
+                searchHint = null,
+                searchResults = if (trimmed.length < 2) emptyList() else it.searchResults,
+            )
+        }
     }
 
     fun updateNewPostText(t: String) {
@@ -114,6 +121,26 @@ class SocialViewModel @Inject constructor(
 
     fun closeStoryViewer() {
         _uiState.update { it.copy(storyViewerIndex = null) }
+    }
+
+    fun markStoryViewed(storyId: Int) {
+        viewModelScope.launch {
+            if (tokenStorage.isGuestMode()) return@launch
+            repository.recordStoryView(storyId).onSuccess { result ->
+                _uiState.update { state ->
+                    state.copy(
+                        stories = state.stories.map { group ->
+                            if (!group.author.is_self) return@map group
+                            group.copy(
+                                items = group.items.map { item ->
+                                    if (item.id == storyId) item.copy(view_count = result.view_count) else item
+                                },
+                            )
+                        },
+                    )
+                }
+            }
+        }
     }
 
     fun selectActivityForPost(activityId: Int?) {
@@ -196,7 +223,7 @@ class SocialViewModel @Inject constructor(
                 isLoading = false,
                 isRefreshing = false,
                 feed = feed.posts,
-                stories = storiesResult.getOrNull()?.stories.orEmpty(),
+                stories = filterActiveStories(storiesResult.getOrNull()?.stories.orEmpty()),
                 linkableActivities = activitiesResult.getOrNull().orEmpty(),
                 friends = friends.friends,
                 pending = pending.incoming,
@@ -310,10 +337,18 @@ class SocialViewModel @Inject constructor(
             }
             repository.searchUsers(q)
                 .onSuccess { r ->
-                    _uiState.update { it.copy(isSearching = false, searchResults = r.users) }
+                    _uiState.update {
+                        it.copy(isSearching = false, searchResults = r.users, error = null)
+                    }
                 }
                 .onFailure { e ->
-                    _uiState.update { it.copy(isSearching = false, error = e.message) }
+                    _uiState.update {
+                        it.copy(
+                            isSearching = false,
+                            searchResults = emptyList(),
+                            error = e.message ?: "Ошибка поиска",
+                        )
+                    }
                 }
         }
     }
@@ -661,6 +696,26 @@ class SocialViewModel @Inject constructor(
         UserCardDto(101, "Анна", nickname = "anna_fit", goal = "MAINTAIN"),
         UserCardDto(102, "Иван Петров", nickname = "ivan_run", goal = "LOSE_WEIGHT", has_avatar = true),
     )
+
+    private fun filterActiveStories(stories: List<FeedStoryDto>): List<FeedStoryDto> {
+        val now = java.time.Instant.now()
+        return stories.mapNotNull { group ->
+            val activeItems = group.items.filter { item ->
+                val expiresAt = item.expires_at?.let { raw ->
+                    runCatching { java.time.Instant.parse(raw) }.getOrNull()
+                }
+                expiresAt == null || expiresAt.isAfter(now)
+            }
+            if (activeItems.isEmpty()) {
+                null
+            } else {
+                group.copy(
+                    items = activeItems,
+                    preview_url = activeItems.lastOrNull()?.media_url ?: group.preview_url,
+                )
+            }
+        }
+    }
 
     private fun demoWeeklyChallenge() = listOf(
         WeeklyChallengeEntryDto(user_id = 0, display_name = "Вы", steps = 6_420, is_me = true, rank = 1),

@@ -107,6 +107,8 @@ def apply_lightweight_schema_patches() -> None:
                 conn.execute(text("ALTER TABLE user_profiles ADD COLUMN current_streak INTEGER NOT NULL DEFAULT 0"))
             if "last_active_date" not in prof_cols:
                 conn.execute(text("ALTER TABLE user_profiles ADD COLUMN last_active_date VARCHAR(10)"))
+            if "birth_date" not in prof_cols:
+                conn.execute(text("ALTER TABLE user_profiles ADD COLUMN birth_date VARCHAR(10)"))
 
     if "user_achievements" in tables:
         ach_cols = {c["name"] for c in insp.get_columns("user_achievements")}
@@ -141,4 +143,7 @@ def apply_lightweight_schema_patches() -> None:
 
     if "challenges" not in tables:
         Base.metadata.create_all(bind=engine, tables=[Base.metadata.tables["challenges"], Base.metadata.tables["challenge_participants"]])
+
+    if "feed_story_views" not in tables:
+        Base.metadata.create_all(bind=engine, tables=[Base.metadata.tables["feed_story_views"]])
 

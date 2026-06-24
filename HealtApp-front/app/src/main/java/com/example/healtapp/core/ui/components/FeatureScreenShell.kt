@@ -158,11 +158,13 @@ fun FeatureHeroBar(
                     fontWeight = FontWeight.Bold,
                     color = heroContentColor(),
                 )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = heroContentColor().copy(alpha = 0.88f),
-                )
+                if (subtitle.isNotBlank()) {
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = heroContentColor().copy(alpha = 0.88f),
+                    )
+                }
             }
             actions()
         }

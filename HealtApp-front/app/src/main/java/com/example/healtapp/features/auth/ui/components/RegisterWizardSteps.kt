@@ -9,23 +9,33 @@ import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.MarkEmailRead
+import androidx.compose.material.icons.outlined.MonitorWeight
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PersonAddAlt1
+import androidx.compose.material.icons.outlined.Straighten
 import androidx.compose.material.icons.outlined.Tag
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.healtapp.core.common.Constants
 import com.example.healtapp.core.ui.components.AppButton
 import com.example.healtapp.core.ui.components.AppPasswordField
 import com.example.healtapp.core.ui.components.AppTextField
 import com.example.healtapp.core.ui.components.DatePickerField
+import com.example.healtapp.core.ui.theme.chipSelectedColor
+import com.example.healtapp.core.ui.theme.themedCardBlue
+import com.example.healtapp.core.ui.theme.themedCardMint
 import com.example.healtapp.features.auth.presentation.AuthEvent
 import com.example.healtapp.features.auth.presentation.AuthUiState
 import com.example.healtapp.features.auth.presentation.DietaryExclusionCatalog
 import com.example.healtapp.features.auth.presentation.RegisterStep
+import com.example.healtapp.features.onboarding.ui.components.GoalSelector
 
 @Composable
 fun RegisterProfileStep(
@@ -34,9 +44,8 @@ fun RegisterProfileStep(
 ) {
     AuthFormCard(
         sectionTitle = "О вас",
-        sectionSubtitle = "Имя и ник — по желанию, можно заполнить позже в профиле",
+        sectionSubtitle = "Имя, фамилия, рост, вес, пол и цель для персональных рекомендаций",
     ) {
-        AuthStepHint("Можно пропустить — заполните позже в профиле")
         AppTextField(
             value = uiState.firstName,
             onValueChange = { onEvent(AuthEvent.FirstNameChanged(it)) },
@@ -56,10 +65,63 @@ fun RegisterProfileStep(
             leadingIcon = Icons.Outlined.Tag,
             placeholder = "Как вас найти в поиске",
         )
+        when {
+            uiState.nicknameChecking -> {
+                Text(
+                    text = "Проверяем никнейм…",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            uiState.nicknameError != null -> {
+                AuthMessageBanner(text = uiState.nicknameError, type = AuthMessageType.Error)
+            }
+        }
         DatePickerField(
             value = uiState.birthDate,
             onValueChange = { onEvent(AuthEvent.BirthDateChanged(it)) },
             label = "Дата рождения (необязательно)",
+        )
+        Text(
+            text = "Пол",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Medium,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            FilterChip(
+                selected = uiState.sex == Constants.Sex.MALE,
+                onClick = { onEvent(AuthEvent.SexChanged(Constants.Sex.MALE)) },
+                label = { Text("Мужской") },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = chipSelectedColor(themedCardBlue()),
+                ),
+            )
+            FilterChip(
+                selected = uiState.sex == Constants.Sex.FEMALE,
+                onClick = { onEvent(AuthEvent.SexChanged(Constants.Sex.FEMALE)) },
+                label = { Text("Женский") },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = chipSelectedColor(themedCardMint()),
+                ),
+            )
+        }
+        AppTextField(
+            value = uiState.height,
+            onValueChange = { onEvent(AuthEvent.HeightChanged(it)) },
+            label = "Рост (см)",
+            leadingIcon = Icons.Outlined.Straighten,
+            keyboardType = KeyboardType.Number,
+        )
+        AppTextField(
+            value = uiState.weight,
+            onValueChange = { onEvent(AuthEvent.WeightChanged(it)) },
+            label = "Вес (кг)",
+            leadingIcon = Icons.Outlined.MonitorWeight,
+            keyboardType = KeyboardType.Decimal,
+        )
+        GoalSelector(
+            selectedGoal = uiState.goal,
+            onGoalSelected = { onEvent(AuthEvent.GoalChanged(it)) },
         )
     }
 }
@@ -200,11 +262,8 @@ fun RegisterVerifyStep(
 ) {
     AuthFormCard(
         sectionTitle = "Подтверждение почты",
-        sectionSubtitle = "Код отправлен на ${uiState.email}",
+        sectionSubtitle = "Введите 6-значный код из письма",
     ) {
-        uiState.infoMessage?.let { msg ->
-            AuthMessageBanner(text = msg, type = AuthMessageType.Info)
-        }
         AppTextField(
             value = uiState.email,
             onValueChange = {},
@@ -220,11 +279,6 @@ fun RegisterVerifyStep(
             leadingIcon = Icons.Outlined.MarkEmailRead,
             keyboardType = KeyboardType.Number,
             placeholder = "000000",
-        )
-        Text(
-            text = "Нет письма? Проверьте «Спам» или запросите код повторно.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

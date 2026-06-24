@@ -62,6 +62,7 @@ import com.example.healtapp.notifications.HealthNotificationHelper
 import com.example.healtapp.features.sleep.ui.SleepScreen
 import com.example.healtapp.features.timeline.ui.TimelineScreen
 import com.example.healtapp.features.achievements.ui.AchievementUnlockOverlay
+import com.example.healtapp.features.social.ui.ClubNotificationOverlay
 import com.example.healtapp.features.achievements.ui.AchievementsScreen
 import com.example.healtapp.features.social.ui.FriendsScreen
 import com.example.healtapp.features.social.ui.ClubsScreen
@@ -424,7 +425,9 @@ fun AppNavGraph() {
                     clubId = clubId,
                     onBack = { navController.popBackStack() },
                     onOpenMember = { userId ->
-                        navController.navigate(NavRoutes.FriendProfile.route(userId))
+                        navController.navigate(NavRoutes.FriendProfile.route(userId)) {
+                            launchSingleTop = true
+                        }
                     },
                 )
             }
@@ -469,5 +472,6 @@ fun AppNavGraph() {
         }
 
         AchievementUnlockOverlay(currentRoute = currentRoute)
+        ClubNotificationOverlay(currentRoute = currentRoute)
     }
 }

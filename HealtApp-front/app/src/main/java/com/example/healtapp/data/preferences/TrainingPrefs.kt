@@ -49,6 +49,10 @@ class TrainingPrefs @Inject constructor(
         }
     }
 
+    suspend fun clear() {
+        context.trainingPrefsStore.edit { it.clear() }
+    }
+
     private fun encodeUsage(map: Map<String, Int>): String =
         map.entries.joinToString("|") { "${it.key}:${it.value}" }
 
