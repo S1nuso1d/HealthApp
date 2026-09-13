@@ -33,6 +33,8 @@ import com.example.healtapp.core.ui.theme.themedCardLavender
 import com.example.healtapp.core.ui.theme.themedCardMint
 import java.text.DecimalFormat
 
+private val oneDecimalFormat = DecimalFormat("#.#")
+
 @Composable
 fun ProfileGoalsStrip(
     targetSleep: String,
@@ -40,7 +42,7 @@ fun ProfileGoalsStrip(
     targetSteps: String,
     onEditClick: () -> Unit,
 ) {
-    val sleep = targetSleep.toFloatOrNull()?.let { DecimalFormat("#.#").format(it) } ?: "—"
+    val sleep = targetSleep.toFloatOrNull()?.let { oneDecimalFormat.format(it) } ?: "—"
     val water = targetWater.toIntOrNull()?.let { "%,d".format(it).replace(',', '\u00A0') } ?: "—"
     val steps = targetSteps.toIntOrNull()?.let { "%,d".format(it).replace(',', '\u00A0') } ?: "—"
 

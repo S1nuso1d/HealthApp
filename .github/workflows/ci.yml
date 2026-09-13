@@ -63,6 +63,11 @@ jobs:
       - name: Unit-тесты
         run: ./gradlew :app:testDebugUnitTest --no-daemon
 
+      # R8 включён для release, а ошибки в proguard-правилах видны только здесь:
+      # в debug код не сжимается, поэтому сломанные keep-правила проходят незамеченными.
+      - name: Сборка release с R8
+        run: ./gradlew :app:assembleRelease --no-daemon
+
       - name: Отчёты тестов
         if: always()
         uses: actions/upload-artifact@v4

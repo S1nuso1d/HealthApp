@@ -1,5 +1,6 @@
 package com.example.healtapp.features.activity.presentation
 
+import com.example.healtapp.core.common.LocaleRu
 import com.example.healtapp.data.network.dto.activity.ActivityDto
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -15,7 +16,7 @@ data class DaySteps(
 
 object ActivityStepsHelper {
 
-    private val dayLabelFormatter = DateTimeFormatter.ofPattern("EE", java.util.Locale("ru", "RU"))
+    private val dayLabelFormatter = DateTimeFormatter.ofPattern("EE", LocaleRu)
     private val zone: ZoneId get() = ZoneId.systemDefault()
 
     /** Локальная календарная дата записи (не UTC-префикс строки). */

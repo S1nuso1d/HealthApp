@@ -100,10 +100,15 @@ private fun ActionPlanRow(item: ActionPlanItemUi, onToggle: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            val isDone = item.status == "done"
             IconButton(onClick = onToggle) {
                 Icon(
-                    if (item.status == "done") Icons.Filled.CheckCircle else Icons.Filled.RadioButtonUnchecked,
-                    contentDescription = null,
+                    if (isDone) Icons.Filled.CheckCircle else Icons.Filled.RadioButtonUnchecked,
+                    contentDescription = if (isDone) {
+                        "Снять отметку «${item.title}»"
+                    } else {
+                        "Отметить «${item.title}» выполненным"
+                    },
                     tint = MaterialTheme.colorScheme.primary,
                 )
             }

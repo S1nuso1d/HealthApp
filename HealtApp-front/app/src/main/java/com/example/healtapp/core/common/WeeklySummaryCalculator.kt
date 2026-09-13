@@ -35,7 +35,7 @@ object WeeklySummaryCalculator {
         val hasAnyData: Boolean get() = metrics.any { it.daysLogged > 0 }
     }
 
-    private val labelFormatter = DateTimeFormatter.ofPattern("d MMM", Locale("ru"))
+    private val labelFormatter = DateTimeFormatter.ofPattern("d MMM", LocaleRu)
 
     fun currentWeekMonday(today: LocalDate = LocalDate.now()): LocalDate =
         today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))

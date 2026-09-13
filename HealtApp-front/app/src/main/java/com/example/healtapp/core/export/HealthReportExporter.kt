@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
 import com.example.healtapp.BuildConfig
+import com.example.healtapp.core.common.LocaleRu
 import com.example.healtapp.data.network.dto.profile.ProfileDto
 import com.example.healtapp.data.network.dto.wellness.DashboardHomeDto
 import com.example.healtapp.data.preferences.DashboardCache
@@ -23,7 +24,7 @@ object HealthReportExporter {
         val home = DashboardCache(context).load()
         buildString {
             appendLine("HealthApp — отчёт о здоровье")
-            appendLine("Дата: ${LocalDate.now().format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru", "RU")))}")
+            appendLine("Дата: ${LocalDate.now().format(DateTimeFormatter.ofPattern("d MMMM yyyy", LocaleRu))}")
             appendLine()
             if (profile != null) {
                 appendLine("Профиль")

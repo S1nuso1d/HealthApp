@@ -2,6 +2,7 @@ package com.example.healtapp.features.timeline.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.healtapp.core.common.LocaleRu
 import com.example.healtapp.domain.repository.WellnessRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -24,7 +25,7 @@ class TimelineViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(TimelineUiState())
     val uiState: StateFlow<TimelineUiState> = _uiState.asStateFlow()
 
-    private val timeFmt = DateTimeFormatter.ofPattern("d MMM, HH:mm", Locale("ru", "RU"))
+    private val timeFmt = DateTimeFormatter.ofPattern("d MMM, HH:mm", LocaleRu)
 
     init {
         load()

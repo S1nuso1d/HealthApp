@@ -18,6 +18,8 @@ import com.example.healtapp.core.ui.theme.themedCardBlue
 import java.text.DecimalFormat
 import kotlin.math.roundToInt
 
+private val oneDecimalFormat = DecimalFormat("#.#")
+
 @Composable
 fun DashboardMetricsGrid(
     sleepHours: Float,
@@ -38,8 +40,8 @@ fun DashboardMetricsGrid(
     onOpenNutrition: () -> Unit,
     onOpenActivity: () -> Unit,
 ) {
-    val sleepFmt = DecimalFormat("#.#").format(sleepHours).replace('.', ',')
-    val sleepTargetFmt = DecimalFormat("#.#").format(sleepTargetHours).replace('.', ',')
+    val sleepFmt = oneDecimalFormat.format(sleepHours).replace('.', ',')
+    val sleepTargetFmt = oneDecimalFormat.format(sleepTargetHours).replace('.', ',')
     val sleepProgress = if (sleepTargetHours > 0f) sleepHours / sleepTargetHours else 0f
     val waterProgress = if (waterTargetMl > 0) waterMl.toFloat() / waterTargetMl else 0f
     val calProgress = if (caloriesTarget > 0) caloriesToday.toFloat() / caloriesTarget else 0f

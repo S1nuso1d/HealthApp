@@ -53,11 +53,16 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+        debug {
+            // Отладочную сборку не сжимаем — иначе каждая пересборка длится минутами
+            isMinifyEnabled = false
         }
     }
 

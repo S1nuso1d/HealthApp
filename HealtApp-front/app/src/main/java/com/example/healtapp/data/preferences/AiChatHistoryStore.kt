@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.example.healtapp.core.common.LocaleRu
 import com.google.gson.Gson
 import kotlinx.coroutines.flow.first
 import java.text.SimpleDateFormat
@@ -81,7 +82,7 @@ class AiChatHistoryStore(
         private const val MAX_ARCHIVED_SESSIONS = 30
 
         fun sessionTitle(savedAt: Long, messages: List<StoredChatMessage>): String {
-            val date = SimpleDateFormat("d MMM, HH:mm", Locale("ru")).format(Date(savedAt))
+            val date = SimpleDateFormat("d MMM, HH:mm", LocaleRu).format(Date(savedAt))
             val preview = messages.firstOrNull { it.isUser }?.text?.lineSequence()?.first()?.take(48)
             return if (preview.isNullOrBlank()) "Диалог · $date" else "$preview · $date"
         }

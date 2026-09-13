@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.healtapp.core.common.LocaleRu
 import com.example.healtapp.core.ui.animation.AppMotion
 import com.example.healtapp.core.ui.theme.heroBlockGradient
 import com.example.healtapp.core.ui.theme.heroContentColor
@@ -41,6 +42,8 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+private val dayMonthFormatter = DateTimeFormatter.ofPattern("d MMMM", LocaleRu)
+
 @Composable
 fun DashboardHeroCard(
     greeting: String,
@@ -49,8 +52,7 @@ fun DashboardHeroCard(
     isRecommendationsLoading: Boolean,
     streak: Int = 0,
 ) {
-    val dateLabel = LocalDate.now()
-        .format(DateTimeFormatter.ofPattern("d MMMM", Locale("ru", "RU")))
+    val dateLabel = LocalDate.now().format(dayMonthFormatter)
 
     Row(
         modifier = Modifier

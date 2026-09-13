@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.healtapp.core.common.AppRefreshBus
 import com.example.healtapp.core.common.DateRules
+import com.example.healtapp.core.common.LocaleRu
 import com.example.healtapp.core.common.UserFacingMessages
 import android.media.MediaPlayer
 import com.example.healtapp.data.healthconnect.HealthConnectForegroundSync
@@ -218,7 +219,7 @@ class SleepViewModel @Inject constructor(
         val zone = ZoneId.systemDefault()
         val zoned = Instant.ofEpochMilli(clip.recordedAtEpochMs).atZone(zone)
         val time = zoned.toLocalTime()
-            .format(DateTimeFormatter.ofPattern("HH:mm", Locale("ru", "RU")))
+            .format(DateTimeFormatter.ofPattern("HH:mm", LocaleRu))
         val seconds = (clip.durationMs / 1000).coerceAtLeast(1)
         return SleepSoundClipUi(
             id = clip.id,
@@ -243,7 +244,7 @@ class SleepViewModel @Inject constructor(
         val summaries = sleepSoundSummaryStorage.loadAll()
         val zone = ZoneId.systemDefault()
         val today = LocalDate.now(zone)
-        val dateFormatter = DateTimeFormatter.ofPattern("d MMMM", Locale("ru", "RU"))
+        val dateFormatter = DateTimeFormatter.ofPattern("d MMMM", LocaleRu)
         return clips
             .groupBy { it.dateKey }
             .entries

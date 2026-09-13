@@ -3,6 +3,7 @@ package com.example.healtapp
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import com.example.healtapp.core.ui.theme.HealthAppRoot
 import com.example.healtapp.data.healthconnect.HealthConnectForegroundSync
 import com.example.healtapp.data.network.realtime.RealtimeUpdatesClient
@@ -22,6 +23,9 @@ class MainActivity : ComponentActivity() {
     lateinit var themePreferences: ThemePreferences
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Градиентные хедеры должны уходить под системные панели. На Android 15+ это
+        // и так обязательно при targetSdk 35, здесь выравниваем поведение и для старых версий.
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
         healthConnectForegroundSync.ensureStarted()

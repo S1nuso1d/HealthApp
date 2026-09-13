@@ -62,6 +62,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.common.CycleCalculator
+import com.example.healtapp.core.common.LocaleRu
 import com.example.healtapp.core.ui.animation.AppMotion
 import com.example.healtapp.core.ui.animation.appPressScale
 import com.example.healtapp.core.common.DateRules
@@ -87,8 +88,9 @@ import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private val cycleRuLocale = Locale("ru")
+private val cycleRuLocale = LocaleRu
 private val cycleDateFormatter = DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy", cycleRuLocale)
+private val cycleMonthFormatter = DateTimeFormatter.ofPattern("LLLL yyyy", cycleRuLocale)
 
 internal fun formatCycleDate(isoDate: String): String {
     val date = CycleCalculator.parseDate(isoDate) ?: return isoDate
@@ -303,7 +305,7 @@ fun CycleCalendarCard(
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = month.format(DateTimeFormatter.ofPattern("LLLL yyyy", Locale("ru"))),
+                    text = month.format(cycleMonthFormatter),
                     style = MaterialTheme.typography.bodySmall,
                     color = contentSecondaryColor(),
                 )
@@ -894,7 +896,7 @@ private fun CyclePeriodRangeCalendar(
                 Icon(Icons.Filled.ChevronLeft, contentDescription = "Предыдущий месяц")
             }
             Text(
-                text = displayMonth.format(DateTimeFormatter.ofPattern("LLLL yyyy", cycleRuLocale)),
+                text = displayMonth.format(cycleMonthFormatter),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
             )

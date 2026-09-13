@@ -37,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.healtapp.core.common.LocaleRu
 import com.example.healtapp.core.ui.components.AppCard
 import com.example.healtapp.core.ui.components.SectionHeader
 import com.example.healtapp.data.network.dto.dashboard.GoalsCalendarDayDto
@@ -45,6 +46,8 @@ import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
+
+private val dayDetailTitleFormatter = DateTimeFormatter.ofPattern("d MMMM yyyy", LocaleRu)
 
 private val sleepColor = Color(0xFF7B6FD6)
 private val waterColor = Color(0xFF4BA3E3)
@@ -67,7 +70,7 @@ fun DashboardGoalsCalendarBlock(
 ) {
     val currentMonth = YearMonth.now()
     val canGoNextMonth = yearMonth.isBefore(currentMonth)
-    val monthTitle = yearMonth.month.getDisplayName(TextStyle.FULL_STANDALONE, Locale("ru"))
+    val monthTitle = yearMonth.month.getDisplayName(TextStyle.FULL_STANDALONE, LocaleRu)
         .replaceFirstChar { it.uppercase() }
     val byDate = days.associateBy { it.date }
     val dayNumberColor = MaterialTheme.colorScheme.onSurface
@@ -308,7 +311,7 @@ private fun GoalsDayDetailEmpty(
     date: LocalDate,
     onClose: () -> Unit,
 ) {
-    val title = date.format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru")))
+    val title = date.format(dayDetailTitleFormatter)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -347,7 +350,7 @@ private fun GoalsDayDetailContent(
     dto: GoalsCalendarDayDto,
     onClose: () -> Unit,
 ) {
-    val title = date.format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru")))
+    val title = date.format(dayDetailTitleFormatter)
     val valueColor = MaterialTheme.colorScheme.onSurface
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val burned = dto.calories_burned.takeIf { it > 0f } ?: 0f

@@ -31,6 +31,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.healtapp.core.common.LocaleRu
 import com.example.healtapp.core.common.UserFacingMessages
 import com.example.healtapp.core.ui.components.AppButton
 import com.example.healtapp.core.ui.components.AppCard
@@ -54,7 +55,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private val dateHeaderRu = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru", "RU"))
+private val dateHeaderRu = DateTimeFormatter.ofPattern("d MMMM yyyy", LocaleRu)
 
 private val mealTypeOrder = listOf(
     "breakfast" to "Завтрак",

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 ActionCategory = Literal["sleep", "hydration", "meals", "activity", "state", "correlation"]
@@ -23,8 +23,7 @@ class ActionPlanResponse(BaseModel):
     created_at: datetime
     updated_at: datetime | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ActionPlanGenerateResponse(BaseModel):

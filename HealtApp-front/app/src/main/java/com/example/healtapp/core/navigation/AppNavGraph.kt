@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -133,11 +135,19 @@ fun AppNavGraph() {
                 )
             }
         },
+        // Инсеты системных панелей раздаёт не Scaffold, а сами экраны (AppScreen), иначе
+        // при edge-to-edge отступ под статус-бар применился бы дважды. От Scaffold нам
+        // нужна только высота нижней навигации.
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { innerPadding ->
         NavHost(
             navController = navController,
             startDestination = NavRoutes.Splash.route,
-            modifier = Modifier.padding(innerPadding),
+            modifier = Modifier
+                .padding(innerPadding)
+                // Нижняя навигация уже закрывает область системной панели, поэтому
+                // внутри экранов этот инсет не должен учитываться повторно.
+                .consumeWindowInsets(innerPadding),
             enterTransition = AppNavTransitions.enterTransition,
             exitTransition = AppNavTransitions.exitTransition,
             popEnterTransition = AppNavTransitions.popEnterTransition,

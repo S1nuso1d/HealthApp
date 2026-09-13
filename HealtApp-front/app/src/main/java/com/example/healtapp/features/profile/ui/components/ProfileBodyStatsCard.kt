@@ -32,6 +32,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.healtapp.core.common.BmiHelper
+import com.example.healtapp.core.common.LocaleRu
 import com.example.healtapp.data.preferences.WeightEntry
 import com.example.healtapp.core.ui.components.AppCard
 import com.example.healtapp.core.ui.components.SectionHeader
@@ -40,6 +41,8 @@ import com.example.healtapp.core.ui.theme.brandingGradient
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+private val chartDateFormatter = DateTimeFormatter.ofPattern("dd.MM", LocaleRu)
 
 private data class BmiPoint(
     val date: String,
@@ -401,10 +404,8 @@ private fun WeightTrendChart(
     val lineColor = MaterialTheme.colorScheme.primary
     val axisColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
     val labelStyle = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp)
-    val dateFormatter = DateTimeFormatter.ofPattern("dd.MM", Locale("ru", "RU"))
-
     fun formatDate(iso: String): String =
-        runCatching { LocalDate.parse(iso).format(dateFormatter) }.getOrDefault(iso.takeLast(5))
+        runCatching { LocalDate.parse(iso).format(chartDateFormatter) }.getOrDefault(iso.takeLast(5))
 
     val xLabels = when {
         entries.size <= 3 -> entries.map { formatDate(it.date) }

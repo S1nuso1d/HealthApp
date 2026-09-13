@@ -60,9 +60,10 @@ class HealthScoreCalculatorTest {
         assertEquals(100, newScore.sleepScore)
         assertEquals(100, newScore.hydrationScore)
         assertEquals(50, newScore.activityScore)
+        assertEquals(100, newScore.nutritionScore)
         assertEquals(80, newScore.stateScore)
-        
-        // Activity(50) + Sleep(100) + Hydration(100) + State(80) = 330 / 4 = 82
-        assertEquals(82, newScore.healthScore)
+
+        // Сон(100) + Вода(100) + Активность(50) + Питание(100) + Состояние(80) = 430 / 5 = 86
+        assertEquals(86, newScore.healthScore)
     }
 }

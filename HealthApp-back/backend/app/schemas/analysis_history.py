@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SavedRecommendationResponse(BaseModel):
@@ -26,8 +26,7 @@ class SavedRecommendationResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AnalysisRunResponse(BaseModel):
@@ -42,8 +41,7 @@ class AnalysisRunResponse(BaseModel):
     state_score: int
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AnalysisRunWithItemsResponse(BaseModel):

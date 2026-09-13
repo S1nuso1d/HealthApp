@@ -22,11 +22,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.example.healtapp.core.common.DateRules
+import com.example.healtapp.core.common.LocaleRu
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+private val displayDateFormatter = DateTimeFormatter.ofPattern("d MMMM yyyy", LocaleRu)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,9 +54,7 @@ fun DatePickerField(
             else -> parsed
         }
     }
-    val displayText = remember(parsedDate) {
-        parsedDate.format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru", "RU")))
-    }
+    val displayText = remember(parsedDate) { parsedDate.format(displayDateFormatter) }
 
     Box(modifier = modifier.fillMaxWidth()) {
         AppTextField(

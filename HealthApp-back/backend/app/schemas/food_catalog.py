@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class FoodCatalogItemOut(BaseModel):
@@ -15,8 +15,7 @@ class FoodCatalogItemOut(BaseModel):
     is_complete: bool = False
     needs_completion: bool = False
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class FoodCatalogSearchResponse(BaseModel):

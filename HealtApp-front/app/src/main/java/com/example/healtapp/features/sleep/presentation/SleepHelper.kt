@@ -1,5 +1,6 @@
 package com.example.healtapp.features.sleep.presentation
 
+import com.example.healtapp.core.common.LocaleRu
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
@@ -16,8 +17,8 @@ data class DaySleep(
 
 object SleepHelper {
 
-    private val dayLabelFormatter = DateTimeFormatter.ofPattern("EE", Locale("ru", "RU"))
-    private val chartDayFormatter = DateTimeFormatter.ofPattern("d MMM", Locale("ru", "RU"))
+    private val dayLabelFormatter = DateTimeFormatter.ofPattern("EE", LocaleRu)
+    private val chartDayFormatter = DateTimeFormatter.ofPattern("d MMM", LocaleRu)
 
     fun sleepDateKey(iso: String): String = wakeDateKey(iso)
 

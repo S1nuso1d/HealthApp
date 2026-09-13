@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class UserCreate(BaseModel):
@@ -23,8 +23,7 @@ class UserResponse(BaseModel):
     email: EmailStr = Field(description="Email пользователя")
     is_active: bool = Field(description="Активен ли пользователь")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PasswordConfirmBody(BaseModel):

@@ -24,6 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.healtapp.core.common.LocaleRu
 import com.example.healtapp.core.ui.components.AppCard
 import com.example.healtapp.core.ui.theme.brandingGradient
 import com.example.healtapp.core.ui.theme.cardHeaderGradient
@@ -42,7 +43,7 @@ fun SleepHistoryRow(
 ) {
     val dateLabel = runCatching {
         val d = LocalDate.parse(record.date)
-        d.format(DateTimeFormatter.ofPattern("d MMM", Locale("ru", "RU")))
+        d.format(DateTimeFormatter.ofPattern("d MMM", LocaleRu))
     }.getOrElse { record.date }
 
     val subtitle = buildString {

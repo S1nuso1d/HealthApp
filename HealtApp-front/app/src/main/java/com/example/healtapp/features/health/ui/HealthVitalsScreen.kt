@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.healtapp.core.common.LocaleRu
 import com.example.healtapp.core.ui.components.AppButton
 import com.example.healtapp.core.ui.components.AppCard
 import com.example.healtapp.core.ui.components.AppMessageBanner
@@ -50,6 +51,9 @@ import java.time.temporal.ChronoUnit
 import java.util.Locale
 import kotlin.math.max
 import kotlin.math.min
+
+private val dayMonthTimeFormatter = DateTimeFormatter.ofPattern("d MMM HH:mm", LocaleRu)
+private val dayMonthFormatter = DateTimeFormatter.ofPattern("d MMM", LocaleRu)
 
 @Composable
 fun HealthVitalsScreen(
@@ -170,9 +174,7 @@ private fun ActivityRow(act: ActivityDto) {
                 fontWeight = FontWeight.SemiBold,
             )
             val start = runCatching {
-                OffsetDateTime.parse(act.start_time).format(
-                    DateTimeFormatter.ofPattern("d MMM HH:mm", Locale("ru", "RU")),
-                )
+                OffsetDateTime.parse(act.start_time).format(dayMonthTimeFormatter)
             }.getOrDefault(act.start_time)
             Text(
                 text = "$start · ${act.duration_minutes} мин",
@@ -218,9 +220,7 @@ private fun ZoneLegend(metric: String) {
 
 private fun formatSampleSummary(metric: String, s: HealthSampleDto): String {
     val t = runCatching {
-        OffsetDateTime.parse(s.recorded_at).format(
-            DateTimeFormatter.ofPattern("d MMM HH:mm", Locale("ru", "RU")),
-        )
+        OffsetDateTime.parse(s.recorded_at).format(dayMonthTimeFormatter)
     }.getOrDefault(s.recorded_at)
     return when (metric) {
         "blood_pressure_mmhg" -> "Последнее: ${s.value1?.toInt() ?: "—"}/${s.value2?.toInt() ?: "—"} · $t"
@@ -381,18 +381,17 @@ private fun TimeSeriesChart(
         }
     }
 
-    val fmt = DateTimeFormatter.ofPattern("d MMM", Locale("ru", "RU"))
     val startLabel = remember(rangeStart, zone) {
-        OffsetDateTime.ofInstant(rangeStart, zone).format(fmt)
+        OffsetDateTime.ofInstant(rangeStart, zone).format(dayMonthFormatter)
     }
     val endLabel = remember(rangeEnd, zone) {
-        OffsetDateTime.ofInstant(rangeEnd, zone).format(fmt)
+        OffsetDateTime.ofInstant(rangeEnd, zone).format(dayMonthFormatter)
     }
     val midInstant = remember(rangeStart, rangeEnd) {
         rangeStart.plusMillis((ChronoUnit.MILLIS.between(rangeStart, rangeEnd) / 2).coerceAtLeast(0))
     }
     val midLabel = remember(midInstant, zone) {
-        OffsetDateTime.ofInstant(midInstant, zone).format(fmt)
+        OffsetDateTime.ofInstant(midInstant, zone).format(dayMonthFormatter)
     }
 
     Row(

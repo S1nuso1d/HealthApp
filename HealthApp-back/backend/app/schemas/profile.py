@@ -1,5 +1,5 @@
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ProfileCreate(BaseModel):
@@ -135,5 +135,4 @@ class ProfileResponse(BaseModel):
     current_streak: int = 0
     has_avatar: bool = Field(False, description="Есть загруженное фото профиля")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
