@@ -1,4 +1,3 @@
-import pytest
 
 from app.llm.json_utils import parse_llm_json
 

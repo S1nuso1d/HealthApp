@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 from app.models.activity import ActivityRecord
 from app.models.gamification import UserAchievement as UA
 from app.models.hydration import HydrationRecord
-from app.models.meal import MealRecord
 from app.models.profile import UserProfile
 from app.models.sleep import SleepRecord
 from app.services.analytics.daily_summary_service import DailySummaryService

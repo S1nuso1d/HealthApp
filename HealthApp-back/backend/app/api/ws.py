@@ -1,24 +1,16 @@
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
-from jose import JWTError, jwt
 
-from app.core.config import settings
+from app.core.security import ACCESS_TOKEN_TYPE, TokenError, user_id_from_token
 from app.services.realtime_manager import realtime_manager
 
 router = APIRouter(tags=["WebSocket"])
 
 
 def decode_user_id_from_token(token: str) -> int:
+    """Принимает только access-токен: refresh живёт 30 дней и в query-строке опаснее."""
     try:
-        payload = jwt.decode(
-            token,
-            settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM],
-        )
-        user_id = payload.get("sub")
-        if user_id is None:
-            raise ValueError("Token payload does not contain sub")
-        return int(user_id)
-    except (JWTError, ValueError) as exc:
+        return user_id_from_token(token, ACCESS_TOKEN_TYPE)
+    except TokenError as exc:
         raise ValueError("Invalid token") from exc
 
 

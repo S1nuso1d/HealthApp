@@ -1,6 +1,4 @@
-import os
 from sqlalchemy import create_engine, MetaData, text
-from sqlalchemy.orm import sessionmaker
 
 def migrate(sqlite_url: str, pg_url: str):
     print(f"Connecting to SQLite: {sqlite_url}")
@@ -38,7 +36,7 @@ def migrate(sqlite_url: str, pg_url: str):
         
         # Получаем ключи (названия колонок) из первого кортежа
         keys = records[0]._mapping.keys()
-        data_to_insert = [dict(zip(keys, row)) for row in records]
+        data_to_insert = [dict(zip(keys, row, strict=True)) for row in records]
         
         with pg_engine.connect() as pg_conn:
             # Очищаем таблицу в Postgres перед вставкой
@@ -62,7 +60,7 @@ def migrate(sqlite_url: str, pg_url: str):
                 # Безопасный способ - использовать setval с max(id)
                 pg_conn.execute(text(f"SELECT setval(pg_get_serial_sequence('{table_name}', 'id'), coalesce(max(id), 1), max(id) IS NOT null) FROM {table_name};"))
                 pg_conn.commit()
-            except Exception as e:
+            except Exception:
                 pg_conn.rollback()
                 # Это нормально, если у таблицы нет колонки id
                 pass

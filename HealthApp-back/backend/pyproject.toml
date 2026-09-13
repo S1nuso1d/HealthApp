@@ -1,0 +1,40 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = [
+    "error::DeprecationWarning:app.*",
+    "default",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = [".venv", "__pycache__", "uploads", "migrations"]
+
+[tool.ruff.lint]
+# Выбраны правила, которые ловят ошибки, а не оформление: включать стилевые проверки
+# на существующий код значило бы переписать ~150 файлов одним коммитом.
+select = [
+    "F",      # pyflakes: неиспользуемые импорты, опечатки в именах, недостижимый код
+    "B",      # flake8-bugbear: мутабельные значения по умолчанию и похожие ловушки
+    "ASYNC",  # блокирующие вызовы внутри async-функций
+    "E711",   # сравнение с None через ==
+    "E712",   # сравнение с True/False через ==
+    "E713",   # not x in y вместо x not in y
+    "E714",   # not x is y вместо x is not y
+    "E722",   # безусловный except:
+    "E731",   # присваивание lambda вместо def
+]
+ignore = [
+    "B008",  # Depends(...) в значениях по умолчанию — идиома FastAPI
+    "B904",  # raise ... from ... внутри except: полезно, но правится отдельно
+]
+
+[tool.ruff.lint.per-file-ignores]
+# В тестах допустимы длинные фикстуры и импорты внутри функций
+"tests/*" = ["B011"]
+# Реэкспорт моделей для регистрации в metadata SQLAlchemy
+"app/models/__init__.py" = ["F401"]
+"app/schemas/__init__.py" = ["F401"]
+# Скрипт генерации ER-диаграммы: звёздочный импорт нужен, чтобы подхватить все модели
+"generate_er.py" = ["F403", "F405"]

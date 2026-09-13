@@ -1,9 +1,11 @@
+import anyio.to_thread
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.rate_limit import upload_rate_limit
 from app.db.database import get_db
 from app.models.profile import UserProfile
 from app.models.user import User
@@ -99,6 +101,7 @@ def get_my_avatar(
     response_model=ProfileResponse,
     summary="Загрузить фото профиля",
     description="Принимает multipart с полем file (JPEG, PNG или WEBP, до 5 МБ).",
+    dependencies=[Depends(upload_rate_limit)],
 )
 async def upload_my_avatar(
     file: UploadFile = File(..., description="Изображение аватара"),
@@ -115,7 +118,7 @@ async def upload_my_avatar(
         raise HTTPException(status_code=400, detail=detail)
 
     fmt = detail  # при успехе — строка формата jpeg/png/webp
-    save_avatar(current_user.id, content, fmt)
+    await anyio.to_thread.run_sync(save_avatar, current_user.id, content, fmt)
     profile.has_avatar = True
     db.commit()
     db.refresh(profile)

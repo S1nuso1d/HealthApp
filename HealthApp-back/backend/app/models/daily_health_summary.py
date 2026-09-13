@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Date, DateTime, Float, ForeignKey, Integer, Text
+from sqlalchemy import Column, Date, DateTime, Float, ForeignKey, Index, Integer, Text
 from sqlalchemy.sql import func
 
 from app.db.database import Base
@@ -6,6 +6,12 @@ from app.db.database import Base
 
 class DailyHealthSummary(Base):
     __tablename__ = "daily_health_summaries"
+    # Каждый запрос сводки — это «пользователь + диапазон дат».
+    # Индекс не уникальный: в существующих базах могли остаться дубли за один день,
+    # и падать на старте из-за них приложение не должно.
+    __table_args__ = (
+        Index("ix_daily_health_summaries_user_date", "user_id", "summary_date"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)

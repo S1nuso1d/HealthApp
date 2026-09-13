@@ -6,7 +6,6 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.models.action_plan import ActionPlan
 from app.models.activity import ActivityRecord
 from app.models.analysis_run import AnalysisRun
 from app.models.hydration import HydrationRecord

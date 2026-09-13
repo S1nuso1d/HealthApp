@@ -31,8 +31,8 @@ def _active_trigger_exists(db: Session, user_id: int, trigger_type: str, title: 
             SmartTrigger.user_id == user_id,
             SmartTrigger.trigger_type == trigger_type,
             SmartTrigger.title == title,
-            SmartTrigger.is_active == True,
-            SmartTrigger.is_resolved == False,
+            SmartTrigger.is_active.is_(True),
+            SmartTrigger.is_resolved.is_(False),
         )
         .first()
     )

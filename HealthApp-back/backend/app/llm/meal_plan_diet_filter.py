@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.llm.meal_plan_fallback import VEGETARIAN_SWAPS, _swap_vegetarian
+from app.llm.meal_plan_fallback import _swap_vegetarian
 
 MEAT_KEYWORDS = (
     "курин",

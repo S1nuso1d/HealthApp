@@ -1,7 +1,5 @@
-import sys
 from app.db.database import Base
 from app.models import *  # This triggers registry
-from sqlalchemy.orm import class_mapper
 
 def generate_mermaid_er():
     print("```mermaid")

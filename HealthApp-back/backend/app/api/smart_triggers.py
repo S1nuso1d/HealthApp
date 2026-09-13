@@ -47,8 +47,8 @@ def get_active_triggers(
         db.query(SmartTrigger)
         .filter(
             SmartTrigger.user_id == current_user.id,
-            SmartTrigger.is_active == True,
-            SmartTrigger.is_resolved == False,
+            SmartTrigger.is_active.is_(True),
+            SmartTrigger.is_resolved.is_(False),
         )
         .order_by(SmartTrigger.created_at.desc())
         .all()
@@ -68,7 +68,7 @@ def get_active_reminders(
         db.query(SmartReminder)
         .filter(
             SmartReminder.user_id == current_user.id,
-            SmartReminder.is_active == True,
+            SmartReminder.is_active.is_(True),
         )
         .order_by(SmartReminder.created_at.desc())
         .all()

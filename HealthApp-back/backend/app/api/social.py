@@ -3,13 +3,15 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta, timezone
 
+import anyio.to_thread
 from fastapi import APIRouter, Depends, HTTPException, Query, File, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import or_, and_, func
+from sqlalchemy import or_, func
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.rate_limit import upload_rate_limit
 from app.db.database import get_db
 from app.models.activity import ActivityRecord
 from app.models.gamification import UserAchievement
@@ -289,23 +291,96 @@ def _reactions_for_posts(db: Session, post_ids: list[int], viewer_id: int) -> di
     return out
 
 
+class PostContext:
+    """Данные для пачки постов, собранные заранее.
+
+    Без этого сериализация одной ленты из 40 постов делала около 160 запросов:
+    автор, профиль автора, тренировка и счётчик комментариев на каждый пост.
+    """
+
+    __slots__ = ("profiles", "activities", "comment_counts")
+
+    def __init__(
+        self,
+        profiles: dict[int, UserProfile],
+        activities: dict[int, ActivityRecord],
+        comment_counts: dict[int, int],
+    ) -> None:
+        self.profiles = profiles
+        self.activities = activities
+        self.comment_counts = comment_counts
+
+
+def _prefetch_post_context(db: Session, posts: list[FeedPost]) -> PostContext:
+    user_ids = {p.user_id for p in posts if p.user_id}
+    activity_ids = {p.activity_id for p in posts if p.activity_id}
+    post_ids = [p.id for p in posts]
+
+    profiles: dict[int, UserProfile] = {}
+    if user_ids:
+        profiles = {
+            row.user_id: row
+            for row in db.query(UserProfile)
+            .filter(UserProfile.user_id.in_(user_ids))
+            .all()
+        }
+
+    activities: dict[int, ActivityRecord] = {}
+    if activity_ids:
+        activities = {
+            row.id: row
+            for row in db.query(ActivityRecord)
+            .filter(ActivityRecord.id.in_(activity_ids))
+            .all()
+        }
+
+    comment_counts: dict[int, int] = {}
+    if post_ids:
+        comment_counts = dict(
+            db.query(FeedComment.post_id, func.count(FeedComment.id))
+            .filter(FeedComment.post_id.in_(post_ids))
+            .group_by(FeedComment.post_id)
+            .all()
+        )
+
+    return PostContext(profiles, activities, comment_counts)
+
+
+def _users_by_ids(db: Session, user_ids: set[int]) -> dict[int, User]:
+    if not user_ids:
+        return {}
+    return {row.id: row for row in db.query(User).filter(User.id.in_(user_ids)).all()}
+
+
 def _serialize_post(
     db: Session,
     p: FeedPost,
     author: User,
     viewer_id: int,
     reaction_meta: dict | None = None,
+    context: PostContext | None = None,
 ) -> dict:
     act = None
     if p.activity_id:
-        a = db.query(ActivityRecord).filter(ActivityRecord.id == p.activity_id).first()
+        if context is not None:
+            a = context.activities.get(p.activity_id)
+        else:
+            a = db.query(ActivityRecord).filter(ActivityRecord.id == p.activity_id).first()
         if a:
             act = _activity_payload(a)
     meta = reaction_meta or {"counts": [], "total": 0, "my_reaction": None}
-    comments_count = db.query(FeedComment).filter(FeedComment.post_id == p.id).count()
+    if context is not None:
+        comments_count = context.comment_counts.get(p.id, 0)
+    else:
+        comments_count = db.query(FeedComment).filter(FeedComment.post_id == p.id).count()
     return {
         "id": p.id,
-        "author": _user_card(db, author, viewer_id),
+        "author": _user_card(
+            db,
+            author,
+            viewer_id,
+            profiles=context.profiles if context is not None else None,
+        ),
         "body": p.body,
         "media_url": p.media_url,
         "media_type": p.media_type,
@@ -319,8 +394,16 @@ def _serialize_post(
     }
 
 
-def _user_card(db: Session, user: User, viewer_id: int) -> dict:
-    profile = db.query(UserProfile).filter(UserProfile.user_id == user.id).first()
+def _user_card(
+    db: Session,
+    user: User,
+    viewer_id: int,
+    profiles: dict[int, UserProfile] | None = None,
+) -> dict:
+    if profiles is not None:
+        profile = profiles.get(user.id)
+    else:
+        profile = db.query(UserProfile).filter(UserProfile.user_id == user.id).first()
     nick = (profile.nickname or "").strip() if profile else ""
     return {
         "user_id": user.id,
@@ -520,7 +603,11 @@ def remove_friend(
     return {"status": "removed"}
 
 
-@router.post("/feed/media", summary="Загрузить фото для публикации")
+@router.post(
+    "/feed/media",
+    summary="Загрузить фото для публикации",
+    dependencies=[Depends(upload_rate_limit)],
+)
 async def upload_post_media(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
@@ -529,7 +616,7 @@ async def upload_post_media(
     import uuid
     from app.services.avatar_storage import validate_avatar_bytes
     from app.core.config import settings
-    
+
     content = await file.read()
     ok, detail = validate_avatar_bytes(content)
     if not ok:
@@ -538,18 +625,22 @@ async def upload_post_media(
     filename = f"{uuid.uuid4().hex}.{fmt}"
     path = settings.AVATAR_DIR_PATH / filename
     settings.AVATAR_DIR_PATH.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(content)
-    
+    await anyio.to_thread.run_sync(path.write_bytes, content)
+
     # Returns relative URL which frontend can prepend with base URL
     return {"url": f"/social/feed/media/{filename}"}
 
 
 @router.get("/feed/media/{filename}")
-def get_post_media(filename: str):
+def get_post_media(
+    filename: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Требует авторизации: имя файла — случайный UUID, но это не средство защиты."""
     import re
     from app.services.avatar_storage import guess_media_type
     from app.core.config import settings
-    
+
     if not re.match(r"^[a-f0-9]{32}\.(jpeg|png|webp)$", filename):
         raise HTTPException(400, "Invalid filename")
     path = settings.AVATAR_DIR_PATH / filename
@@ -564,16 +655,18 @@ def get_feed(
     db: Session = Depends(get_db),
 ):
     posts = db.query(FeedPost).order_by(FeedPost.created_at.desc()).limit(80).all()
+    authors = _users_by_ids(db, {p.user_id for p in posts if p.user_id})
     visible: list[tuple[FeedPost, User]] = []
     for p in posts:
         if not _can_view_feed(db, current_user.id, p.user_id, p.visibility):
             continue
-        author = db.query(User).filter(User.id == p.user_id).first()
+        author = authors.get(p.user_id)
         if author:
             visible.append((p, author))
     visible = visible[:40]
     post_ids = [p.id for p, _ in visible]
     reactions_map = _reactions_for_posts(db, post_ids, current_user.id)
+    context = _prefetch_post_context(db, [p for p, _ in visible])
     items = [
         _serialize_post(
             db,
@@ -584,6 +677,7 @@ def get_feed(
                 p.id,
                 {"counts": [], "total": 0, "my_reaction": None},
             ),
+            context=context,
         )
         for p, author in visible
     ]
@@ -1087,6 +1181,8 @@ def friend_profile(
         ]
         post_ids = [p.id for p in visible_posts]
         reactions_map = _reactions_for_posts(db, post_ids, current_user.id)
+        shown_posts = visible_posts[:20]
+        context = _prefetch_post_context(db, shown_posts)
         posts = [
             _serialize_post(
                 db,
@@ -1094,8 +1190,9 @@ def friend_profile(
                 user,
                 current_user.id,
                 reactions_map.get(p.id, {"counts": [], "total": 0, "my_reaction": None}),
+                context=context,
             )
-            for p in visible_posts[:20]
+            for p in shown_posts
         ]
     return {
         "user": card,
@@ -1203,10 +1300,22 @@ def get_challenges(
     db: Session = Depends(get_db),
 ):
     challenges = db.query(Challenge).all()
+    # Два агрегирующих запроса вместо двух запросов на каждый челлендж
+    counts = dict(
+        db.query(ChallengeParticipant.challenge_id, func.count(ChallengeParticipant.id))
+        .group_by(ChallengeParticipant.challenge_id)
+        .all()
+    )
+    my_participation = {
+        row.challenge_id: row
+        for row in db.query(ChallengeParticipant)
+        .filter(ChallengeParticipant.user_id == current_user.id)
+        .all()
+    }
     results = []
     for c in challenges:
-        p_count = db.query(ChallengeParticipant).filter(ChallengeParticipant.challenge_id == c.id).count()
-        me = db.query(ChallengeParticipant).filter(ChallengeParticipant.challenge_id == c.id, ChallengeParticipant.user_id == current_user.id).first()
+        p_count = counts.get(c.id, 0)
+        me = my_participation.get(c.id)
         results.append(
             ChallengeResponse(
                 id=c.id,
@@ -1254,10 +1363,21 @@ def get_clubs(
     db: Session = Depends(get_db),
 ):
     clubs = db.query(Club).all()
+    counts = dict(
+        db.query(ClubMember.club_id, func.count(ClubMember.id))
+        .group_by(ClubMember.club_id)
+        .all()
+    )
+    my_memberships = {
+        row.club_id
+        for row in db.query(ClubMember)
+        .filter(ClubMember.user_id == current_user.id)
+        .all()
+    }
     results = []
     for c in clubs:
-        m_count = db.query(ClubMember).filter(ClubMember.club_id == c.id).count()
-        me = db.query(ClubMember).filter(ClubMember.club_id == c.id, ClubMember.user_id == current_user.id).first()
+        m_count = counts.get(c.id, 0)
+        me = c.id in my_memberships
         results.append(
             ClubResponse(
                 id=c.id,
@@ -1267,7 +1387,7 @@ def get_clubs(
                 rules=c.rules,
                 creator_id=c.creator_id,
                 members_count=m_count,
-                is_member=me is not None
+                is_member=me,
             )
         )
     return results
@@ -1725,7 +1845,8 @@ def vote_club_poll(
     votes = json.loads(post.poll_votes) if post.poll_votes else {}
     if payload.option not in votes:
         raise HTTPException(status_code=400, detail="Неверный вариант ответа")
-    for opt, voters in votes.items():
+    # Один голос на пользователя: снимаем прежний выбор перед записью нового
+    for voters in votes.values():
         if isinstance(voters, list) and current_user.id in voters:
             voters.remove(current_user.id)
     votes[payload.option].append(current_user.id)

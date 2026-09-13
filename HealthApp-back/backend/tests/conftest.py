@@ -8,13 +8,39 @@ from sqlalchemy.pool import StaticPool
 
 import app.models  # noqa: F401 — регистрация моделей в metadata
 from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.db.database import Base, get_db
 from app.main import app
+from app.models.user import User
 
 # Локальный backend/.env с реальным SMTP не должен ломать тесты (без исходящей почты).
 settings.SMTP_HOST = ""
 settings.SMTP_USER = ""
 settings.SMTP_PASSWORD = ""
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiter():
+    """Тесты бьют по /auth пачками — счётчики не должны протекать между тестами.
+
+    Тесты, которые проверяют сам лимитер, включают его через фикстуру `rate_limited`.
+    """
+    previous = settings.RATE_LIMIT_ENABLED
+    settings.RATE_LIMIT_ENABLED = False
+    limiter.reset()
+    yield
+    settings.RATE_LIMIT_ENABLED = previous
+    limiter.reset()
+
+
+@pytest.fixture
+def rate_limited():
+    """Включает ограничение частоты внутри одного теста."""
+    settings.RATE_LIMIT_ENABLED = True
+    limiter.reset()
+    yield
+    settings.RATE_LIMIT_ENABLED = False
+    limiter.reset()
 
 
 @pytest.fixture
@@ -44,6 +70,19 @@ def client(db_session):
     app.dependency_overrides[get_db] = override_get_db
     yield TestClient(app)
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def test_user(db_session) -> User:
+    """Пользователь прямо в БД, без прохода через HTTP-регистрацию."""
+    user = User(
+        email=f"svc_{uuid.uuid4().hex[:10]}@example.com",
+        hashed_password="not-a-real-hash",
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
 
 
 @pytest.fixture

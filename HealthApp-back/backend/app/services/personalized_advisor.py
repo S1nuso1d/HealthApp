@@ -19,7 +19,7 @@ from app.models.meal import MealRecord
 from app.models.profile import UserProfile
 from app.models.sleep import SleepRecord
 from app.services.analytics.analytics_service import build_recommendation, deduplicate_recommendations, sort_recommendations
-from app.services.meal_timing import enrich_meal_timing, infer_is_late_meal
+from app.services.meal_timing import infer_is_late_meal
 
 
 def _aware(dt: datetime) -> datetime:

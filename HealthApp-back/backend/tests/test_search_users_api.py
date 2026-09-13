@@ -69,7 +69,12 @@ def test_search_users_finds_email_when_profile_empty(client, db_session):
     email_b = f"tatarincev.finder_{suffix}@example.com"
     password = "testpassword123"
 
-    token_a = _register_with_profile(client, email_a, password, {"nickname": "finder"})
+    token_a = _register_with_profile(
+        client,
+        email_a,
+        password,
+        {"first_name": "Поиск", "last_name": "Тестовый", "nickname": "finder"},
+    )
     _register_with_profile(client, email_b, password, {"first_name": "Иван", "last_name": "Иванов"})
 
     user_b = db_session.query(User).filter(User.email == email_b).first()

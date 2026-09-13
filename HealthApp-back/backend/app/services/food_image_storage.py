@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from app.core.config import settings
-from app.services.avatar_storage import validate_avatar_bytes
 
 
 def food_images_dir() -> Path:

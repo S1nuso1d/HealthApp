@@ -1,6 +1,8 @@
+import functools
 import json
 from datetime import date, datetime, timedelta, timezone
 
+import anyio.to_thread
 from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File
 from fastapi.responses import StreamingResponse
 import base64
@@ -8,6 +10,8 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.core.config import settings
+from app.core.rate_limit import ai_rate_limit
+from app.services.avatar_storage import validate_avatar_bytes
 from app.db.database import get_db
 from app.llm.health_chat_service import HealthChatService
 from app.llm.llm_client import LLMClientError
@@ -43,7 +47,6 @@ from app.schemas.analytics import (
     AnalyticsSummary,
     InsightItem,
 )
-from app.services.personalized_advisor import PersonalizedAdvisor
 
 router = APIRouter(prefix="/ai", tags=["AI"])
 
@@ -473,7 +476,8 @@ def get_ai_recommendations(
     "/recognize-food",
     response_model=AiRecognizedFoodResponse,
     summary="Распознать еду по фото",
-    description="Анализирует фото еды и возвращает список продуктов с КБЖУ."
+    description="Анализирует фото еды и возвращает список продуктов с КБЖУ.",
+    dependencies=[Depends(ai_rate_limit)],
 )
 async def recognize_food(
     image: UploadFile = File(...),
@@ -482,12 +486,28 @@ async def recognize_food(
 ):
     try:
         contents = await image.read()
-        base64_image = base64.b64encode(contents).decode("utf-8")
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Ошибка чтения файла: {exc}"
         )
+
+    if not contents:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Файл пустой",
+        )
+    if len(contents) > settings.FOOD_RECOGNITION_MAX_BYTES:
+        limit_mb = settings.FOOD_RECOGNITION_MAX_BYTES // (1024 * 1024)
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Фото больше {limit_mb} МБ — сожмите изображение",
+        )
+    ok, detail = validate_avatar_bytes(contents)
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+
+    base64_image = base64.b64encode(contents).decode("utf-8")
 
     dietary_rules, profile = _profile_dietary_rules(db, current_user.id)
     prompt = (
@@ -503,8 +523,11 @@ async def recognize_food(
     client = LLMClient()
 
     try:
-        raw_json = client.analyze_image(base64_image=base64_image, prompt=prompt)
-        import json
+        # analyze_image блокирует поток на десятки секунд (requests к LLM),
+        # поэтому уводим его из event loop
+        raw_json = await anyio.to_thread.run_sync(
+            functools.partial(client.analyze_image, base64_image=base64_image, prompt=prompt)
+        )
         data = json.loads(raw_json)
         if profile:
             data["items"] = filter_food_items(
@@ -551,7 +574,6 @@ def recognize_text_food(
 
     try:
         raw_json = client.generate(prompt=prompt)
-        import json
         data = json.loads(raw_json)
         if profile:
             data["items"] = filter_food_items(
@@ -638,7 +660,6 @@ def get_meal_plan(
         )
     except Exception as exc:
         if settings.AI_FALLBACK_ENABLED:
-            import json
             data = json.loads(
                 service._build_fallback_meal_plan(
                     analytics,
@@ -707,7 +728,6 @@ def get_workout_plan(
     service = HealthChatService()
     try:
         raw_json = service.generate_workout_plan(analytics, user_context=health_context, days=days)
-        import json
         data = json.loads(raw_json)
         return WorkoutPlanResponse(
             generated_at=datetime.now(timezone.utc),
@@ -741,7 +761,6 @@ def get_dashboard_hints(
             user_context=health_context,
             dietary_rules=dietary_rules,
         )
-        import json
         try:
             data = json.loads(raw_json)
         except json.JSONDecodeError:
@@ -758,7 +777,6 @@ def get_dashboard_hints(
         return DashboardHintsResponse(hints=hints)
     except Exception as exc:
         if settings.AI_FALLBACK_ENABLED:
-            import json
             data = json.loads(service._build_fallback_dashboard_hints(analytics))
             hints = [
                 _shorten_dashboard_hint(h)

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Index, Integer, String
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 
@@ -7,6 +7,11 @@ from app.db.database import Base
 
 class SleepRecord(Base):
     __tablename__ = "sleep_records"
+    # Дашборд и аналитика всегда спрашивают «сон этого пользователя за период»
+    __table_args__ = (
+        Index("ix_sleep_records_user_sleep_end", "user_id", "sleep_end"),
+        Index("ix_sleep_records_user_sleep_start", "user_id", "sleep_start"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)

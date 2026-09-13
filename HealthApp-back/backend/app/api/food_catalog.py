@@ -1,10 +1,12 @@
 """API каталога продуктов: Open Food Facts + пользовательские дополнения."""
 
+import anyio.to_thread
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.rate_limit import upload_rate_limit
 from app.db.database import get_db
 from app.models.food_catalog import FoodCatalogItem
 from app.models.user import User
@@ -107,7 +109,7 @@ async def create_catalog_item(
         ok, detail = validate_avatar_bytes(content)
         if not ok:
             raise HTTPException(status_code=400, detail=detail)
-        save_food_image(row.id, content, detail)
+        await anyio.to_thread.run_sync(save_food_image, row.id, content, detail)
     return food_catalog_service.item_to_out(row, _request_base(request))
 
 
@@ -141,7 +143,12 @@ def update_catalog_item(
     return food_catalog_service.item_to_out(updated, _request_base(request))
 
 
-@router.post("/foods/catalog/{item_id}/image", response_model=FoodCatalogItemOut, summary="Загрузить фото продукта")
+@router.post(
+    "/foods/catalog/{item_id}/image",
+    response_model=FoodCatalogItemOut,
+    summary="Загрузить фото продукта",
+    dependencies=[Depends(upload_rate_limit)],
+)
 async def upload_catalog_image(
     item_id: int,
     request: Request,
@@ -156,5 +163,5 @@ async def upload_catalog_image(
     ok, detail = validate_avatar_bytes(content)
     if not ok:
         raise HTTPException(status_code=400, detail=detail)
-    save_food_image(row.id, content, detail)
+    await anyio.to_thread.run_sync(save_food_image, row.id, content, detail)
     return food_catalog_service.item_to_out(row, _request_base(request))

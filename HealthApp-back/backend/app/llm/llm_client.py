@@ -1,4 +1,4 @@
-from typing import Literal, Optional, Any, Generator
+from typing import Literal, Optional, Any
 
 import requests
 

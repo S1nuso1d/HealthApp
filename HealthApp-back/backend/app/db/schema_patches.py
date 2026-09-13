@@ -147,3 +147,60 @@ def apply_lightweight_schema_patches() -> None:
     if "feed_story_views" not in tables:
         Base.metadata.create_all(bind=engine, tables=[Base.metadata.tables["feed_story_views"]])
 
+    if "revoked_refresh_tokens" not in tables:
+        Base.metadata.create_all(
+            bind=engine, tables=[Base.metadata.tables["revoked_refresh_tokens"]]
+        )
+
+    if "users" in tables:
+        user_cols = {c["name"] for c in insp.get_columns("users")}
+        if "tokens_valid_from" not in user_cols:
+            with engine.begin() as conn:
+                conn.execute(
+                    text("ALTER TABLE users ADD COLUMN tokens_valid_from TIMESTAMP")
+                )
+
+    _create_missing_indexes(insp, tables)
+
+
+# Составные индексы «пользователь + дата»: почти каждый запрос дашборда и аналитики
+# фильтрует именно так, а одиночных индексов для этого недостаточно.
+_COMPOSITE_INDEXES: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    ("sleep_records", "ix_sleep_records_user_sleep_end", ("user_id", "sleep_end")),
+    ("sleep_records", "ix_sleep_records_user_sleep_start", ("user_id", "sleep_start")),
+    ("meal_records", "ix_meal_records_user_meal_time", ("user_id", "meal_time")),
+    (
+        "hydration_records",
+        "ix_hydration_records_user_record_time",
+        ("user_id", "record_time"),
+    ),
+    (
+        "activity_records",
+        "ix_activity_records_user_start_time",
+        ("user_id", "start_time"),
+    ),
+    (
+        "daily_health_summaries",
+        "ix_daily_health_summaries_user_date",
+        ("user_id", "summary_date"),
+    ),
+)
+
+
+def _create_missing_indexes(insp, tables: set[str]) -> None:
+    """`create_all` не добавляет индексы к уже существующим таблицам — делаем вручную."""
+    for table, index_name, columns in _COMPOSITE_INDEXES:
+        if table not in tables:
+            continue
+        existing = {idx["name"] for idx in insp.get_indexes(table)}
+        if index_name in existing:
+            continue
+        column_list = ", ".join(columns)
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    f"CREATE INDEX IF NOT EXISTS {index_name} "
+                    f"ON {table} ({column_list})"
+                )
+            )
+

@@ -10,10 +10,15 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.core.config import settings
+from app.core.rate_limit import auth_rate_limit
 from app.core.security import (
+    REFRESH_TOKEN_TYPE,
+    TokenError,
     create_access_token,
     create_refresh_token,
+    decode_token,
     get_password_hash,
+    token_expiry,
     verify_password,
 )
 from app.db.database import get_db
@@ -32,6 +37,7 @@ from app.schemas.user import (
     UserCreate,
     RefreshTokenRequest,
 )
+from app.services import refresh_token_service
 from app.services.nutrition_targets_service import try_calculate_from_profile
 from app.services.account_deletion import delete_user_and_related_data
 from app.services.registration_email import (
@@ -39,8 +45,6 @@ from app.services.registration_email import (
     send_registration_verification_email,
 )
 from app.services.profile_display import age_from_birth_date, normalize_birth_date, validate_nickname
-
-from jose import JWTError, jwt
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +104,7 @@ def _normalize_code(raw: str) -> str:
 
 @router.post(
     "/register/start",
+    dependencies=[Depends(auth_rate_limit)],
     response_model=RegisterStartResponse,
     summary="Начать регистрацию — отправить код на email",
 )
@@ -175,6 +180,7 @@ def register_start(user_data: UserCreate, db: Session = Depends(get_db)):
 
 @router.post(
     "/register/complete",
+    dependencies=[Depends(auth_rate_limit)],
     response_model=Token,
     summary="Завершить регистрацию — проверить код и создать аккаунт",
 )
@@ -323,6 +329,7 @@ def register_complete(body: RegisterVerify, db: Session = Depends(get_db)):
 
 @router.post(
     "/login",
+    dependencies=[Depends(auth_rate_limit)],
     response_model=Token,
     summary="Вход в систему",
     description="OAuth2-логин. В поле username нужно вводить email, в поле password — пароль.",
@@ -353,6 +360,7 @@ def login(
 
 @router.post(
     "/refresh",
+    dependencies=[Depends(auth_rate_limit)],
     response_model=Token,
     summary="Обновить токен",
     description="Обновление access токена с помощью refresh токена",
@@ -367,29 +375,48 @@ def refresh_token(
         detail="Недействительный или просроченный refresh токен",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+    reused_token = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=(
+            "Этот refresh токен уже использован. Из соображений безопасности все "
+            "сессии завершены — войдите снова."
+        ),
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
     try:
-        payload = jwt.decode(
-            body.refresh_token,
-            settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM]
-        )
-        
-        user_id = payload.get("sub")
-        if user_id is None:
+        payload = decode_token(body.refresh_token, REFRESH_TOKEN_TYPE)
+        subject = payload.get("sub")
+        if subject is None:
             raise invalid_token
-            
-        user_id = int(user_id)
-    except (JWTError, ValueError):
+        user_id = int(subject)
+    except (TokenError, ValueError):
         raise invalid_token
-        
+
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         raise invalid_token
-        
+
+    jti = payload.get("jti", "")
+    if refresh_token_service.is_revoked(db, jti):
+        # Токен одноразовый: повторное предъявление означает, что копия утекла
+        refresh_token_service.revoke_all_for_user(db, user, reason="reuse_detected")
+        logger.warning("refresh: повторное использование jti=%s user_id=%s", jti, user.id)
+        raise reused_token
+
+    if refresh_token_service.issued_before_cutoff(user, payload.get("iat")):
+        raise invalid_token
+
+    refresh_token_service.revoke(
+        db,
+        jti=jti,
+        user_id=user.id,
+        expires_at=token_expiry(payload),
+    )
+
     new_access_token = create_access_token(data={"sub": str(user.id)})
     new_refresh_token = create_refresh_token(data={"sub": str(user.id)})
-    
+
     return {
         "access_token": new_access_token,
         "refresh_token": new_refresh_token,
@@ -398,7 +425,24 @@ def refresh_token(
 
 
 @router.post(
+    "/logout",
+    summary="Выйти и отозвать refresh токены",
+    description=(
+        "Завершает сессии пользователя: все ранее выданные refresh токены перестают "
+        "работать. Access токен доживает свой короткий срок."
+    ),
+)
+def logout(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    refresh_token_service.revoke_all_for_user(db, current_user, reason="logout")
+    return {"message": "Сессии завершены"}
+
+
+@router.post(
     "/forgot-password",
+    dependencies=[Depends(auth_rate_limit)],
     response_model=RegisterStartResponse,
     summary="Сброс пароля — временный пароль на email",
     description="Если аккаунт существует, на почту уходит 8-значный временный пароль. Ответ одинаковый, чтобы не подбирать email.",
@@ -437,6 +481,7 @@ def forgot_password(body: ForgotPasswordBody, db: Session = Depends(get_db)):
 
     user.hashed_password = get_password_hash(plain)
     db.commit()
+    refresh_token_service.revoke_all_for_user(db, user, reason="password_reset")
     logger.info("forgot_password: отправлен сброс для user_id=%s", user.id)
     return RegisterStartResponse(message=public_msg)
 
@@ -463,6 +508,8 @@ def change_password(
         )
     current_user.hashed_password = get_password_hash(body.new_password)
     db.commit()
+    # Смена пароля должна выбивать чужие сессии, иначе украденный refresh живёт 30 дней
+    refresh_token_service.revoke_all_for_user(db, current_user, reason="password_changed")
     return {"message": "Пароль успешно изменён"}
 
 

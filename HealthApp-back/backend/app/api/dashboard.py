@@ -18,7 +18,6 @@ from app.models.insight import Insight
 from app.models.user import User
 from app.services.analytics.user_trends_service import compute_user_trends
 from app.services.recommendation_orchestrator import build_merged_recommendation_items
-from app.schemas.action_plan import ActionPlanResponse
 from app.schemas.analytics import (
     AnalyticsEvidence,
     AnalyticsMeta,
@@ -369,7 +368,6 @@ def get_goals_calendar(
     target_sleep = profile.target_sleep_hours if profile and profile.target_sleep_hours else 8.0
     target_water = int(profile.target_water_ml if profile and profile.target_water_ml else 2500)
     target_steps = int(profile.target_steps if profile and profile.target_steps else 10000)
-    target_cal = int(profile.target_daily_calories if profile and profile.target_daily_calories else 2200)
     target_burned = max(400, int(target_steps * 0.05))
 
     raw_by_day = _aggregate_calendar_metrics(db, current_user.id, start_date, end_date)

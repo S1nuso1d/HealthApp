@@ -73,6 +73,19 @@ def get_by_barcode(db: Session, barcode: str) -> FoodCatalogItem | None:
     return db.query(FoodCatalogItem).filter(FoodCatalogItem.barcode == code).first()
 
 
+def get_by_barcodes(db: Session, barcodes: list[str]) -> dict[str, FoodCatalogItem]:
+    """Один запрос вместо одного на каждый штрихкод из результатов поиска."""
+    codes = [c.strip() for c in barcodes if c and c.strip()]
+    if not codes:
+        return {}
+    rows = (
+        db.query(FoodCatalogItem)
+        .filter(FoodCatalogItem.barcode.in_(codes))
+        .all()
+    )
+    return {row.barcode: row for row in rows if row.barcode}
+
+
 def search_local(db: Session, query: str, limit: int = 12) -> list[FoodCatalogItem]:
     q = f"%{query.strip().lower()}%"
     return (
@@ -97,10 +110,12 @@ def upsert_item(
     *,
     source: str = "user",
     existing: FoodCatalogItem | None = None,
+    lookup_existing: bool = True,
+    commit: bool = True,
 ) -> FoodCatalogItem:
     barcode = body.barcode.strip() if body.barcode else None
     row = existing
-    if row is None and barcode:
+    if row is None and barcode and lookup_existing:
         row = get_by_barcode(db, barcode)
 
     if row is None:
@@ -141,12 +156,25 @@ def upsert_item(
         row.fat_g_100g,
         row.carbs_g_100g,
     )
-    db.commit()
-    db.refresh(row)
+    if commit:
+        db.commit()
+        db.refresh(row)
+    else:
+        # flush проставляет row.id, нужный для ссылки на картинку, но не завершает
+        # транзакцию — вызывающий код коммитит один раз для всей пачки
+        db.flush()
     return row
 
 
-def merge_off_into_db(db: Session, off_data: dict, user_id: int) -> FoodCatalogItem:
+def merge_off_into_db(
+    db: Session,
+    off_data: dict,
+    user_id: int,
+    *,
+    existing: FoodCatalogItem | None = None,
+    lookup_existing: bool = True,
+    commit: bool = True,
+) -> FoodCatalogItem:
     body = FoodCatalogUpsertBody(
         barcode=off_data.get("barcode"),
         name=off_data["name"],
@@ -157,7 +185,8 @@ def merge_off_into_db(db: Session, off_data: dict, user_id: int) -> FoodCatalogI
         carbs_g_100g=off_data.get("carbs_g_100g"),
         off_image_url=off_data.get("off_image_url"),
     )
-    existing = get_by_barcode(db, body.barcode or "")
+    if existing is None and lookup_existing:
+        existing = get_by_barcode(db, body.barcode or "")
     source = "openfoodfacts" if off_data.get("source") == "openfoodfacts" else "user"
     if existing and existing.is_complete:
         return existing
@@ -172,8 +201,24 @@ def merge_off_into_db(db: Session, off_data: dict, user_id: int) -> FoodCatalogI
             carbs_g_100g=existing.carbs_g_100g if existing.carbs_g_100g is not None else body.carbs_g_100g,
             off_image_url=existing.off_image_url or body.off_image_url,
         )
-        return upsert_item(db, merged, user_id, source=existing.source, existing=existing)
-    return upsert_item(db, body, user_id, source=source, existing=existing)
+        return upsert_item(
+            db,
+            merged,
+            user_id,
+            source=existing.source,
+            existing=existing,
+            lookup_existing=False,
+            commit=commit,
+        )
+    return upsert_item(
+        db,
+        body,
+        user_id,
+        source=source,
+        existing=existing,
+        lookup_existing=lookup_existing,
+        commit=commit,
+    )
 
 
 async def resolve_barcode(db: Session, code: str, user_id: int, request_base: str) -> FoodCatalogItemOut | None:
@@ -198,6 +243,11 @@ async def search_foods(db: Session, query: str, user_id: int, request_base: str)
     seen_names = {i.name.lower() for i in items}
 
     off_hits = await openfoodfacts_client.search_products(query)
+    # Раньше здесь было по SELECT и COMMIT на каждый результат Open Food Facts
+    existing_by_barcode = get_by_barcodes(
+        db, [str(off.get("barcode")) for off in off_hits if off.get("barcode")]
+    )
+    touched_db = False
     for off in off_hits:
         name_key = off["name"].lower()
         barcode = off.get("barcode")
@@ -206,7 +256,15 @@ async def search_foods(db: Session, query: str, user_id: int, request_base: str)
         if name_key in seen_names:
             continue
         if barcode:
-            row = merge_off_into_db(db, off, user_id)
+            row = merge_off_into_db(
+                db,
+                off,
+                user_id,
+                existing=existing_by_barcode.get(str(barcode)),
+                lookup_existing=False,
+                commit=False,
+            )
+            touched_db = True
             items.append(item_to_out(row, request_base))
         else:
             items.append(dict_to_out(off, request_base))
@@ -215,4 +273,6 @@ async def search_foods(db: Session, query: str, user_id: int, request_base: str)
         seen_names.add(name_key)
         if len(items) >= 20:
             break
+    if touched_db:
+        db.commit()
     return items[:20]

@@ -1,4 +1,14 @@
-from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+)
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 
@@ -7,6 +17,9 @@ from app.db.database import Base
 
 class MealRecord(Base):
     __tablename__ = "meal_records"
+    __table_args__ = (
+        Index("ix_meal_records_user_meal_time", "user_id", "meal_time"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
