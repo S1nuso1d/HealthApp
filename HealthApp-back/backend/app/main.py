@@ -38,6 +38,7 @@ from app.api.smart import router as smart_router
 from app.api.action_plan import router as action_plan_router
 from app.api.dashboard import router as dashboard_router
 from app.api.ws import router as ws_router
+from app.api.data_export import router as data_export_router
 from app.api.data_import import router as data_import_router
 from app.api.integrations import router as integrations_router
 from app.api.health import router as health_router
@@ -115,6 +116,7 @@ app.include_router(action_plan_router)
 app.include_router(dashboard_router)
 app.include_router(ws_router)
 app.include_router(data_import_router)
+app.include_router(data_export_router)
 app.include_router(integrations_router)
 app.include_router(health_router)
 app.include_router(gamification_router)

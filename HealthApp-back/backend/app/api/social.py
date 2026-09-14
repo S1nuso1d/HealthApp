@@ -33,6 +33,7 @@ from app.models.social import (
     ClubNotification,
 )
 from app.models.user import User
+from app.services import challenge_progress_service
 from app.services.profile_display import public_display_name
 from app.services.user_search import user_matches_search_query
 router = APIRouter(prefix="/social", tags=["Social"])
@@ -78,7 +79,11 @@ ALLOWED_REACTIONS = frozenset({"👍", "❤️", "🔥", "👏", "😊"})
 class ChallengeCreate(BaseModel):
     title: str = Field(min_length=1, max_length=128)
     description: str | None = None
-    challenge_type: str = Field(pattern="^(steps|calories|water)$")
+    # Список типов задаётся сервисом расчёта прогресса: если тип не умеют считать,
+    # челлендж навсегда останется с нулевым прогрессом.
+    challenge_type: str = Field(
+        pattern=f"^({'|'.join(sorted(challenge_progress_service.SUPPORTED_TYPES))})$"
+    )
     target_value: int = Field(gt=0)
     is_group: bool = False
     duration_days: int = Field(default=7, gt=0, le=30)
@@ -1260,11 +1265,20 @@ def create_challenge(
     db: Session = Depends(get_db),
 ):
     from datetime import datetime, timezone, timedelta
+
+    challenge_type = (payload.challenge_type or "").strip().lower()
+    if challenge_type not in challenge_progress_service.SUPPORTED_TYPES:
+        supported = ", ".join(sorted(challenge_progress_service.SUPPORTED_TYPES))
+        raise HTTPException(
+            status_code=422,
+            detail=f"Неизвестный тип челленджа. Доступны: {supported}",
+        )
+
     now = datetime.now(timezone.utc)
     challenge = Challenge(
         title=payload.title,
         description=payload.description,
-        challenge_type=payload.challenge_type,
+        challenge_type=challenge_type,
         target_value=payload.target_value,
         is_group=payload.is_group,
         creator_id=current_user.id,
@@ -1300,6 +1314,8 @@ def get_challenges(
     db: Session = Depends(get_db),
 ):
     challenges = db.query(Challenge).all()
+    # Прогресс мог устареть, если записи появились в обход соцраздела
+    challenge_progress_service.refresh_for_user(db, current_user.id)
     # Два агрегирующих запроса вместо двух запросов на каждый челлендж
     counts = dict(
         db.query(ChallengeParticipant.challenge_id, func.count(ChallengeParticipant.id))
@@ -1354,7 +1370,10 @@ def join_challenge(
     p = ChallengeParticipant(challenge_id=challenge_id, user_id=current_user.id)
     db.add(p)
     db.commit()
-    return {"status": "ok"}
+    # Челлендж мог начаться раньше, чем пользователь присоединился, — засчитываем
+    # уже накопленное за окно, иначе новичок навсегда остаётся с нулём.
+    challenge_progress_service.refresh_for_user(db, current_user.id)
+    return {"status": "ok", "my_progress": p.progress}
 
 
 @router.get("/clubs", response_model=list[ClubResponse], summary="Получить список клубов")
@@ -1880,14 +1899,21 @@ def challenge_leaderboard(
     c = db.query(Challenge).filter(Challenge.id == challenge_id).first()
     if not c:
         raise HTTPException(status_code=404, detail="Челлендж не найден")
-        
+
+    challenge_progress_service.refresh_challenge(db, c)
+
     participants = db.query(ChallengeParticipant).filter(
         ChallengeParticipant.challenge_id == challenge_id
     ).order_by(ChallengeParticipant.progress.desc()).all()
-    
+
+    users = {
+        u.id: u
+        for u in db.query(User).filter(User.id.in_([p.user_id for p in participants])).all()
+    }
+
     entries = []
     for idx, p in enumerate(participants):
-        user = db.query(User).filter(User.id == p.user_id).first()
+        user = users.get(p.user_id)
         if not user:
             continue
         card = _user_card(db, user, current_user.id)
@@ -1898,5 +1924,9 @@ def challenge_leaderboard(
             "is_me": p.user_id == current_user.id,
             "rank": idx + 1
         })
-        
-    return {"entries": entries}
+
+    return {
+        "challenge_type": c.challenge_type,
+        "target_value": c.target_value,
+        "entries": entries,
+    }

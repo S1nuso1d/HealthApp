@@ -187,32 +187,32 @@ def compute_period_average_scores(
         .all()
     )
 
+    targets = _profile_targets(db, user_id)
+
     if summaries:
         avg_sleep = sum(s.total_sleep_hours or 0 for s in summaries) / len(summaries)
         avg_water = sum(s.total_water_ml or 0 for s in summaries) / len(summaries)
         avg_steps = sum(s.total_steps or 0 for s in summaries) / len(summaries)
-        avg_caffeine = sum(s.total_caffeine_mg or 0 for s in summaries) / len(summaries)
+        avg_calories = sum(s.total_calories or 0 for s in summaries) / len(summaries)
     else:
-        avg_sleep = avg_water = avg_steps = avg_caffeine = 0.0
+        avg_sleep = avg_water = avg_steps = avg_calories = 0.0
 
-    sleep_score = calculate_sleep_score(avg_sleep)
-    hydration_score = calculate_hydration_score(avg_water)
-    activity_score = calculate_activity_score(avg_steps)
-    nutrition_score = calculate_nutrition_score_caffeine(avg_caffeine)
-    state_score = calculate_state_score_from_states(
-        db.query(UserState)
-        .filter(
-            UserState.user_id == user_id,
-            UserState.record_time >= datetime.combine(start_date, datetime.min.time()).replace(
-                tzinfo=timezone.utc
-            ),
-            UserState.record_time
-            < datetime.combine(end_date + timedelta(days=1), datetime.min.time()).replace(
-                tzinfo=timezone.utc
-            ),
-        )
-        .all()
-    ) or 50
+    sleep_score = calculate_sleep_score(avg_sleep, targets["sleep_hours"])
+    hydration_score = calculate_hydration_score(avg_water, float(targets["water_ml"]))
+    activity_score = calculate_activity_score(avg_steps, float(targets["steps"]))
+    # Питание считается по калориям относительно цели — так же, как на дашборде.
+    # Кофеин остаётся отдельным сигналом в инсайтах и не подменяет балл питания.
+    nutrition_score = calculate_nutrition_score_calories(avg_calories, float(targets["calories"]))
+
+    # Состояние за период — среднее по дневным баллам, уже посчитанным сводками.
+    daily_state_scores = [
+        float(s.total_state_score) for s in summaries if s.total_state_score is not None
+    ]
+    state_score = (
+        clamp_score(sum(daily_state_scores) / len(daily_state_scores))
+        if daily_state_scores
+        else 50
+    )
 
     health_score = clamp_score(
         (sleep_score + hydration_score + activity_score + nutrition_score + state_score) / 5

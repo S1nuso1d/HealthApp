@@ -23,3 +23,7 @@ def rebuild_user_analytics(db: Session, user_id: int, days: int = 7) -> None:
     from app.services.action_plan_sync_service import sync_action_plan_completion
 
     sync_action_plan_completion(db, user_id)
+
+    from app.services import challenge_progress_service
+
+    challenge_progress_service.refresh_for_user(db, user_id)

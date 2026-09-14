@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -8,6 +8,7 @@ from app.models.user import User
 from app.models.profile import UserProfile
 from app.models.health import CycleEntry
 from app.schemas.cycle import CycleEntryCreate, CycleEntryUpdate, CycleEntryResponse
+from app.services.cycle_insights_service import build_cycle_insights
 
 router = APIRouter(prefix="/cycle", tags=["Cycle Tracking"])
 
@@ -25,6 +26,24 @@ def _check_female(db: Session, user_id: int):
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Cycle tracking is only available for female users."
         )
+
+@router.get(
+    "/insights",
+    summary="Как фазы цикла влияют на самочувствие",
+    description=(
+        "Средние сон, самочувствие, шаги и вода по фазам цикла плюс наблюдения о том, "
+        "чем каждая фаза отличается от остальных. Прогноз даты месячных и овуляции "
+        "считается на клиенте, здесь — только связь фаз с фактическими данными."
+    ),
+)
+def get_cycle_insights(
+    months: int = Query(default=6, ge=1, le=24, description="Окно анализа в месяцах"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _check_female(db, current_user.id)
+    return build_cycle_insights(db=db, user_id=current_user.id, months=months)
+
 
 @router.get("/", response_model=List[CycleEntryResponse])
 def get_cycle_entries(

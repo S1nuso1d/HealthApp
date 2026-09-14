@@ -1,15 +1,16 @@
 import json
 from datetime import date, datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.db.database import get_db
+from app.models.analysis_run import AnalysisRun
 from app.models.daily_health_summary import DailyHealthSummary
 from app.models.insight import Insight
+from app.models.saved_recommendation import SavedRecommendation
 from app.models.user import User
-from app.models.user_state import UserState
 from app.recommendations.recommendation_engine import RecommendationEngine
 from app.schemas.analysis_run import AnalysisRunResponse
 from app.schemas.analytics import (
@@ -21,79 +22,14 @@ from app.schemas.analytics import (
     RecommendationItem,
 )
 from app.services.analysis_run_service import AnalysisRunService
+from app.services.analytics.analytics_compare_service import compare_analysis_runs
 from app.services.analytics.daily_summary_service import DailySummaryService
 from app.services.analytics.insight_service import InsightService
+from app.services.health_score_service import compute_period_average_scores
+from app.services.influence_factors_service import build_influence_factors
 from app.services.smart_trigger_service import generate_smart_triggers_and_reminders
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
-
-
-def clamp_score(value: float) -> int:
-    return max(0, min(100, round(value)))
-
-
-def calculate_sleep_score(avg_sleep_hours: float) -> int:
-    if avg_sleep_hours <= 0:
-        return 0
-    if avg_sleep_hours >= 8:
-        return 100
-    return clamp_score((avg_sleep_hours / 8.0) * 100)
-
-
-def calculate_hydration_score(avg_water_ml: float) -> int:
-    if avg_water_ml <= 0:
-        return 0
-    if avg_water_ml >= 2500:
-        return 100
-    return clamp_score((avg_water_ml / 2500.0) * 100)
-
-
-def calculate_activity_score(avg_steps: float) -> int:
-    if avg_steps <= 0:
-        return 0
-    if avg_steps >= 10000:
-        return 100
-    return clamp_score((avg_steps / 10000.0) * 100)
-
-
-def calculate_nutrition_score(avg_caffeine_mg: float) -> int:
-    if avg_caffeine_mg <= 100:
-        return 90
-    if avg_caffeine_mg <= 200:
-        return 75
-    if avg_caffeine_mg <= 300:
-        return 60
-    if avg_caffeine_mg <= 400:
-        return 45
-    return 30
-
-
-def calculate_state_score(db: Session, user_id: int, start_date: date, end_date: date) -> int:
-    states = (
-        db.query(UserState)
-        .filter(
-            UserState.user_id == user_id,
-            UserState.record_time >= datetime.combine(start_date, datetime.min.time()),
-            UserState.record_time <= datetime.combine(end_date, datetime.max.time()),
-        )
-        .all()
-    )
-
-    values = []
-    for state in states:
-        for attr in ("energy", "mood", "stress", "focus", "wellbeing"):
-            value = getattr(state, attr, None)
-            if value is not None:
-                if attr == "stress":
-                    values.append(11.0 - float(value))
-                else:
-                    values.append(float(value))
-
-    if not values:
-        return 50
-
-    avg_state = sum(values) / len(values)
-    return clamp_score((avg_state / 10.0) * 100)
 
 
 def parse_evidence(item: Insight) -> list[AnalyticsEvidence]:
@@ -133,35 +69,20 @@ def calculate_scores(
     end_date: date,
     summaries: list[DailyHealthSummary],
 ) -> dict[str, int]:
-    if summaries:
-        avg_sleep_hours = sum(s.total_sleep_hours or 0 for s in summaries) / len(summaries)
-        avg_water_ml = sum(s.total_water_ml or 0 for s in summaries) / len(summaries)
-        avg_steps = sum(s.total_steps or 0 for s in summaries) / len(summaries)
-        avg_caffeine_mg = sum(s.total_caffeine_mg or 0 for s in summaries) / len(summaries)
-    else:
-        avg_sleep_hours = 0.0
-        avg_water_ml = 0.0
-        avg_steps = 0.0
-        avg_caffeine_mg = 0.0
+    """Баллы за период.
 
-    sleep_score = calculate_sleep_score(avg_sleep_hours)
-    hydration_score = calculate_hydration_score(avg_water_ml)
-    activity_score = calculate_activity_score(avg_steps)
-    nutrition_score = calculate_nutrition_score(avg_caffeine_mg)
-    state_score = calculate_state_score(db, user_id, start_date, end_date)
-
-    health_score = clamp_score(
-        (sleep_score + hydration_score + activity_score + nutrition_score + state_score) / 5
+    Единственный источник формул — `health_score_service`. Раньше здесь лежала
+    своя копия, и балл питания считался по кофеину, а на дашборде — по калориям
+    относительно цели: один и тот же показатель показывал разные числа.
+    Параметр `summaries` больше не нужен для расчёта и оставлен для совместимости
+    вызовов, которые уже загрузили сводки.
+    """
+    return compute_period_average_scores(
+        db=db,
+        user_id=user_id,
+        start_date=start_date,
+        end_date=end_date,
     )
-
-    return {
-        "health_score": health_score,
-        "sleep_score": sleep_score,
-        "hydration_score": hydration_score,
-        "activity_score": activity_score,
-        "nutrition_score": nutrition_score,
-        "state_score": state_score,
-    }
 
 
 @router.post(
@@ -356,3 +277,158 @@ def get_analysis_runs(
         user_id=current_user.id,
         limit=limit,
     )
+
+
+@router.get(
+    "/influence-factors",
+    summary="Что влияет на твоё самочувствие",
+    description=(
+        "Найденные закономерности в виде факторов влияния: сила связи, на что влияет "
+        "и сравнение «в дни с фактором» против «в дни без него»."
+    ),
+)
+def get_influence_factors(
+    days: int = Query(default=14, ge=7, le=90, description="Окно анализа в днях"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return build_influence_factors(db=db, user_id=current_user.id, period_days=days)
+
+
+def _run_or_404(db: Session, user_id: int, run_id: int) -> AnalysisRun:
+    run = (
+        db.query(AnalysisRun)
+        .filter(AnalysisRun.id == run_id, AnalysisRun.user_id == user_id)
+        .first()
+    )
+    if run is None:
+        raise HTTPException(status_code=404, detail="Запуск аналитики не найден")
+    return run
+
+
+def _items_for_run(db: Session, user_id: int, run_id: int) -> list[SavedRecommendation]:
+    return (
+        db.query(SavedRecommendation)
+        .filter(
+            SavedRecommendation.user_id == user_id,
+            SavedRecommendation.analysis_run_id == run_id,
+        )
+        .all()
+    )
+
+
+@router.get(
+    "/compare",
+    summary="Сравнить два запуска аналитики",
+    description=(
+        "Показывает, что изменилось между двумя пересчётами: дельты по баллам, "
+        "какие рекомендации ушли, появились или остались. "
+        "Без параметров сравниваются два последних запуска."
+    ),
+)
+def compare_runs(
+    previous_run_id: int | None = Query(default=None, description="ID более раннего запуска"),
+    current_run_id: int | None = Query(default=None, description="ID более позднего запуска"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if previous_run_id is None or current_run_id is None:
+        recent = (
+            db.query(AnalysisRun)
+            .filter(AnalysisRun.user_id == current_user.id)
+            # id как второй ключ: два пересчёта подряд получают одинаковый
+            # created_at (в SQLite точность до секунды), и без него порядок
+            # последних запусков не определён.
+            .order_by(AnalysisRun.created_at.desc(), AnalysisRun.id.desc())
+            .limit(2)
+            .all()
+        )
+        if len(recent) < 2:
+            raise HTTPException(
+                status_code=409,
+                detail="Нужно минимум два пересчёта аналитики, чтобы было что сравнивать",
+            )
+        current_run, previous_run = recent[0], recent[1]
+    else:
+        previous_run = _run_or_404(db, current_user.id, previous_run_id)
+        current_run = _run_or_404(db, current_user.id, current_run_id)
+
+    return compare_analysis_runs(
+        previous_run=previous_run,
+        current_run=current_run,
+        previous_items=_items_for_run(db, current_user.id, previous_run.id),
+        current_items=_items_for_run(db, current_user.id, current_run.id),
+    )
+
+
+@router.get(
+    "/saved-recommendations",
+    summary="Сохранённые рекомендации",
+    description="Рекомендации, сохранённые при пересчёте аналитики, с их статусом.",
+)
+def get_saved_recommendations(
+    status_filter: str | None = Query(
+        default=None,
+        alias="status",
+        description="Фильтр по статусу: new, read, resolved",
+    ),
+    limit: int = Query(default=50, ge=1, le=200),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    query = db.query(SavedRecommendation).filter(
+        SavedRecommendation.user_id == current_user.id
+    )
+    if status_filter:
+        query = query.filter(SavedRecommendation.status == status_filter)
+
+    items = query.order_by(SavedRecommendation.created_at.desc()).limit(limit).all()
+    return [
+        {
+            "id": item.id,
+            "analysis_run_id": item.analysis_run_id,
+            "category": item.category,
+            "title": item.title,
+            "description": item.description,
+            "priority": item.priority,
+            "confidence": item.confidence,
+            "action": item.action,
+            "related_insight_title": item.related_insight_title,
+            "status": item.status,
+            "created_at": item.created_at,
+        }
+        for item in items
+    ]
+
+
+@router.patch(
+    "/saved-recommendations/{recommendation_id}",
+    summary="Изменить статус сохранённой рекомендации",
+)
+def update_saved_recommendation_status(
+    recommendation_id: int,
+    new_status: str = Query(alias="status", description="new, read или resolved"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    allowed = {"new", "read", "resolved"}
+    if new_status not in allowed:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Статус должен быть одним из: {', '.join(sorted(allowed))}",
+        )
+
+    item = (
+        db.query(SavedRecommendation)
+        .filter(
+            SavedRecommendation.id == recommendation_id,
+            SavedRecommendation.user_id == current_user.id,
+        )
+        .first()
+    )
+    if item is None:
+        raise HTTPException(status_code=404, detail="Рекомендация не найдена")
+
+    item.status = new_status
+    db.commit()
+    return {"id": item.id, "status": item.status}

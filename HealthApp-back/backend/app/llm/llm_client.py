@@ -77,32 +77,52 @@ class LLMClient:
     ) -> str:
         self._ensure_enabled()
 
-        if settings.LLM_PROVIDER != "openai":
-            raise LLMClientError("Распознавание по фото поддерживается только для OpenAI")
+        effective_temperature = (
+            temperature if temperature is not None else settings.LLM_TEMPERATURE
+        )
+        vision_model = settings.LLM_VISION_MODEL_NAME or self.model_name
 
-        payload = {
-            "model": self.model_name,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{base64_image}"
+        if settings.LLM_PROVIDER == "openai":
+            payload = {
+                "model": vision_model,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/jpeg;base64,{base64_image}"
+                                }
                             }
-                        }
-                    ]
-                }
-            ],
-            "temperature": temperature if temperature is not None else settings.LLM_TEMPERATURE,
-            "response_format": {"type": "json_object"}
-        }
-        headers = {
-            "Authorization": f"Bearer {settings.LLM_API_KEY}",
-            "Content-Type": "application/json",
-        }
+                        ]
+                    }
+                ],
+                "temperature": effective_temperature,
+                "response_format": {"type": "json_object"}
+            }
+            headers = {
+                "Authorization": f"Bearer {settings.LLM_API_KEY}",
+                "Content-Type": "application/json",
+            }
+        else:
+            # Ollama принимает картинки отдельным полем images рядом с текстом,
+            # а не внутри content, как OpenAI.
+            payload = {
+                "model": vision_model,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": prompt,
+                        "images": [base64_image],
+                    }
+                ],
+                "stream": False,
+                "format": "json",
+                "options": {"temperature": effective_temperature},
+            }
+            headers = {"Content-Type": "application/json"}
 
         try:
             response = requests.post(
@@ -114,6 +134,12 @@ class LLMClient:
         except requests.RequestException as exc:
             raise LLMClientError(f"Ошибка подключения к LLM: {exc}") from exc
 
+        if response.status_code == 404 and settings.LLM_PROVIDER != "openai":
+            raise LLMClientError(
+                f"Модель со зрением «{vision_model}» не установлена в Ollama. "
+                f"Установи её (ollama pull {vision_model}) "
+                f"или укажи другую в LLM_VISION_MODEL_NAME."
+            )
         if response.status_code != 200:
             raise LLMClientError(
                 f"LLM вернула ошибку HTTP {response.status_code}: {response.text}"
@@ -124,11 +150,13 @@ class LLMClient:
         except ValueError as exc:
             raise LLMClientError("LLM вернула некорректный JSON") from exc
 
-        choices = data.get("choices", [])
-        if not choices:
-            raise LLMClientError("LLM вернула пустой ответ (нет choices)")
-        message = choices[0].get("message", {})
-        text = message.get("content", "")
+        if settings.LLM_PROVIDER == "openai":
+            choices = data.get("choices", [])
+            if not choices:
+                raise LLMClientError("LLM вернула пустой ответ (нет choices)")
+            text = choices[0].get("message", {}).get("content", "")
+        else:
+            text = (data.get("message") or {}).get("content", "")
 
         if not text or not str(text).strip():
             raise LLMClientError("LLM вернула пустой ответ")

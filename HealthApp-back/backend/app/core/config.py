@@ -88,6 +88,12 @@ class Settings:
     LLM_MEAL_PLAN_MODEL: str = _env_strip("LLM_MEAL_PLAN_MODEL") or os.getenv(
         "LLM_MODEL_NAME", "qwen2.5:14b"
     )
+    # Распознавание еды по фото требует модель со зрением. Текстовая модель
+    # (по умолчанию qwen2.5) картинку не увидит, поэтому она задаётся отдельно:
+    # для Ollama это, например, llama3.2-vision или qwen2.5vl.
+    LLM_VISION_MODEL_NAME: str = _env_strip("LLM_VISION_MODEL_NAME") or os.getenv(
+        "LLM_VISION_MODEL_NAME", "llama3.2-vision"
+    )
     LLM_TIMEOUT_SECONDS: int = int(os.getenv("LLM_TIMEOUT_SECONDS", "120"))
     LLM_TEMPERATURE: float = float(os.getenv("LLM_TEMPERATURE", "0.3"))
     LLM_API_KEY: str = _env_strip("LLM_API_KEY")

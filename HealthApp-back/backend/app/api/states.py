@@ -32,6 +32,7 @@ def create_user_state(
         energy=state_data.energy,
         stress=state_data.stress,
         focus=state_data.focus,
+        wellbeing=state_data.wellbeing,
         record_time=state_data.record_time,
         notes=state_data.notes,
     )
