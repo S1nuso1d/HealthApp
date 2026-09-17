@@ -15,7 +15,6 @@ import com.example.healtapp.data.network.dto.social.PendingFriendDto
 import com.example.healtapp.data.network.dto.social.PrivacyUpdateDto
 import com.example.healtapp.data.network.dto.social.UserCardDto
 import com.example.healtapp.data.network.dto.social.WeeklyChallengeEntryDto
-import com.example.healtapp.data.preferences.TokenStorage
 import com.example.healtapp.domain.repository.SocialRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,7 +33,6 @@ data class SocialUiState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val error: String? = null,
-    val guestMode: Boolean = false,
     val selectedTab: Int = 0,
     val feed: List<FeedPostDto> = emptyList(),
     val stories: List<FeedStoryDto> = emptyList(),
@@ -70,7 +68,6 @@ data class SocialUiState(
 @HiltViewModel
 class SocialViewModel @Inject constructor(
     private val repository: SocialRepository,
-    private val tokenStorage: TokenStorage,
     private val apiServerConfig: ApiServerConfig,
 ) : ViewModel() {
 
@@ -125,7 +122,6 @@ class SocialViewModel @Inject constructor(
 
     fun markStoryViewed(storyId: Int) {
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) return@launch
             repository.recordStoryView(storyId).onSuccess { result ->
                 _uiState.update { state ->
                     state.copy(
@@ -171,28 +167,12 @@ class SocialViewModel @Inject constructor(
 
     fun refresh() {
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) {
-                _uiState.value = SocialUiState(
-                    isLoading = false,
-                    guestMode = true,
-                    feed = demoFeed(),
-                    stories = demoStories(),
-                    linkableActivities = demoLinkableActivities(),
-                    friends = demoFriends(),
-                    weeklyChallenge = demoWeeklyChallenge(),
-                    challenges = demoChallenges(),
-                    clubs = demoClubs(),
-                    clubFeedEntries = demoClubFeedEntries(),
-                )
-                return@launch
-            }
             val wasLoaded = !_uiState.value.isLoading && _uiState.value.feed.isNotEmpty()
             _uiState.update {
                 it.copy(
                     isLoading = !wasLoaded,
                     isRefreshing = wasLoaded,
                     error = null,
-                    guestMode = false,
                 )
             }
             val privacy = repository.getPrivacy().getOrNull()
@@ -243,7 +223,6 @@ class SocialViewModel @Inject constructor(
 
     private fun loadChallengeLeaderboard(challengeId: Int) {
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) return@launch
             repository.getChallengeLeaderboard(challengeId).onSuccess { res ->
                 _uiState.update { it.copy(challengeLeaderboards = it.challengeLeaderboards + (challengeId to res.entries)) }
             }
@@ -252,10 +231,6 @@ class SocialViewModel @Inject constructor(
 
     fun joinChallenge(challengeId: Int) {
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) {
-                _uiState.update { it.copy(message = "Войдите в аккаунт для участия") }
-                return@launch
-            }
             repository.joinChallenge(challengeId).onSuccess {
                 refresh()
             }.onFailure { e -> _uiState.update { it.copy(error = e.message) } }
@@ -264,7 +239,6 @@ class SocialViewModel @Inject constructor(
 
     fun leaveChallenge(challengeId: Int) {
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) return@launch
             repository.leaveChallenge(challengeId).onSuccess {
                 refresh()
             }.onFailure { e -> _uiState.update { it.copy(error = e.message) } }
@@ -273,10 +247,6 @@ class SocialViewModel @Inject constructor(
 
     fun joinClub(clubId: Int) {
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) {
-                _uiState.update { it.copy(message = "Войдите в аккаунт для вступления") }
-                return@launch
-            }
             repository.joinClub(clubId).onSuccess {
                 refresh()
             }.onFailure { e -> _uiState.update { it.copy(error = e.message) } }
@@ -285,7 +255,6 @@ class SocialViewModel @Inject constructor(
 
     fun leaveClub(clubId: Int) {
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) return@launch
             repository.leaveClub(clubId).onSuccess {
                 refresh()
             }.onFailure { e -> _uiState.update { it.copy(error = e.message) } }
@@ -294,7 +263,6 @@ class SocialViewModel @Inject constructor(
 
     fun loadClubMembers(clubId: Int) {
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) return@launch
             repository.getClubMembers(clubId).onSuccess { members ->
                 _uiState.update { it.copy(clubMembers = it.clubMembers + (clubId to members)) }
             }
@@ -303,10 +271,6 @@ class SocialViewModel @Inject constructor(
 
     private fun loadLinkableActivities() {
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) {
-                _uiState.update { it.copy(linkableActivities = demoLinkableActivities()) }
-                return@launch
-            }
             repository.getLinkableActivities()
                 .onSuccess { list -> _uiState.update { it.copy(linkableActivities = list) } }
         }
@@ -326,15 +290,6 @@ class SocialViewModel @Inject constructor(
         }
         viewModelScope.launch {
             _uiState.update { it.copy(isSearching = true, searchHint = null, error = null) }
-            if (tokenStorage.isGuestMode()) {
-                _uiState.update {
-                    it.copy(
-                        isSearching = false,
-                        searchResults = demoFriends().filter { f -> f.display_name.contains(q, true) },
-                    )
-                }
-                return@launch
-            }
             repository.searchUsers(q)
                 .onSuccess { r ->
                     _uiState.update {
@@ -360,10 +315,6 @@ class SocialViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) {
-                _uiState.update { it.copy(message = "Войдите в аккаунт для создания клуба") }
-                return@launch
-            }
             _uiState.update { it.copy(isLoading = true, error = null) }
             repository.createClub(
                 com.example.healtapp.data.network.dto.social.ClubCreateDto(
@@ -382,10 +333,6 @@ class SocialViewModel @Inject constructor(
 
     fun requestFriend(userId: Int) {
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) {
-                _uiState.update { it.copy(message = "Войдите в аккаунт для добавления друзей") }
-                return@launch
-            }
             repository.requestFriend(userId)
                 .onSuccess { refresh() }
                 .onFailure { e -> _uiState.update { it.copy(error = e.message) } }
@@ -394,7 +341,6 @@ class SocialViewModel @Inject constructor(
 
     fun acceptFriend(friendshipId: Int) {
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) return@launch
             repository.acceptFriend(friendshipId)
                 .onSuccess { refresh() }
                 .onFailure { e -> _uiState.update { it.copy(error = e.message) } }
@@ -403,7 +349,6 @@ class SocialViewModel @Inject constructor(
 
     fun declineFriend(friendshipId: Int) {
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) return@launch
             repository.declineFriend(friendshipId)
                 .onSuccess {
                     _uiState.update { it.copy(message = "Заявка отклонена") }
@@ -415,7 +360,6 @@ class SocialViewModel @Inject constructor(
 
     fun removeFriend(userId: Int) {
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) return@launch
             repository.removeFriend(userId)
                 .onSuccess {
                     _uiState.update { it.copy(message = "Удалён из друзей") }
@@ -431,10 +375,6 @@ class SocialViewModel @Inject constructor(
         if (body == null && state.selectedMediaUri == null && state.selectedActivityId == null) return
         
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) {
-                _uiState.update { it.copy(message = "Демо: публикации доступны после входа") }
-                return@launch
-            }
             
             _uiState.update { it.copy(isLoading = true) }
             
@@ -490,10 +430,6 @@ class SocialViewModel @Inject constructor(
 
     fun publishStory(context: android.content.Context, uri: android.net.Uri) {
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) {
-                _uiState.update { it.copy(message = "Демо: истории доступны после входа") }
-                return@launch
-            }
             
             _uiState.update { it.copy(isLoading = true) }
             
@@ -536,34 +472,6 @@ class SocialViewModel @Inject constructor(
 
     fun toggleReaction(postId: Int, emoji: String) {
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) {
-                _uiState.update { state ->
-                    val updated = state.feed.map { post ->
-                        if (post.id != postId) return@map post
-                        val wasMine = post.my_reaction == emoji
-                        val newMine = if (wasMine) null else emoji
-                        val counts = post.reactions.toMutableList()
-                        fun bump(e: String, delta: Int) {
-                            val i = counts.indexOfFirst { it.emoji == e }
-                            if (i >= 0) {
-                                val c = (counts[i].count + delta).coerceAtLeast(0)
-                                if (c == 0) counts.removeAt(i) else counts[i] = FeedReactionDto(e, c)
-                            } else if (delta > 0) {
-                                counts.add(FeedReactionDto(e, delta))
-                            }
-                        }
-                        post.my_reaction?.let { bump(it, -1) }
-                        if (!wasMine) bump(emoji, 1)
-                        post.copy(
-                            my_reaction = newMine,
-                            reactions = counts,
-                            reaction_total = counts.sumOf { it.count },
-                        )
-                    }
-                    state.copy(feed = updated)
-                }
-                return@launch
-            }
             repository.toggleReaction(postId, emoji)
                 .onSuccess { refresh() }
                 .onFailure { e -> _uiState.update { it.copy(error = e.message) } }
@@ -572,10 +480,6 @@ class SocialViewModel @Inject constructor(
 
     fun savePrivacy() {
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) {
-                _uiState.update { it.copy(message = "Настройки сохранятся после входа") }
-                return@launch
-            }
             val s = _uiState.value
             repository.updatePrivacy(
                 PrivacyUpdateDto(
@@ -612,15 +516,6 @@ class SocialViewModel @Inject constructor(
 
     fun deletePost(postId: Int) {
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) {
-                _uiState.update {
-                    it.copy(
-                        selectedPostForDelete = null,
-                        message = "Демо: удаление доступно после входа",
-                    )
-                }
-                return@launch
-            }
             _uiState.update { it.copy(isLoading = true) }
             repository.deletePost(postId)
                 .onSuccess {
@@ -647,13 +542,6 @@ class SocialViewModel @Inject constructor(
 
     private fun loadComments(postId: Int) {
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) {
-                val demoComments = listOf(
-                    FeedCommentDto(1, postId, demoFriends()[0], "Отлично!"),
-                )
-                _uiState.update { it.copy(postComments = it.postComments + (postId to demoComments)) }
-                return@launch
-            }
             repository.getPostComments(postId)
                 .onSuccess { response ->
                     _uiState.update { it.copy(postComments = it.postComments + (postId to response.comments)) }
@@ -668,10 +556,6 @@ class SocialViewModel @Inject constructor(
         val trimmed = text.trim()
         if (trimmed.isEmpty()) return
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) {
-                _uiState.update { it.copy(message = "Демо: комментарии доступны после входа") }
-                return@launch
-            }
             repository.createPostComment(postId, FeedCommentCreateDto(trimmed))
                 .onSuccess { newComment ->
                     _uiState.update { state ->
@@ -691,11 +575,6 @@ class SocialViewModel @Inject constructor(
                 }
         }
     }
-
-    private fun demoFriends() = listOf(
-        UserCardDto(101, "Анна", nickname = "anna_fit", goal = "MAINTAIN"),
-        UserCardDto(102, "Иван Петров", nickname = "ivan_run", goal = "LOSE_WEIGHT", has_avatar = true),
-    )
 
     private fun filterActiveStories(stories: List<FeedStoryDto>): List<FeedStoryDto> {
         val now = java.time.Instant.now()
@@ -717,110 +596,9 @@ class SocialViewModel @Inject constructor(
         }
     }
 
-    private fun demoWeeklyChallenge() = listOf(
-        WeeklyChallengeEntryDto(user_id = 0, display_name = "Вы", steps = 6_420, is_me = true, rank = 1),
-        WeeklyChallengeEntryDto(user_id = 101, display_name = "Анна", steps = 5_100, rank = 2),
-        WeeklyChallengeEntryDto(user_id = 102, display_name = "Иван Петров", steps = 4_800, rank = 3),
-    )
-
-    private fun demoLinkableActivities() = listOf(
-        FeedActivityDto(
-            id = 1,
-            activity_type = "walk",
-            duration_minutes = 45,
-            calories_burned = 210f,
-            steps = 5200,
-            distance_km = 3.8f,
-            start_time = "2026-05-26T08:00:00",
-        ),
-        FeedActivityDto(
-            id = 2,
-            activity_type = "run",
-            duration_minutes = 32,
-            calories_burned = 380f,
-            steps = 4100,
-            distance_km = 5.2f,
-            start_time = "2026-05-25T19:30:00",
-        ),
-    )
-
-    private fun demoStories() = listOf(
-        FeedStoryDto(
-            author = UserCardDto(102, "Иван Петров", nickname = "ivan_run", goal = "LOSE_WEIGHT"),
-            preview_url = "https://picsum.photos/seed/walk1/400/600",
-            has_unseen = true,
-            items = listOf(
-                com.example.healtapp.data.network.dto.social.FeedStoryItemDto(
-                    id = 1,
-                    media_url = "https://picsum.photos/seed/walk1/400/600",
-                    created_at = "2026-05-26T07:00:00",
-                    expires_at = "2026-05-27T07:00:00"
-                )
-            )
-        ),
-        FeedStoryDto(
-            author = UserCardDto(101, "Анна", nickname = "anna_fit", goal = "MAINTAIN"),
-            preview_url = "https://picsum.photos/seed/walk2/400/600",
-            has_unseen = true,
-            items = listOf(
-                com.example.healtapp.data.network.dto.social.FeedStoryItemDto(
-                    id = 2,
-                    media_url = "https://picsum.photos/seed/walk2/400/600",
-                    created_at = "2026-05-25T18:00:00",
-                    expires_at = "2026-05-26T18:00:00"
-                )
-            )
-        ),
-    )
-
-    private fun demoFeed() = listOf(
-        FeedPostDto(
-            id = 1,
-            author = UserCardDto(102, "Иван Петров", nickname = "ivan_run", goal = "LOSE_WEIGHT"),
-            body = "Утренняя прогулка по парку — отличное настроение!",
-            media_url = "https://picsum.photos/seed/walkfeed/800/500",
-            media_type = "image",
-            activity = FeedActivityDto(
-                id = 1,
-                activity_type = "walk",
-                duration_minutes = 45,
-                calories_burned = 210f,
-                steps = 5200,
-                distance_km = 3.8f,
-            ),
-            activity_id = 1,
-            created_at = "2026-05-26T08:15:00",
-            reactions = listOf(FeedReactionDto("👍", 3), FeedReactionDto("🔥", 1)),
-            reaction_total = 4,
-            comments_count = 1,
-        ),
-        FeedPostDto(
-            id = 2,
-            author = UserCardDto(101, "Анна", nickname = "anna_fit", goal = "MAINTAIN"),
-            body = "Рецепт ПП: овсянка с ягодами и арахисовой пастой — 320 ккал, готовится за 10 минут 🥣",
-            media_url = "https://picsum.photos/seed/oatmeal/800/500",
-            media_type = "image",
-            created_at = "2026-05-25T20:30:00",
-            reactions = listOf(FeedReactionDto("❤️", 2)),
-            reaction_total = 2,
-            my_reaction = "❤️",
-            comments_count = 0,
-        ),
-        FeedPostDto(
-            id = 3,
-            author = UserCardDto(103, "Мария", nickname = "maria_go", goal = "GAIN_MUSCLE"),
-            body = "Лайфхак: ставлю бутылку воды на видное место — так легче пить норму в течение дня 💧",
-            created_at = "2026-05-25T12:00:00",
-            reactions = listOf(FeedReactionDto("👍", 5), FeedReactionDto("🔥", 2)),
-            reaction_total = 7,
-            comments_count = 2,
-        ),
-    )
-
     private suspend fun loadClubFeedEntries(
         clubs: List<com.example.healtapp.data.network.dto.social.ClubResponseDto>,
     ): List<ClubFeedEntry> {
-        if (tokenStorage.isGuestMode()) return demoClubFeedEntries()
         return clubs
             .filter { it.is_member }
             .flatMap { club ->
@@ -831,78 +609,4 @@ class SocialViewModel @Inject constructor(
             .sortedByDescending { it.post.created_at }
             .take(30)
     }
-
-    private fun demoClubFeedEntries(): List<ClubFeedEntry> {
-        val club = demoClubs().firstOrNull { it.is_member } ?: return emptyList()
-        val author = demoFriends().firstOrNull() ?: return emptyList()
-        return listOf(
-            ClubFeedEntry(
-                club = club,
-                post = ClubPostResponseDto(
-                    id = 9001,
-                    club_id = club.id,
-                    user = author,
-                    post_type = "discussion",
-                    body = "Делимся идеями рецептов на неделю — присоединяйтесь к обсуждению в клубе.",
-                    poll_options = null,
-                    poll_votes = null,
-                    my_vote = null,
-                    created_at = "2026-05-26T09:00:00",
-                ),
-            ),
-            ClubFeedEntry(
-                club = club,
-                post = ClubPostResponseDto(
-                    id = 9002,
-                    club_id = club.id,
-                    user = author.copy(display_name = "Иван Петров", user_id = 102),
-                    post_type = "achievement",
-                    body = "7 дней подряд держу норму воды — мотивирует видеть прогресс клуба.",
-                    poll_options = null,
-                    poll_votes = null,
-                    my_vote = null,
-                    created_at = "2026-05-25T18:30:00",
-                ),
-            ),
-        )
-    }
-
-    private fun demoChallenges() = listOf(
-        com.example.healtapp.data.network.dto.social.ChallengeResponseDto(
-            id = 1,
-            title = "10,000 шагов в день",
-            description = "Пройдите 10 000 шагов за день",
-            challenge_type = "steps",
-            target_value = 10000,
-            is_group = true,
-            creator_id = 101,
-            start_date = "2026-05-25T00:00:00",
-            end_date = "2026-06-01T00:00:00",
-            participants_count = 5,
-            my_progress = null,
-        )
-    )
-
-    private fun demoClubs() = listOf(
-        com.example.healtapp.data.network.dto.social.ClubResponseDto(
-            id = 1,
-            name = "Бегуны 🏃‍♂️",
-            description = "Клуб любителей утренних пробежек",
-            avatar_url = null,
-            rules = "Уважайте друг друга",
-            creator_id = 101,
-            members_count = 12,
-            is_member = false
-        ),
-        com.example.healtapp.data.network.dto.social.ClubResponseDto(
-            id = 2,
-            name = "Здоровое питание 🥗",
-            description = "Обмен рецептами и планами питания",
-            avatar_url = null,
-            rules = "Без фастфуда",
-            creator_id = 102,
-            members_count = 34,
-            is_member = true
-        )
-    )
 }

@@ -1,0 +1,16 @@
+# Пример для HealtApp-front/local.properties (не коммитьте секреты).
+
+sdk.dir=C\:\\Android\\Sdk
+
+# Debug API (эмулятор → хост: 10.0.2.2)
+API_BASE_URL=http://10.0.2.2:8001/
+
+# Release HTTPS API (обязательно для store)
+PROD_API_BASE_URL=https://api.healthapp.app/
+
+# Юридические страницы (выложите docs/legal/*.html)
+PRIVACY_POLICY_URL=https://healthapp.app/legal/privacy
+TERMS_OF_SERVICE_URL=https://healthapp.app/legal/terms
+
+# Опционально: Sentry DSN (пусто = telemetry выключен)
+SENTRY_DSN=

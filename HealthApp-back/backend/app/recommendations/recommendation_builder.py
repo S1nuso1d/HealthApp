@@ -192,4 +192,23 @@ class RecommendationBuilder:
                 related_insight_type=insight.insight_type,
             )
 
+        if insight.category == "correlation" or (insight.insight_type or "").endswith(
+            ("_impact", "_energy", "_mood", "_stress", "_sleep", "_focus")
+        ):
+            action = (
+                "Повторите дни, когда этот паттерн работал в вашу пользу."
+                if insight.impact == "positive"
+                else "На 5–7 дней уберите этот фактор и сравните сон, энергию и настроение."
+            )
+            return RecommendationItem(
+                category="correlation",
+                title=insight.title or "Найденная закономерность",
+                description=insight.description or "",
+                priority=priority,
+                confidence=insight.confidence,
+                action=action,
+                related_insight_title=insight.title,
+                related_insight_type=insight.insight_type,
+            )
+
         return None

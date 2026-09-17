@@ -9,4 +9,5 @@ interface CycleRepository {
     suspend fun createEntry(request: CycleEntryCreateDto): Result<CycleEntryDto>
     suspend fun updateEntry(id: Int, request: CycleEntryUpdateDto): Result<CycleEntryDto>
     suspend fun deleteEntry(id: Int): Result<Unit>
+    suspend fun getInsights(months: Int = 6): Result<com.example.healtapp.data.network.dto.cycle.CycleInsightsDto>
 }

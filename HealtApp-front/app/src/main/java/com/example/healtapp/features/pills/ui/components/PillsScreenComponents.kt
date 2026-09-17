@@ -70,6 +70,7 @@ import com.example.healtapp.core.ui.theme.subtleFillGradient
 import com.example.healtapp.core.ui.theme.themedCardBlue
 import com.example.healtapp.core.ui.theme.themedCardMint
 import com.example.healtapp.data.network.dto.health.PillDto
+import com.example.healtapp.data.preferences.PillDoseStatus
 import androidx.compose.foundation.interaction.MutableInteractionSource
 
 private val PillCapabilityItems = listOf(
@@ -88,22 +89,24 @@ private val CommonReminderTimes = listOf(
 @Composable
 fun PillsHeroBar(
     activeCount: Int,
+    adherencePercent: Int? = null,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     FeatureHeroBar(
         title = "Витамины и таблетки",
-        subtitle = "Напоминания о приёме",
+        subtitle = "Напоминания и учёт приёма",
         icon = Icons.Filled.Medication,
         onBack = onBack,
         modifier = modifier,
         footer = {
             Spacer(Modifier.height(10.dp))
             FeatureHeroChip(
-                label = if (activeCount > 0) {
-                    "Активных: $activeCount"
-                } else {
-                    "Нет активных напоминаний"
+                label = buildString {
+                    append(
+                        if (activeCount > 0) "Активных: $activeCount" else "Нет активных напоминаний",
+                    )
+                    adherencePercent?.let { append(" · Приём $it%") }
                 },
                 modifier = Modifier.padding(start = 12.dp),
             )
@@ -270,6 +273,9 @@ private fun PillsFilterChip(
 @Composable
 fun PillReminderBubble(
     pill: PillDto,
+    todayStatus: PillDoseStatus? = null,
+    onTaken: () -> Unit = {},
+    onSkipped: () -> Unit = {},
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onToggleActive: (Boolean) -> Unit,
@@ -327,6 +333,25 @@ fun PillReminderBubble(
                 style = MaterialTheme.typography.bodyMedium,
                 color = contentSecondaryColor(),
             )
+            if (pill.isActive) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(
+                        onClick = onTaken,
+                        enabled = todayStatus != PillDoseStatus.Taken,
+                    ) {
+                        Text(if (todayStatus == PillDoseStatus.Taken) "Принято" else "Принял")
+                    }
+                    TextButton(
+                        onClick = onSkipped,
+                        enabled = todayStatus != PillDoseStatus.Skipped,
+                    ) {
+                        Text(if (todayStatus == PillDoseStatus.Skipped) "Пропущено" else "Пропустил")
+                    }
+                }
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,

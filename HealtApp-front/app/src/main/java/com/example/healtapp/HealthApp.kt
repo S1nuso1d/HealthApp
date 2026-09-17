@@ -8,8 +8,11 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.example.healtapp.core.telemetry.CrashReporting
 import com.example.healtapp.data.healthconnect.HealthConnectSyncWorker
 import com.example.healtapp.notifications.HealthNotificationChannels
+import com.example.healtapp.notifications.PillReminderRestoreWorker
+import com.example.healtapp.notifications.PillReminderScheduler
 import com.example.healtapp.notifications.ReminderScheduler
 import dagger.hilt.android.HiltAndroidApp
 import java.util.concurrent.TimeUnit
@@ -20,6 +23,9 @@ class HealthApp : Application(), Configuration.Provider {
     
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
+
+    @Inject
+    lateinit var connectivitySyncCoordinator: com.example.healtapp.data.network.offline.ConnectivitySyncCoordinator
     
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
@@ -28,11 +34,16 @@ class HealthApp : Application(), Configuration.Provider {
             
     override fun onCreate() {
         super.onCreate()
+        CrashReporting.init(this)
         HealthNotificationChannels.createAll(this)
         ReminderScheduler.rescheduleAll(this)
+        // Будильники таблеток: сразу из локального кэша, затем sync с API.
+        PillReminderScheduler.restoreFromLocal(this)
+        PillReminderRestoreWorker.enqueue(this)
         scheduleHealthConnectSync()
         scheduleSocialSync()
         scheduleOfflineSync()
+        connectivitySyncCoordinator.start()
     }
 
     private fun scheduleOfflineSync() {

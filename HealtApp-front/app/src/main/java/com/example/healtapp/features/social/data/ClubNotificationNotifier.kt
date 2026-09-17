@@ -70,7 +70,7 @@ class ClubNotificationNotifier @Inject constructor(
     }
 
     private suspend fun runCheck() {
-        if (tokenStorage.isGuestMode() || tokenStorage.getToken().isNullOrBlank()) return
+        if (tokenStorage.getToken().isNullOrBlank()) return
         checkMutex.withLock {
             repository.getClubNotificationsRecent()
                 .onSuccess { items -> processItems(items) }

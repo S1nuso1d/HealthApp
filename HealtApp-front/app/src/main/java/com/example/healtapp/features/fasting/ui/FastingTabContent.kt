@@ -1,12 +1,15 @@
 package com.example.healtapp.features.fasting.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.MaterialTheme
@@ -15,6 +18,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -26,6 +31,8 @@ import com.example.healtapp.core.ui.components.AppMessageBanner
 import com.example.healtapp.core.ui.components.AppMessageType
 import com.example.healtapp.core.ui.components.BrandedFilterChipRowIndexed
 import com.example.healtapp.core.ui.components.ProgressRing
+import com.example.healtapp.core.ui.theme.heroBlockGradient
+import com.example.healtapp.core.ui.theme.heroContentColor
 import com.example.healtapp.data.preferences.FastingPlan
 import com.example.healtapp.features.fasting.presentation.FastingViewModel
 import java.util.concurrent.TimeUnit
@@ -47,46 +54,43 @@ fun FastingTabContent(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        AppMessageBanner(
+            text = "Голодание хранится только на этом устройстве и не синхронизируется с аккаунтом.",
+            type = AppMessageType.Info,
+        )
         uiState.message?.let {
             AppMessageBanner(text = it, type = AppMessageType.Info)
         }
 
-        AppCard {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(26.dp))
+                .background(Brush.linearGradient(heroBlockGradient()))
+                .padding(20.dp),
+        ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = "Таймер",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = if (fasting.isActive) "Активно" else "Пауза",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (fasting.isActive) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                    )
-                }
-
+                Text(
+                    text = if (fasting.isActive) "Голодание идёт" else "Таймер",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = heroContentColor(),
+                )
                 ProgressRing(
                     progress = progress,
                     text = formatDuration(if (fasting.isActive) elapsedMs else 0L),
+                    color = heroContentColor(),
+                    trackColor = heroContentColor().copy(alpha = 0.28f),
+                    textColor = heroContentColor(),
                 )
-
                 Text(
                     text = if (fasting.isActive) "из ${fasting.planHours} ч" else "Выберите план и начните",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = heroContentColor().copy(alpha = 0.86f),
                     textAlign = TextAlign.Center,
                 )
                 Text(
@@ -94,12 +98,13 @@ fun FastingTabContent(
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.Center,
+                    color = heroContentColor(),
                 )
                 if (fasting.isActive) {
                     Text(
                         text = "До конца: ${formatDuration(remainingMs)}",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = heroContentColor().copy(alpha = 0.9f),
                         textAlign = TextAlign.Center,
                     )
                 }
@@ -109,9 +114,18 @@ fun FastingTabContent(
         AppCard {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    text = "План голодания",
+                    text = "Окно питания",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = if (fasting.isActive) {
+                        "Есть можно ${24 - fasting.planHours} ч в сутки · сейчас фаза: ${fasting.phaseLabel(uiState.nowMs)}"
+                    } else {
+                        "План ${fasting.planHours}/${24 - fasting.planHours}: ${fasting.planHours} ч голодания и ${24 - fasting.planHours} ч питания"
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 BrandedFilterChipRowIndexed(
                     items = planLabels,
@@ -120,11 +134,6 @@ fun FastingTabContent(
                         FastingPlan.entries.getOrNull(index)?.let(viewModel::selectPlan)
                     },
                     enabled = !fasting.isActive,
-                )
-                Text(
-                    text = "Окно питания: ${24 - fasting.planHours} ч · голодание: ${fasting.planHours} ч",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -145,11 +154,18 @@ fun FastingTabContent(
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                 )
-                Text(
-                    text = "Пейте воду и травяной чай во время окна голодания. При головокружении завершите таймер.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "Мягкие правила",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Пейте воду и травяной чай во время окна голодания. При головокружении завершите таймер.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
 

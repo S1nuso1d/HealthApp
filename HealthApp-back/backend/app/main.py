@@ -1,5 +1,6 @@
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -60,7 +61,19 @@ async def lifespan(app: FastAPI):
 
     settings.AVATAR_DIR_PATH.mkdir(parents=True, exist_ok=True)
     settings.FOOD_IMAGES_DIR_PATH.mkdir(parents=True, exist_ok=True)
-    apply_lightweight_schema_patches()
+
+    if settings.is_production:
+        # В production схема поднимается через Alembic (`alembic upgrade head`),
+        # а не через create_all — иначе расходятся окружения.
+        from alembic import command
+        from alembic.config import Config
+
+        alembic_cfg = Config(str(Path(__file__).resolve().parent.parent / "alembic.ini"))
+        alembic_cfg.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+        command.upgrade(alembic_cfg, "head")
+    else:
+        Base.metadata.create_all(bind=engine)
+        apply_lightweight_schema_patches()
 
     db = SessionLocal()
     try:
@@ -86,7 +99,9 @@ app = FastAPI(
     openapi_url=None if settings.is_production else "/openapi.json",
 )
 
-Base.metadata.create_all(bind=engine)
+# Dev: create_all. Production: схема через Alembic в lifespan.
+if not settings.is_production:
+    Base.metadata.create_all(bind=engine)
 
 install_middleware(app)
 install_exception_handlers(app)

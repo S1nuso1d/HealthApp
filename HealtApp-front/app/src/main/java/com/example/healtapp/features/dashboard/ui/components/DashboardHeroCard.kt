@@ -33,116 +33,115 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.common.LocaleRu
 import com.example.healtapp.core.ui.animation.AppMotion
+import com.example.healtapp.core.ui.theme.Dimens
 import com.example.healtapp.core.ui.theme.heroBlockGradient
 import com.example.healtapp.core.ui.theme.heroContentColor
 import com.example.healtapp.core.ui.theme.heroIconBackdrop
-import com.example.healtapp.core.ui.theme.isAppDarkTheme
 import com.example.healtapp.core.ui.theme.scoreRingGradient
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 private val dayMonthFormatter = DateTimeFormatter.ofPattern("d MMMM", LocaleRu)
 
 @Composable
 fun DashboardHeroCard(
     greeting: String,
-    subtitle: String,
     healthScore: Int?,
     isRecommendationsLoading: Boolean,
-    streak: Int = 0,
+    isEvening: Boolean = false,
 ) {
     val dateLabel = LocalDate.now().format(dayMonthFormatter)
+    val heroGradient = heroBlockGradient()
 
-    Row(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(if (isAppDarkTheme()) 8.dp else 28.dp))
-            .background(Brush.linearGradient(heroBlockGradient()))
-            .padding(horizontal = 22.dp, vertical = 24.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .clip(RoundedCornerShape(Dimens.RadiusXl))
+            .background(Brush.linearGradient(heroGradient)),
     ) {
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 22.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Icon(
-                    Icons.Filled.MonitorHeart,
-                    contentDescription = null,
-                    tint = heroContentColor().copy(alpha = 0.95f),
-                    modifier = Modifier.size(28.dp),
-                )
-                Text(
-                    text = dateLabel.replaceFirstChar { it.uppercase() },
-                    style = MaterialTheme.typography.labelLarge,
-                    color = heroContentColor().copy(alpha = 0.85f),
-                )
-                if (streak > 0) {
-                    Text(
-                        text = "🔥 $streak",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = heroContentColor(),
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier
-                            .background(
-                                color = Color.White.copy(alpha = 0.2f),
-                                shape = RoundedCornerShape(12.dp)
-                            )
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
-                }
-            }
-            Text(
-                text = greeting,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = heroContentColor(),
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodyLarge,
-                color = heroContentColor().copy(alpha = 0.9f),
-            )
-        }
-
-        when {
-            isRecommendationsLoading -> {
-                Box(
-                    modifier = Modifier
-                        .size(88.dp)
-                        .clip(RoundedCornerShape(44.dp))
-                        .background(heroIconBackdrop()),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(32.dp),
-                        strokeWidth = 3.dp,
-                        color = heroContentColor(),
-                    )
-                }
-            }
-            healthScore != null && healthScore > 0 -> {
-                DashboardHeroScoreRing(score = healthScore)
-            }
-            else -> {
-                Box(
-                    modifier = Modifier
-                        .size(88.dp)
-                        .clip(RoundedCornerShape(44.dp))
-                        .background(heroIconBackdrop()),
-                    contentAlignment = Alignment.Center,
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
                         Icons.Filled.MonitorHeart,
                         contentDescription = null,
-                        tint = heroContentColor(),
-                        modifier = Modifier.size(36.dp),
+                        tint = heroContentColor().copy(alpha = 0.95f),
+                        modifier = Modifier.size(28.dp),
                     )
+                    Text(
+                        text = dateLabel.replaceFirstChar { it.uppercase() },
+                        style = MaterialTheme.typography.labelLarge,
+                        color = heroContentColor().copy(alpha = 0.85f),
+                    )
+                    if (isEvening) {
+                        Text(
+                            text = "Вечер",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = heroContentColor(),
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .background(
+                                    color = Color.White.copy(alpha = 0.2f),
+                                    shape = RoundedCornerShape(12.dp),
+                                )
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                        )
+                    }
+                }
+                Text(
+                    text = greeting,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = heroContentColor(),
+                )
+            }
+
+            when {
+                isRecommendationsLoading -> {
+                    Box(
+                        modifier = Modifier
+                            .size(88.dp)
+                            .clip(RoundedCornerShape(44.dp))
+                            .background(heroIconBackdrop()),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(32.dp),
+                            strokeWidth = 3.dp,
+                            color = heroContentColor(),
+                        )
+                    }
+                }
+                healthScore != null && healthScore > 0 -> {
+                    DashboardHeroScoreRing(score = healthScore)
+                }
+                else -> {
+                    Box(
+                        modifier = Modifier
+                            .size(88.dp)
+                            .clip(RoundedCornerShape(44.dp))
+                            .background(heroIconBackdrop()),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Filled.MonitorHeart,
+                            contentDescription = null,
+                            tint = heroContentColor(),
+                            modifier = Modifier.size(36.dp),
+                        )
+                    }
                 }
             }
         }

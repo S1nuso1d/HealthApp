@@ -22,7 +22,7 @@ class SocialSyncWorker(
             ReminderEntryPoint::class.java,
         )
 
-        if (entry.tokenStorage().getToken() == null || entry.tokenStorage().isGuestMode()) {
+        if (entry.tokenStorage().getToken() == null) {
             return Result.success()
         }
 

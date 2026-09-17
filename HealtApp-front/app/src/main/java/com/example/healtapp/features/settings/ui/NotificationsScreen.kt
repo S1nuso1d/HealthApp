@@ -174,9 +174,9 @@ fun NotificationsScreen(
                 icon = Icons.Outlined.TipsAndUpdates,
                 title = "Рекомендации",
                 subtitle = if (uiState.settings.recommendationReminders) {
-                    "Каждый день в ${uiState.settings.recommendationTimeLabel()}"
+                    "Советы и напоминание за полчаса до обычного отбоя"
                 } else {
-                    "Персональные советы по вашим данным"
+                    "Персональные советы и режим сна"
                 },
                 checked = uiState.settings.recommendationReminders,
                 onCheckedChange = { enabled ->

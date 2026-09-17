@@ -37,7 +37,8 @@ class PendingSyncFlusher @Inject constructor(
                 protein_g = op.proteinG,
                 fat_g = op.fatG,
                 carbs_g = op.carbsG,
-                meal_time = java.time.LocalDateTime.now().toString(),
+                caffeine_mg = op.caffeineMg,
+                meal_time = op.mealTime.ifBlank { java.time.LocalDateTime.now().toString() },
             )
             val ok = mealRepository.createMeal(req).isSuccess
             if (ok) {

@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
@@ -107,12 +108,15 @@ fun CycleHeroBar(
     phaseLabel: String,
     cycleDay: Int?,
     entriesCount: Int,
+    isLate: Boolean = false,
+    daysLate: Int? = null,
+    isDueToday: Boolean = false,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     FeatureHeroBar(
         title = "Женское здоровье",
-        subtitle = "Календарь цикла и симптомы",
+        subtitle = "Календарь цикла, симптомы и прогноз",
         icon = Icons.Filled.CalendarMonth,
         onBack = onBack,
         modifier = modifier,
@@ -120,6 +124,8 @@ fun CycleHeroBar(
             Spacer(Modifier.height(10.dp))
             FeatureHeroChip(
                 label = when {
+                    isLate && daysLate != null -> "Задержка · $daysLate дн."
+                    isDueToday -> "Сегодня ожидались месячные"
                     cycleDay != null -> "$phaseLabel · день $cycleDay"
                     entriesCount > 0 -> "Записей: $entriesCount"
                     else -> "Добавьте первую запись цикла"
@@ -133,6 +139,7 @@ fun CycleHeroBar(
 @Composable
 fun CyclePhaseBubble(
     insight: CycleCalculator.Insight,
+    onMarkPeriodStart: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -150,11 +157,19 @@ fun CyclePhaseBubble(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text(
-            text = "Текущая фаза",
+            text = when {
+                insight.isLate -> "Внимание к циклу"
+                insight.isDueToday -> "День прогноза"
+                else -> "Текущая фаза"
+            },
             modifier = Modifier.fillMaxWidth(),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.SemiBold,
-            color = MintPrimary,
+            color = if (insight.isLate || insight.isDueToday) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MintPrimary
+            },
         )
         Text(
             text = "День цикла и прогноз",
@@ -164,31 +179,68 @@ fun CyclePhaseBubble(
         )
         ProgressRing(
             progress = insight.cycleDay?.let { day ->
-                (day.toFloat() / insight.averageCycleLength).coerceIn(0f, 1f)
+                (day.toFloat() / insight.averageCycleLength).coerceIn(0f, 1.15f)
             } ?: 0f,
             text = insight.cycleDay?.toString() ?: "—",
         )
         Text(
-            text = insight.phase.labelRu,
+            text = when {
+                insight.isLate -> "Возможная задержка"
+                insight.currentlyOnPeriod -> insight.phase.labelRu
+                else -> insight.phase.labelRu
+            },
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
+            color = if (insight.isLate) MaterialTheme.colorScheme.error else contentPrimaryColor(),
         )
         Text(
             text = buildString {
-                insight.cycleDay?.let { append("День $it из ${insight.averageCycleLength}") }
-                insight.daysUntilNextPeriod?.let {
-                    if (isNotEmpty()) append(" · ")
-                    append("До месячных: $it дн.")
+                insight.cycleDay?.let { append("День $it из ~${insight.averageCycleLength}") }
+                when {
+                    insight.isLate && insight.daysLate != null -> {
+                        if (isNotEmpty()) append(" · ")
+                        append("Задержка: ${insight.daysLate} дн.")
+                    }
+                    insight.isDueToday -> {
+                        if (isNotEmpty()) append(" · ")
+                        append("По прогнозу — сегодня")
+                    }
+                    insight.currentlyOnPeriod -> {
+                        if (isNotEmpty()) append(" · ")
+                        append("Идут месячные")
+                    }
+                    insight.daysUntilNextPeriod != null -> {
+                        if (isNotEmpty()) append(" · ")
+                        append("До месячных: ${insight.daysUntilNextPeriod} дн.")
+                    }
                 }
             },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
+        if (insight.isLate || insight.isDueToday) {
+            Text(
+                text = "Это ориентир по вашим прошлым циклам, а не диагноз. Если задержка беспокоит — отметьте начало или обратитесь к врачу.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+            if (onMarkPeriodStart != null) {
+                AppButton(
+                    text = "Отметить начало месячных",
+                    onClick = onMarkPeriodStart,
+                )
+            }
+        }
         insight.nextPeriodDate?.let { next ->
             Text(
-                text = "Прогноз начала: ${formatCycleDate(next)}",
+                text = if (insight.isLate) {
+                    "Ожидались с: ${formatCycleDate(next)}"
+                } else {
+                    "Прогноз начала: ${formatCycleDate(next)}"
+                },
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
                 textAlign = TextAlign.Center,
@@ -203,6 +255,58 @@ fun CyclePhaseBubble(
             )
         }
         CycleMoodBadge(mood = insight.todayMood)
+    }
+}
+
+@Composable
+fun CycleForecastCard(
+    insight: CycleCalculator.Insight,
+    stats: CycleCalculator.CycleStats,
+    modifier: Modifier = Modifier,
+) {
+    if (insight.nextPeriodDate == null) return
+    AppCard(modifier = modifier) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            SectionHeader(
+                title = "Прогноз",
+                subtitle = "По среднему циклу ~${insight.averageCycleLength} дн.",
+            )
+            Text(
+                text = when {
+                    insight.isLate && insight.daysLate != null ->
+                        "Задержка уже ${insight.daysLate} дн. относительно обычного ритма."
+                    insight.isDueToday ->
+                        "Сегодня — ожидаемая дата начала по вашим записям."
+                    insight.daysUntilNextPeriod != null ->
+                        "До следующих месячных примерно ${insight.daysUntilNextPeriod} дн."
+                    insight.currentlyOnPeriod ->
+                        "Сейчас отмечены месячные — прогноз обновится после следующей записи."
+                    else -> "Добавляйте циклы регулярно — прогноз станет точнее."
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = contentPrimaryColor(),
+            )
+            stats.cycleVariationDays?.let { variation ->
+                Text(
+                    text = when {
+                        variation <= 2 -> "Цикл относительно стабильный (±$variation дн.)."
+                        variation <= 5 -> "Есть небольшие колебания (±$variation дн.)."
+                        else -> "Колебания заметные (±$variation дн.) — ориентир приблизительный."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = contentSecondaryColor(),
+                )
+            }
+            insight.fertileWindowStart?.let { start ->
+                insight.fertileWindowEnd?.let { end ->
+                    Text(
+                        text = "Фертильное окно: ${formatCycleDate(start)} — ${formatCycleDate(end)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = contentSecondaryColor(),
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -357,6 +461,7 @@ fun CycleCalendarCard(
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             CycleLegendDot(color = MaterialTheme.colorScheme.error.copy(alpha = 0.75f), label = "Месячные")
+            CycleLegendDot(color = MaterialTheme.colorScheme.errorContainer, label = "Задержка")
             CycleLegendDot(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.55f), label = "Прогноз")
             CycleLegendDot(color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.75f), label = "Овуляция")
             CycleLegendDot(color = SkyPrimary.copy(alpha = 0.65f), label = "Фертильность")
@@ -373,6 +478,7 @@ private fun CycleCalendarCell(
 ) {
     val background = when {
         day.isLoggedPeriod -> MaterialTheme.colorScheme.error.copy(alpha = 0.75f)
+        day.isOverdue -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f)
         day.isPredictedPeriod -> MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
         day.isOvulation -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.65f)
         day.isFertile -> SkyPrimary.copy(alpha = 0.35f)
@@ -420,6 +526,7 @@ private fun CycleLegendDot(color: Color, label: String) {
 fun CycleCollapsibleHistorySection(
     entries: List<CycleEntryDto>,
     onDelete: (Int) -> Unit,
+    onEdit: (CycleEntryDto) -> Unit,
     initiallyExpanded: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
@@ -480,6 +587,7 @@ fun CycleCollapsibleHistorySection(
                 entries.forEach { entry ->
                     CycleHistoryBubble(
                         entry = entry,
+                        onEdit = { onEdit(entry) },
                         onDelete = { onDelete(entry.id) },
                     )
                 }
@@ -498,6 +606,7 @@ private fun entriesCountLabel(count: Int): String = when {
 @Composable
 fun CycleHistoryBubble(
     entry: CycleEntryDto,
+    onEdit: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -532,12 +641,21 @@ fun CycleHistoryBubble(
                     fontWeight = FontWeight.SemiBold,
                     color = MintPrimary,
                 )
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = "Удалить",
-                        tint = MaterialTheme.colorScheme.error,
-                    )
+                Row {
+                    IconButton(onClick = onEdit) {
+                        Icon(
+                            Icons.Filled.Edit,
+                            contentDescription = "Редактировать",
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Удалить",
+                            tint = MaterialTheme.colorScheme.error,
+                        )
+                    }
                 }
             }
             Text(
@@ -555,7 +673,14 @@ fun CycleHistoryBubble(
             }
             entry.symptoms?.takeIf { it.isNotBlank() }?.let {
                 Text(
-                    text = it,
+                    text = "Симптомы: $it",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            entry.notes?.takeIf { it.isNotBlank() }?.let {
+                Text(
+                    text = "Заметка: $it",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -632,6 +757,8 @@ fun CycleAddSheet(
     visible: Boolean,
     onDismiss: () -> Unit,
     onSave: (start: LocalDate, end: LocalDate?, symptoms: String?, notes: String?) -> Unit,
+    initialEntry: CycleEntryDto? = null,
+    initialStartDate: LocalDate? = null,
 ) {
     if (!visible) return
 
@@ -641,19 +768,28 @@ fun CycleAddSheet(
     var selectedStart by remember { mutableStateOf<LocalDate?>(null) }
     var selectedEnd by remember { mutableStateOf<LocalDate?>(null) }
 
-    LaunchedEffect(visible) {
+    LaunchedEffect(visible, initialEntry, initialStartDate) {
         if (visible) {
-            symptoms = ""
-            notes = ""
-            selectedStart = null
-            selectedEnd = null
+            if (initialEntry != null) {
+                symptoms = initialEntry.symptoms.orEmpty()
+                notes = initialEntry.notes.orEmpty()
+                selectedStart = CycleCalculator.parseDate(initialEntry.start_date)
+                selectedEnd = initialEntry.end_date?.let(CycleCalculator::parseDate)
+            } else {
+                symptoms = ""
+                notes = ""
+                selectedStart = initialStartDate
+                selectedEnd = null
+            }
         }
     }
 
     val canSave = selectedStart != null
+    val isEdit = initialEntry != null
 
     val symptomPresets = listOf(
         "Спазмы", "Головная боль", "Усталость", "Вздутие", "Перепады настроения", "Акне",
+        "Тошнота", "Боль в спине", "Задержка беспокоит",
     )
 
     ModalBottomSheet(
@@ -697,7 +833,7 @@ fun CycleAddSheet(
                         }
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
-                                text = "Новая запись",
+                                text = if (isEdit) "Редактировать запись" else "Новая запись",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                             )
@@ -840,7 +976,9 @@ fun CycleAddSheet(
                 AppButton(
                     text = when {
                         !canSave -> "Укажите дату начала"
+                        selectedEnd == null && isEdit -> "Обновить (без даты окончания)"
                         selectedEnd == null -> "Сохранить (без даты окончания)"
+                        isEdit -> "Обновить запись"
                         else -> "Сохранить запись"
                     },
                     onClick = {

@@ -6,6 +6,7 @@ import com.example.healtapp.core.common.AppRefreshBus
 import com.example.healtapp.data.network.dto.meal.FoodCatalogItemDto
 import com.example.healtapp.data.network.dto.meal.FoodCatalogUpsertRequestDto
 import com.example.healtapp.data.network.dto.meal.MealCreateRequestDto
+import com.example.healtapp.data.network.dto.meal.MealDto
 import com.example.healtapp.data.network.dto.meal.SavedDishCreateRequestDto
 import com.example.healtapp.data.network.dto.meal.SavedDishDto
 import com.example.healtapp.data.preferences.PendingMealOp
@@ -972,6 +973,66 @@ class MealViewModel @Inject constructor(
         }
     }
 
+    fun copyYesterdaySlot(apiType: String) {
+        val yesterday = LocalDate.now().minusDays(1).toString()
+        viewModelScope.launch {
+            val source = _uiState.value.mealHistory.filter {
+                it.meal_time.take(10) == yesterday && it.meal_type.equals(apiType, ignoreCase = true)
+            }
+            if (source.isEmpty()) {
+                _uiState.update { it.copy(snackMessage = "Вчера этого приёма не было") }
+                return@launch
+            }
+            var copied = 0
+            source.forEach { meal ->
+                val request = MealCreateRequestDto(
+                    meal_type = apiType,
+                    name = meal.name,
+                    calories = meal.calories,
+                    protein_g = meal.protein_g,
+                    fat_g = meal.fat_g,
+                    carbs_g = meal.carbs_g,
+                    caffeine_mg = meal.caffeine_mg,
+                    meal_time = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+                    notes = meal.notes,
+                    source = "repeat",
+                )
+                if (repository.createMeal(request).isSuccess) copied++
+            }
+            _uiState.update {
+                it.copy(snackMessage = if (copied == 0) "Не удалось повторить" else "Повторили: $copied")
+            }
+            loadMeals()
+            AppRefreshBus.notifyDataChanged()
+        }
+    }
+
+    fun repeatMealInSlot(meal: MealDto, slotApiType: String) {
+        viewModelScope.launch {
+            val request = MealCreateRequestDto(
+                meal_type = slotApiType.ifBlank { meal.meal_type },
+                name = meal.name,
+                calories = meal.calories,
+                protein_g = meal.protein_g,
+                fat_g = meal.fat_g,
+                carbs_g = meal.carbs_g,
+                caffeine_mg = meal.caffeine_mg,
+                meal_time = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+                notes = meal.notes,
+                source = "repeat",
+            )
+            repository.createMeal(request)
+                .onSuccess {
+                    _uiState.update { it.copy(snackMessage = "Добавлено: ${meal.name}") }
+                    loadMeals()
+                    AppRefreshBus.notifyDataChanged()
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(error = e.message ?: "Не удалось повторить блюдо") }
+                }
+        }
+    }
+
     fun updateMealType(value: String) {
         _uiState.update { it.copy(mealType = value) }
     }
@@ -1081,6 +1142,8 @@ class MealViewModel @Inject constructor(
                 proteinG = request.protein_g,
                 fatG = request.fat_g,
                 carbsG = request.carbs_g,
+                caffeineMg = request.caffeine_mg,
+                mealTime = request.meal_time,
             ),
         )
         val q = pendingSyncStore.load()
@@ -1175,52 +1238,41 @@ class MealViewModel @Inject constructor(
             aiRepository.recognizeFood(imageFile)
                 .onSuccess { response ->
                     val items = response.items
-                    if (items.isNotEmpty()) {
-                        if (items.size == 1) {
-                            val first = items.first()
-                            _uiState.update {
-                                it.copy(
-                                    isFoodSearchLoading = false,
-                                    mealName = first.name,
-                                    calories = first.calories.toString(),
-                                    protein = first.protein.toString(),
-                                    fat = first.fat.toString(),
-                                    carbs = first.carbs.toString(),
-                                    snackMessage = "Распознано: ${first.name}"
-                                )
-                            }
-                        } else {
-                            val totalCal = items.sumOf { it.calories }
-                            val totalProt = items.sumOf { it.protein }
-                            val totalFat = items.sumOf { it.fat }
-                            val totalCarbs = items.sumOf { it.carbs }
-                            val names = items.joinToString(", ") { it.name }
-                            _uiState.update {
-                                it.copy(
-                                    isFoodSearchLoading = false,
-                                    mealName = names.take(50) + if (names.length > 50) "..." else "",
-                                    calories = totalCal.toString(),
-                                    protein = totalProt.toString(),
-                                    fat = totalFat.toString(),
-                                    carbs = totalCarbs.toString(),
-                                    snackMessage = "Распознано несколько продуктов"
-                                )
-                            }
-                        }
-                    } else {
+                    if (items.isEmpty()) {
                         _uiState.update {
                             it.copy(
                                 isFoodSearchLoading = false,
-                                foodSearchError = "Не удалось распознать еду на фото"
+                                foodSearchError = "Не удалось распознать еду на фото",
                             )
                         }
+                        return@onSuccess
                     }
+                    val name = if (items.size == 1) {
+                        items.first().name
+                    } else {
+                        items.joinToString(", ") { it.name }.take(50)
+                    }
+                    val grams = items.sumOf { it.grams }.coerceAtLeast(1)
+                    val scale = 100f / grams
+                    applyCatalogItem(
+                        FoodCatalogItemDto(
+                            name = name,
+                            calories100g = items.sumOf { it.calories }.toFloat() * scale,
+                            proteinG100g = items.sumOf { it.protein }.toFloat() * scale,
+                            fatG100g = items.sumOf { it.fat }.toFloat() * scale,
+                            carbsG100g = items.sumOf { it.carbs }.toFloat() * scale,
+                            source = "ai_photo",
+                            isComplete = true,
+                        ),
+                        forceComplete = true,
+                    )
+                    _uiState.update { it.copy(snackMessage = "Распознано: $name") }
                 }
                 .onFailure { e ->
                     _uiState.update {
                         it.copy(
                             isFoodSearchLoading = false,
-                            foodSearchError = e.message ?: "Ошибка распознавания фото"
+                            foodSearchError = e.message ?: "Ошибка распознавания фото",
                         )
                     }
                 }

@@ -103,6 +103,101 @@ def _average(values: list[float]) -> float | None:
     return round(sum(clean) / len(clean), 2)
 
 
+PHASE_RECOVERY_DEFAULT = {
+    "menstrual": (
+        "В менструальную фазу восстановление важнее объёма: "
+        "смотрите на свою энергию, а не копируйте тренировки пиковых дней."
+    ),
+    "follicular": (
+        "Если энергия растёт — это удобное окно для привычных тренировок, "
+        "без резкого увеличения нагрузки."
+    ),
+    "ovulation": (
+        "Энергия может быть выше обычного. Прогулка или силовая — "
+        "если самочувствие позволяет."
+    ),
+    "luteal": (
+        "Часто хочется раньше лечь. Берегите сон и не повторяйте объём дней, "
+        "когда энергии было больше."
+    ),
+}
+
+
+def _cycle_day_for(starts: list[date], day: date) -> int | None:
+    previous_start = None
+    for start in starts:
+        if start <= day:
+            previous_start = start
+        else:
+            break
+    if previous_start is None:
+        return None
+    return (day - previous_start).days + 1
+
+
+def _recovery_tip(phase: str | None, stats: dict[str, dict]) -> str | None:
+    """Подсказка по восстановлению из их же цифр, без медицинских обещаний."""
+    if not phase:
+        return None
+    title = PHASE_TITLES[phase]
+    row = stats.get(phase) or {}
+    others = [p for p in PHASES if p != phase]
+
+    sleep = row.get("sleep_hours")
+    other_sleep = [
+        stats[p]["sleep_hours"] for p in others if stats[p].get("sleep_hours") is not None
+    ]
+    if sleep is not None and len(other_sleep) >= 1:
+        avg_other = sum(other_sleep) / len(other_sleep)
+        delta = sleep - avg_other
+        if delta <= -0.4:
+            return (
+                f"В {title.lower()} фазу ваш сон в среднем {sleep:.1f} ч — "
+                f"короче обычного на {abs(delta):.1f} ч. Имеет смысл раньше гасить свет "
+                "и не копировать тяжёлые тренировки."
+            )
+        if delta >= 0.4:
+            return (
+                f"В {title.lower()} фазу сон длиннее обычного ({sleep:.1f} ч). "
+                "Это хорошее окно, чтобы не сбивать режим."
+            )
+
+    minutes = row.get("activity_minutes")
+    other_minutes = [
+        stats[p]["activity_minutes"]
+        for p in others
+        if stats[p].get("activity_minutes") is not None
+    ]
+    if minutes is not None and len(other_minutes) >= 1:
+        avg_other = sum(other_minutes) / len(other_minutes)
+        delta = minutes - avg_other
+        if delta <= -12:
+            return (
+                f"В {title.lower()} фазу активных минут меньше обычного "
+                f"({int(round(minutes))} против {int(round(avg_other))}). "
+                "Не догоняйте объём — оставьте запас на восстановление."
+            )
+        if delta >= 12:
+            return (
+                f"В {title.lower()} фазу у вас больше движения, чем в остальные дни. "
+                "Это удобное окно для привычных тренировок, без резкого скачка."
+            )
+
+    energy = row.get("state_score")
+    other_energy = [
+        stats[p]["state_score"] for p in others if stats[p].get("state_score") is not None
+    ]
+    if energy is not None and len(other_energy) >= 1:
+        avg_other = sum(other_energy) / len(other_energy)
+        if energy - avg_other <= -6:
+            return (
+                f"В {title.lower()} фазу самочувствие ниже обычного. "
+                "Лёгкая нагрузка и сон важнее плана тренировок."
+            )
+
+    return PHASE_RECOVERY_DEFAULT.get(phase)
+
+
 def _observations(stats: dict[str, dict]) -> list[dict]:
     """Человекочитаемые наблюдения: чем фаза отличается от остальных."""
     observations: list[dict] = []
@@ -111,6 +206,8 @@ def _observations(stats: dict[str, dict]) -> list[dict]:
         ("sleep_hours", "сон", "ч", 0.4),
         ("state_score", "самочувствие", "балл", 6.0),
         ("steps", "шаги", "шагов", 900.0),
+        ("activity_minutes", "активность", "мин", 12.0),
+        ("workouts", "тренировки", "шт", 0.4),
     )
 
     for key, human_name, unit, threshold in metrics:
@@ -163,6 +260,10 @@ def build_cycle_insights(db: Session, user_id: int, months: int = 6) -> dict:
             "average_cycle_length": cycle_length,
             "average_period_length": period_length,
             "tracked_cycles": 0,
+            "current_phase": None,
+            "current_phase_title": None,
+            "cycle_day": None,
+            "recovery_tip": None,
             "phase_stats": [],
             "observations": [],
             "has_enough_data": False,
@@ -180,7 +281,14 @@ def build_cycle_insights(db: Session, user_id: int, months: int = 6) -> dict:
     )
 
     buckets: dict[str, dict[str, list[float]]] = {
-        phase: {"sleep_hours": [], "state_score": [], "steps": [], "water_ml": []}
+        phase: {
+            "sleep_hours": [],
+            "state_score": [],
+            "steps": [],
+            "water_ml": [],
+            "activity_minutes": [],
+            "workouts": [],
+        }
         for phase in PHASES
     }
     for summary in summaries:
@@ -196,6 +304,10 @@ def build_cycle_insights(db: Session, user_id: int, months: int = 6) -> dict:
             bucket["steps"].append(float(summary.total_steps))
         if summary.total_water_ml:
             bucket["water_ml"].append(float(summary.total_water_ml))
+        if summary.total_active_minutes:
+            bucket["activity_minutes"].append(float(summary.total_active_minutes))
+        if summary.workouts_count:
+            bucket["workouts"].append(float(summary.workouts_count))
 
     stats = {
         phase: {
@@ -204,17 +316,26 @@ def build_cycle_insights(db: Session, user_id: int, months: int = 6) -> dict:
             "state_score": _average(bucket["state_score"]),
             "steps": _average(bucket["steps"]),
             "water_ml": _average(bucket["water_ml"]),
+            "activity_minutes": _average(bucket["activity_minutes"]),
+            "workouts": _average(bucket["workouts"]),
         }
         for phase, bucket in buckets.items()
     }
 
     observations = _observations(stats)
     tracked_cycles = max(0, len(starts) - 1)
+    today = date.today()
+    current_phase = _phase_by_date(starts, cycle_length, period_length, today)
+    cycle_day = _cycle_day_for(starts, today)
 
     return {
         "average_cycle_length": cycle_length,
         "average_period_length": period_length,
         "tracked_cycles": tracked_cycles,
+        "current_phase": current_phase,
+        "current_phase_title": PHASE_TITLES.get(current_phase) if current_phase else None,
+        "cycle_day": cycle_day,
+        "recovery_tip": _recovery_tip(current_phase, stats),
         "phase_stats": [
             {"phase": phase, "phase_title": PHASE_TITLES[phase], **stats[phase]}
             for phase in PHASES

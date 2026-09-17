@@ -8,8 +8,12 @@
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
@@ -55,7 +59,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.HealthApp"
-        android:usesCleartextTraffic="true"
+        android:usesCleartextTraffic="false"
         android:networkSecurityConfig="@xml/network_security_config">
 
         <activity
@@ -132,6 +136,11 @@
             android:foregroundServiceType="connectedDevice" />
 
         <service
+            android:name=".features.activity.live.LiveWorkoutService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+
+        <service
             android:name=".features.sleep.audio.SleepSoundRecorderService"
             android:exported="false"
             android:foregroundServiceType="microphone" />
@@ -147,9 +156,12 @@
 
         <receiver
             android:name=".notifications.BootReceiver"
-            android:exported="false">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
             </intent-filter>
         </receiver>
 

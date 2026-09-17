@@ -68,7 +68,7 @@ class AchievementUnlockNotifier @Inject constructor(
     }
 
     private suspend fun runCheck() {
-        if (tokenStorage.isGuestMode() || tokenStorage.getToken().isNullOrBlank()) return
+        if (tokenStorage.getToken().isNullOrBlank()) return
         checkMutex.withLock {
             repository.getMyAchievements()
                 .onSuccess { dto -> processResponse(dto) }

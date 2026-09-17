@@ -5,9 +5,9 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.healtapp.data.network.dto.wellness.ChatHistoryMessageDto
+import com.example.healtapp.data.network.isOfflineLike
 import com.example.healtapp.data.preferences.AiChatHistoryStore
 import com.example.healtapp.data.preferences.StoredChatMessage
-import com.example.healtapp.data.preferences.TokenStorage
 import com.example.healtapp.domain.repository.AiRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -22,6 +22,7 @@ data class ChatMessageUi(
     val isUser: Boolean,
     val text: String,
     val apiText: String? = null,
+    val pendingNetwork: Boolean = false,
 )
 
 data class ChatHistorySessionUi(
@@ -40,7 +41,6 @@ data class AiAssistantUiState(
     val messages: List<ChatMessageUi> = emptyList(),
     val input: String = "",
     val isLoading: Boolean = false,
-    val isGuestMode: Boolean = false,
     val error: String? = null,
     val info: String? = null,
     val contextReady: Boolean = false,
@@ -51,9 +51,9 @@ data class AiAssistantUiState(
 )
 
 val AiSuggestedPrompts = listOf(
-    "Что улучшить сегодня до вечера?",
-    "Почему мало энергии и что сделать?",
-    "Краткий обзор всех показателей за неделю",
+    "Почему нет энергии",
+    "Разбор сна",
+    "Что съесть до вечера",
 )
 
 private const val FALLBACK_MARKER = "не удалось связаться с языковой моделью"
@@ -61,7 +61,8 @@ private const val FALLBACK_MARKER = "не удалось связаться с �
 @HiltViewModel
 class AiAssistantViewModel @Inject constructor(
     private val aiRepository: AiRepository,
-    private val tokenStorage: TokenStorage,
+    private val pendingAiChatStore: com.example.healtapp.data.network.offline.PendingAiChatStore,
+    private val connectivitySyncCoordinator: com.example.healtapp.data.network.offline.ConnectivitySyncCoordinator,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
@@ -73,35 +74,30 @@ class AiAssistantViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) {
+            val saved = chatHistoryStore.load()
+            if (!saved.isNullOrEmpty()) {
+                messageId = saved.maxOf { it.id }
                 _uiState.value = AiAssistantUiState(
-                    isGuestMode = true,
                     contextReady = true,
-                )
-                addBotMessage(
-                    "Войдите в аккаунт — тогда я увижу ваш дневник (сон, воду, питание, шаги, настроение) и смогу отвечать персонально.",
+                    messages = saved.map { ChatMessageUi(it.id, it.isUser, it.text) },
                 )
             } else {
-                val saved = chatHistoryStore.load()
-                if (!saved.isNullOrEmpty()) {
-                    messageId = saved.maxOf { it.id }
-                    _uiState.value = AiAssistantUiState(
-                        contextReady = true,
-                        messages = saved.map { ChatMessageUi(it.id, it.isUser, it.text) },
-                    )
-                } else {
-                    _uiState.value = AiAssistantUiState(contextReady = true)
-                    addBotMessage(
-                        "Здравствуйте! Я ваш ИИ помощник HealthApp. Вижу данные из дневника и отвечаю на вопросы о здоровье, сне, питании и активности. Чем помочь?",
-                    )
-                }
-                refreshLlmStatus()
+                _uiState.value = AiAssistantUiState(contextReady = true)
+                addBotMessage(
+                    "Здравствуйте! Я ваш ИИ помощник HealthApp. Вижу данные из дневника и отвечаю на вопросы о здоровье, сне, питании и активности. Чем помочь?",
+                )
+            }
+            refreshLlmStatus()
+        }
+        viewModelScope.launch {
+            connectivitySyncCoordinator.aiAnswers.collect { queued ->
+                addBotMessage(queued.answer)
+                _uiState.update { it.copy(info = null, error = null, isLoading = false) }
             }
         }
     }
 
     fun refreshLlmStatus() {
-        if (_uiState.value.isGuestMode) return
         viewModelScope.launch {
             if (_uiState.value.llmAvailable != true) {
                 _uiState.update { it.copy(llmAvailable = null) }
@@ -135,7 +131,7 @@ class AiAssistantViewModel @Inject constructor(
 
     fun sendMessage(text: String? = null, userDisplayText: String? = null) {
         val question = (text ?: _uiState.value.input).trim()
-        if (question.isBlank() || _uiState.value.isLoading || _uiState.value.isGuestMode) return
+        if (question.isBlank() || _uiState.value.isLoading) return
 
         val shown = (userDisplayText ?: question).trim()
         addUserMessage(shown, apiText = if (userDisplayText != null) question else null)
@@ -198,28 +194,67 @@ class AiAssistantViewModel @Inject constructor(
                         }
                         persistMessages()
                     } catch (e: Exception) {
-                        _uiState.update {
-                            it.copy(
-                                error = e.message?.takeIf { m -> m.isNotBlank() }
-                                    ?: "Ошибка потока ответа от сервера.",
-                            )
+                        if (e.isOfflineLike()) {
+                            pendingAiChatStore.enqueue(question, shown)
+                            _uiState.update { state ->
+                                state.copy(
+                                    messages = state.messages.map { msg ->
+                                        if (msg.isUser && msg.text == shown) msg.copy(pendingNetwork = true) else msg
+                                    },
+                                    isLoading = false,
+                                    error = null,
+                                )
+                            }
+                            addBotMessage("Связь оборвалась — дошлю ответ, когда сеть вернётся.")
+                            _uiState.update { it.copy(isLoading = false, error = null) }
+                        } else {
+                            _uiState.update {
+                                it.copy(
+                                    error = e.message?.takeIf { m -> m.isNotBlank() }
+                                        ?: "Ошибка потока ответа от сервера.",
+                                )
+                            }
                         }
                     }
                 }
                 .onFailure { e ->
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            error = e.message?.takeIf { m -> m.isNotBlank() }
-                                ?: "Не удалось получить ответ от сервера. Проверьте, что бэкенд запущен и ИИ включён.",
-                        )
+                    if (e.isOfflineLike()) {
+                        pendingAiChatStore.enqueue(question, shown)
+                        _uiState.update { state ->
+                            state.copy(
+                                messages = state.messages.map { msg ->
+                                    if (msg.isUser && msg.text == shown) msg.copy(pendingNetwork = true) else msg
+                                },
+                                isLoading = false,
+                                error = null,
+                                info = "Как только связь восстановится, ответ появится в этом чате.",
+                            )
+                        }
+                        addBotMessage("Нет сети — вопрос сохранён. Отвечу, когда появится интернет.")
+                    } else {
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                error = e.message?.takeIf { m -> m.isNotBlank() }
+                                    ?: "Не удалось получить ответ от сервера. Проверьте, что бэкенд запущен и ИИ включён.",
+                            )
+                        }
                     }
                 }
         }
     }
 
     fun sendSuggestedPrompt(prompt: String) {
-        sendMessage(prompt)
+        val enriched = when (prompt) {
+            "Почему нет энергии" ->
+                "Почему сегодня может не быть энергии? Опирайся на цифры дневника за сегодня и 14 дней: часы сна, воду в мл, ккал, кофеин, шаги и вечерние тренировки. Назови конкретные значения."
+            "Разбор сна" ->
+                "Разбор моего сна с цифрами дневника: фактические часы, качество, поздняя еда, кофеин и тренировки. Что мешает сегодняшней ночи и что сделать до отбоя."
+            "Что съесть до вечера" ->
+                "Что съесть до вечера с учётом уже записанных ккал, БЖУ и кофеина сегодня. Предложи конкретный слот и объём, без лечения."
+            else -> "$prompt\n\nОпирайся на цифры дневника и называй мл, часы сна, ккал и шаги."
+        }
+        sendMessage(text = enriched, userDisplayText = prompt)
     }
 
     fun sendTopicAnalysis(topic: AiHealthTopic) {
@@ -234,7 +269,6 @@ class AiAssistantViewModel @Inject constructor(
     }
 
     fun openHistorySheet() {
-        if (_uiState.value.isGuestMode) return
         viewModelScope.launch {
             val sessions = buildHistorySessions()
             _uiState.update { it.copy(showHistorySheet = true, historySessions = sessions) }
@@ -255,25 +289,18 @@ class AiAssistantViewModel @Inject constructor(
             }
             messageId = 0L
             chatHistoryStore.clear()
-            if (_uiState.value.isGuestMode) {
-                _uiState.value = AiAssistantUiState(isGuestMode = true, contextReady = true)
-                addBotMessage(
-                    "Войдите в аккаунт — тогда я увижу ваш дневник (сон, воду, питание, шаги, настроение) и смогу отвечать персонально.",
-                )
-            } else {
-                val info = _uiState.value.info
-                val llmAvailable = _uiState.value.llmAvailable
-                val llmStatus = _uiState.value.llmStatusMessage
-                _uiState.value = AiAssistantUiState(
-                    contextReady = true,
-                    info = info,
-                    llmAvailable = llmAvailable,
-                    llmStatusMessage = llmStatus,
-                )
-                addBotMessage(
-                    "Новый диалог. Я ваш ИИ помощник HealthApp — выберите тему разбора или задайте свой вопрос.",
-                )
-            }
+            val info = _uiState.value.info
+            val llmAvailable = _uiState.value.llmAvailable
+            val llmStatus = _uiState.value.llmStatusMessage
+            _uiState.value = AiAssistantUiState(
+                contextReady = true,
+                info = info,
+                llmAvailable = llmAvailable,
+                llmStatusMessage = llmStatus,
+            )
+            addBotMessage(
+                "Новый диалог. Я ваш ИИ помощник HealthApp — выберите тему разбора или задайте свой вопрос.",
+            )
         }
     }
 
@@ -316,7 +343,6 @@ class AiAssistantViewModel @Inject constructor(
     }
 
     private fun persistMessages() {
-        if (_uiState.value.isGuestMode) return
         val snapshot = _uiState.value.messages.map {
             StoredChatMessage(id = it.id, isUser = it.isUser, text = it.text)
         }

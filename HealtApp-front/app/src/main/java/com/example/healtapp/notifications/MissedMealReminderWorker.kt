@@ -25,7 +25,7 @@ class MissedMealReminderWorker(
         )
         val prefs = entry.notificationPrefs()
         if (!prefs.current().missedMealChecks) return rescheduleAndSuccess()
-        if (entry.tokenStorage().getToken() == null || entry.tokenStorage().isGuestMode()) {
+        if (entry.tokenStorage().getToken() == null) {
             return rescheduleAndSuccess()
         }
         if (!HealthNotificationHelper.canPost(applicationContext)) return rescheduleAndSuccess()

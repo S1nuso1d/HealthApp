@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.ui.animation.AppAnimations
 import com.example.healtapp.core.ui.animation.AppMotion
 import com.example.healtapp.core.ui.animation.appPressScale
+import com.example.healtapp.core.ui.theme.Dimens
 import com.example.healtapp.core.ui.theme.contentPrimaryColor
 import com.example.healtapp.core.ui.theme.contentSecondaryColor
 import com.example.healtapp.core.ui.theme.heroBlockGradient
@@ -92,8 +93,8 @@ fun FeatureScreenShell(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(scrollState)
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
+                    .padding(horizontal = Dimens.ScreenPadding, vertical = Dimens.SpaceL),
+                verticalArrangement = Arrangement.spacedBy(Dimens.SpaceL),
             ) {
                 content()
                 if (extraBottomPadding > 0.dp) {
@@ -114,7 +115,7 @@ fun FeatureHeroBar(
     actions: @Composable RowScope.() -> Unit = {},
     footer: @Composable (ColumnScope.() -> Unit)? = null,
 ) {
-    val shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
+    val shape = RoundedCornerShape(bottomStart = Dimens.RadiusXl, bottomEnd = Dimens.RadiusXl)
     Column(
         modifier = modifier
             .fillMaxWidth()

@@ -3,6 +3,7 @@ package com.example.healtapp.features.activity.ui.components
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +25,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -316,6 +320,8 @@ fun WeeklyStepsBarChart(
     modifier: Modifier = Modifier,
 ) {
     if (days.isEmpty()) return
+    var selectedIndex by remember { mutableIntStateOf(days.indexOfLast { it.steps > 0 }.coerceAtLeast(0)) }
+    val selected = days.getOrNull(selectedIndex)
     val maxSteps = (days.maxOf { it.steps }.coerceAtLeast(goal)).coerceAtLeast(100)
     val goalLineColor = chartBarGuideColor()
     val todayBarGradient = cardHeaderGradient(themedCardBlue(), 1f)
@@ -329,7 +335,9 @@ fun WeeklyStepsBarChart(
                 fontWeight = FontWeight.Bold,
             )
             Text(
-                text = "Пунктир — цель ${formatStepsCount(goal)} шагов",
+                text = selected?.let {
+                    "${it.label}: ${formatStepsCount(it.steps)} шагов"
+                } ?: "Нажмите столбик, чтобы увидеть день",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -385,20 +393,22 @@ fun WeeklyStepsBarChart(
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.Bottom,
                     ) {
-                        days.forEach { day ->
+                        days.forEachIndexed { index, day ->
                             val isToday = day.dateKey == java.time.LocalDate.now().toString()
                             val fraction = (day.steps.toFloat() / maxSteps).coerceIn(0f, 1f)
-                            val gradient = if (isToday) todayBarGradient else defaultBarGradient
+                            val selectedBar = index == selectedIndex
+                            val gradient = if (isToday || selectedBar) todayBarGradient else defaultBarGradient
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .fillMaxHeight(),
+                                    .fillMaxHeight()
+                                    .clickable { selectedIndex = index },
                                 contentAlignment = Alignment.BottomCenter,
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .fillMaxWidth(0.6f)
-                                        .fillMaxHeight(fraction)
+                                        .fillMaxWidth(if (selectedBar) 0.75f else 0.6f)
+                                        .fillMaxHeight(fraction.coerceAtLeast(0.04f))
                                         .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
                                         .background(Brush.verticalGradient(gradient)),
                                 )

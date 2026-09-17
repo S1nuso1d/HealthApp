@@ -53,6 +53,8 @@ class ApiServerConfig @Inject constructor(
 
     fun avatarBase(): String = baseUrl().trimEnd('/')
 
+    fun isServerOverrideEnabled(): Boolean = SERVER_OVERRIDE_ENABLED
+
     suspend fun applyOverride(raw: String?) {
         if (!SERVER_OVERRIDE_ENABLED) {
             preferences.setOverride(null)
@@ -72,7 +74,7 @@ class ApiServerConfig @Inject constructor(
     suspend fun clearOverride() = applyOverride(null)
 
     companion object {
-        private const val SERVER_OVERRIDE_ENABLED = true
+        val SERVER_OVERRIDE_ENABLED: Boolean = BuildConfig.SERVER_OVERRIDE_ENABLED
 
         fun normalizeBaseUrl(raw: String): String {
             var s = raw.trim()
@@ -80,7 +82,11 @@ class ApiServerConfig @Inject constructor(
             if (!s.startsWith("http://", ignoreCase = true) &&
                 !s.startsWith("https://", ignoreCase = true)
             ) {
-                s = "http://$s"
+                // В release без явной схемы — только HTTPS.
+                s = if (BuildConfig.ALLOW_CLEARTEXT) "http://$s" else "https://$s"
+            }
+            if (!BuildConfig.ALLOW_CLEARTEXT && s.startsWith("http://", ignoreCase = true)) {
+                throw IllegalArgumentException("В release разрешён только HTTPS")
             }
             if (!s.endsWith('/')) s += '/'
             require(s.toHttpUrlOrNull() != null) { "Некорректный URL сервера" }

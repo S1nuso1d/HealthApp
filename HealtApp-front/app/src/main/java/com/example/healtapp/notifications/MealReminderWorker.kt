@@ -33,11 +33,11 @@ class MealReminderWorker(
             applicationContext,
             ReminderEntryPoint::class.java,
         )
-        if (entry.tokenStorage().getToken() != null && !entry.tokenStorage().isGuestMode()) {
-            if (!ReminderDataChecker.hasMealTypeToday(entry.mealRepository(), apiType)) {
-                HealthNotificationHelper.mealReminder(applicationContext, label)
-            }
-        } else {
+        if (entry.tokenStorage().getToken() == null) {
+            rescheduleSelf()
+            return Result.success()
+        }
+        if (!ReminderDataChecker.hasMealTypeToday(entry.mealRepository(), apiType)) {
             HealthNotificationHelper.mealReminder(applicationContext, label)
         }
         rescheduleSelf()

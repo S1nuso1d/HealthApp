@@ -152,6 +152,11 @@ def apply_lightweight_schema_patches() -> None:
             bind=engine, tables=[Base.metadata.tables["revoked_refresh_tokens"]]
         )
 
+    if "habit_experiments" not in tables and "habit_experiments" in Base.metadata.tables:
+        Base.metadata.create_all(
+            bind=engine, tables=[Base.metadata.tables["habit_experiments"]]
+        )
+
     if "users" in tables:
         user_cols = {c["name"] for c in insp.get_columns("users")}
         if "tokens_valid_from" not in user_cols:

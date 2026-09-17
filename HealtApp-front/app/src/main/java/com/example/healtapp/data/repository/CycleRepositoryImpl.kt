@@ -44,4 +44,6 @@ class CycleRepositoryImpl @Inject constructor(
             Result.failure(e)
         }
     }
+
+    override suspend fun getInsights(months: Int) = runCatching { api.getInsights(months) }
 }

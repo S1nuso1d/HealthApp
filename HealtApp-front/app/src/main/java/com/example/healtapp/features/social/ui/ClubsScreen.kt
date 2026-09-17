@@ -76,11 +76,7 @@ fun ClubsScreen(
 
     FeatureScreenShell(
         title = "Клубы",
-        subtitle = if (uiState.guestMode) {
-            "Демо-режим · сообщества по интересам"
-        } else {
-            "Сообщества по интересам и целям"
-        },
+        subtitle = "Сообщества по интересам и целям",
         icon = Icons.Filled.Groups,
         onBack = onBack,
         heroActions = {
@@ -106,10 +102,6 @@ fun ClubsScreen(
             null
         },
     ) {
-        if (uiState.guestMode) {
-            FeatureInlineNotice(text = "Демо-режим: клубы показаны как пример. Войдите, чтобы вступать и создавать сообщества.")
-        }
-
         uiState.message?.let { FeatureInlineNotice(text = it) }
         uiState.error?.let { FeatureInlineNotice(text = it, isError = true) }
 

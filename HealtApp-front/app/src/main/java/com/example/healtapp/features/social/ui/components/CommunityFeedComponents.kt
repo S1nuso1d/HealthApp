@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -39,10 +40,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
@@ -61,7 +64,6 @@ import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
@@ -111,6 +113,7 @@ import com.example.healtapp.core.ui.components.FeatureCollapsibleCard
 import com.example.healtapp.core.ui.components.FeatureGlassCard
 import com.example.healtapp.core.ui.components.FeatureSectionTitle
 import com.example.healtapp.core.ui.components.GradientFormPanel
+import com.example.healtapp.core.ui.components.GradientOutlinedField
 import com.example.healtapp.core.ui.components.PersonAvatar
 import com.example.healtapp.core.ui.theme.brandingGradient
 import com.example.healtapp.core.ui.theme.contentPrimaryColor
@@ -868,7 +871,9 @@ fun CommunityComposeSheet(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 4.dp),
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 28.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Row(
@@ -876,174 +881,149 @@ fun CommunityComposeSheet(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                "Новая публикация",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-            )
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = "Новая публикация",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = contentPrimaryColor(),
+                )
+                Text(
+                    text = "Тренировка, рецепт, достижение или совет",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             IconButton(onClick = onDismiss) {
                 Icon(Icons.Filled.Close, contentDescription = "Закрыть")
             }
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-        ) {
-            PostShareKind.entries.forEach { kind ->
-                ComposeKindOption(
-                    kind = kind,
-                    selected = shareKind == kind,
-                    onClick = { shareKind = kind },
-                )
-            }
-        }
-
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(22.dp),
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
-            border = androidx.compose.foundation.BorderStroke(
-                1.dp,
-                MaterialTheme.colorScheme.outline.copy(alpha = 0.1f),
-            ),
-        ) {
-            Column(
-                modifier = Modifier.padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+        GradientFormPanel {
+            Text(
+                text = "Тип поста",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = contentPrimaryColor(),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.Top,
-                ) {
-                    if (currentUser != null) {
-                        SocialUserAvatar(user = currentUser, size = 44.dp)
-                    }
-                    OutlinedTextField(
-                        value = text,
-                        onValueChange = onTextChange,
-                        modifier = Modifier
-                            .weight(1f)
-                            .heightIn(min = 96.dp),
-                        placeholder = {
-                            Text(
-                                shareKind.placeholder,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        },
-                        textStyle = MaterialTheme.typography.bodyLarge,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color.Transparent,
-                            unfocusedBorderColor = Color.Transparent,
-                            disabledBorderColor = Color.Transparent,
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                        ),
-                        maxLines = 8,
+                PostShareKind.entries.forEach { kind ->
+                    ComposeKindOption(
+                        kind = kind,
+                        selected = shareKind == kind,
+                        onClick = { shareKind = kind },
+                        modifier = Modifier.weight(1f),
                     )
                 }
-
-                if (mediaUri != null) {
-                    Box(contentAlignment = Alignment.TopEnd) {
-                        AsyncImage(
-                            model = mediaUri,
-                            contentDescription = "Выбранное фото",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(180.dp)
-                                .clip(RoundedCornerShape(16.dp)),
-                            contentScale = ContentScale.Crop,
-                        )
-                        IconButton(
-                            onClick = { onMediaChange(null) },
-                            modifier = Modifier
-                                .padding(6.dp)
-                                .size(32.dp)
-                                .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.45f), CircleShape),
-                        ) {
-                            Icon(
-                                Icons.Filled.Close,
-                                contentDescription = "Удалить фото",
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp),
-                            )
-                        }
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        ComposeToolbarIcon(
-                            icon = Icons.Filled.PhotoLibrary,
-                            contentDescription = "Галерея",
-                            onClick = {
-                                galleryLauncher.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-                                )
-                            },
-                        )
-                        ComposeToolbarIcon(
-                            icon = Icons.Filled.PhotoCamera,
-                            contentDescription = "Камера",
-                            onClick = openCamera,
-                        )
-                    }
-                    FilledIconButton(
-                        onClick = onPublish,
-                        enabled = canPublish,
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary,
-                            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        ),
-                    ) {
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(22.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                            )
-                        } else {
-                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Опубликовать")
-                        }
-                    }
-                }
             }
-        }
 
-        AnimatedVisibility(
-            visible = shareKind == PostShareKind.WORKOUT && activities.isNotEmpty(),
-            enter = fadeIn(AppMotion.tweenShort()) + slideInVertically(AppMotion.tweenShort()) { it / 3 },
-            exit = fadeOut(AppMotion.tweenShort()),
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    "Привязать тренировку",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.Top,
+            ) {
+                if (currentUser != null) {
+                    SocialUserAvatar(user = currentUser, size = 44.dp)
+                }
+                GradientOutlinedField(
+                    value = text,
+                    onValueChange = onTextChange,
+                    label = shareKind.placeholder,
+                    singleLine = false,
+                    modifier = Modifier.weight(1f),
                 )
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(activities.take(8), key = { it.id ?: it.hashCode() }) { act ->
-                        val id = act.id ?: return@items
-                        ComposeActivityChip(
-                            label = "${activityTitleFromApi(act.activity_type.orEmpty())} · ${act.duration_minutes ?: 0} мин",
-                            selected = selectedActivityId == id,
-                            onClick = {
-                                onSelectActivity(if (selectedActivityId == id) null else id)
-                            },
+            }
+
+            if (mediaUri != null) {
+                Box(contentAlignment = Alignment.TopEnd) {
+                    AsyncImage(
+                        model = mediaUri,
+                        contentDescription = "Выбранное фото",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                            .clip(RoundedCornerShape(18.dp)),
+                        contentScale = ContentScale.Crop,
+                    )
+                    IconButton(
+                        onClick = { onMediaChange(null) },
+                        modifier = Modifier
+                            .padding(8.dp)
+                            .size(36.dp)
+                            .background(
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                                CircleShape,
+                            ),
+                    ) {
+                        Icon(
+                            Icons.Filled.Close,
+                            contentDescription = "Удалить фото",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(18.dp),
                         )
                     }
                 }
             }
-        }
 
-        Spacer(Modifier.height(28.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                AppButton(
+                    text = "Галерея",
+                    onClick = {
+                        galleryLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                        )
+                    },
+                    isSecondary = true,
+                    modifier = Modifier.weight(1f),
+                )
+                AppButton(
+                    text = "Камера",
+                    onClick = openCamera,
+                    isSecondary = true,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+
+            AnimatedVisibility(
+                visible = shareKind == PostShareKind.WORKOUT && activities.isNotEmpty(),
+                enter = fadeIn(AppMotion.tweenShort()) + slideInVertically(AppMotion.tweenShort()) { it / 3 },
+                exit = fadeOut(AppMotion.tweenShort()),
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Привязать тренировку",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = contentPrimaryColor(),
+                    )
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(activities.take(8), key = { it.id ?: it.hashCode() }) { act ->
+                            val id = act.id ?: return@items
+                            ComposeActivityChip(
+                                label = "${activityTitleFromApi(act.activity_type.orEmpty())} · ${act.duration_minutes ?: 0} мин",
+                                selected = selectedActivityId == id,
+                                onClick = {
+                                    onSelectActivity(if (selectedActivityId == id) null else id)
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+
+            AppButton(
+                text = if (isLoading) "Публикация…" else "Опубликовать",
+                onClick = onPublish,
+                enabled = canPublish,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 }
 
@@ -1052,22 +1032,40 @@ private fun ComposeKindOption(
     kind: PostShareKind,
     selected: Boolean,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .widthIn(min = 64.dp)
-            .clickable(onClick = onClick),
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .border(
+                width = 1.dp,
+                color = if (selected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                },
+                shape = RoundedCornerShape(16.dp),
+            )
+            .background(
+                if (selected) {
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+                } else {
+                    MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                },
+            )
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp, horizontal = 4.dp),
     ) {
         Box(
             modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(14.dp))
+                .size(40.dp)
+                .clip(RoundedCornerShape(12.dp))
                 .then(
                     if (selected) {
                         Modifier.background(Brush.linearGradient(brandingGradient()))
                     } else {
-                        Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                        Modifier.background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
                     },
                 ),
             contentAlignment = Alignment.Center,
@@ -1078,42 +1076,18 @@ private fun ComposeKindOption(
                 tint = if (selected) {
                     MaterialTheme.colorScheme.onPrimary
                 } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
+                    MaterialTheme.colorScheme.primary
                 },
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(22.dp),
             )
         }
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(6.dp))
         Text(
             kind.shortLabel,
             style = MaterialTheme.typography.labelSmall,
-            color = if (selected) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            },
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+            color = if (selected) contentPrimaryColor() else MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
-        )
-    }
-}
-
-@Composable
-private fun ComposeToolbarIcon(
-    icon: ImageVector,
-    contentDescription: String,
-    onClick: () -> Unit,
-) {
-    IconButton(
-        onClick = onClick,
-        modifier = Modifier
-            .size(40.dp)
-            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f), CircleShape),
-    ) {
-        Icon(
-            icon,
-            contentDescription = contentDescription,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(22.dp),
         )
     }
 }

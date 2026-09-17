@@ -5,16 +5,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import com.example.healtapp.core.common.BmiHelper
 
-/** Разбавляющий акцент в тёмной брутальной теме — холодный бетонный серый. */
-val BrutalAccent = Color(0xFFB8B8B8)
-
-val BrutalWhite = Color(0xFFF5F5F5)
-val BrutalBlack = Color(0xFF0A0A0A)
+/**
+ * Все места, где вид зависит от темы, собраны здесь.
+ *
+ * Тёмные ветки раньше были чёрно-серыми («брутальная» тема) — приложение
+ * выглядело как два разных продукта. Теперь тёмная тема строится на тех же
+ * мяте и небе, только осветлённых под тёмный фон: градиенты идут в том же
+ * направлении, роли цветов совпадают со светлой темой.
+ */
 
 @Composable
 fun brandingGradient(): List<Color> =
     if (isAppDarkTheme()) {
-        listOf(Color(0xFF5C5C5C), BrutalWhite, Color(0xFF8A8A8A))
+        listOf(MintOnDark, SkyOnDark)
     } else {
         listOf(MintPrimary, SkyPrimary)
     }
@@ -22,7 +25,7 @@ fun brandingGradient(): List<Color> =
 @Composable
 fun heroBlockGradient(): List<Color> =
     if (isAppDarkTheme()) {
-        listOf(Color(0xFF2A2A2A), BrutalBlack, Color(0xFF1A1A1A))
+        listOf(MintOnDarkSoft, SkyOnDarkSoft, Color(0xFF1B4A6B))
     } else {
         listOf(MintPrimaryDark, SkyPrimary, SkyPrimaryDark)
     }
@@ -36,17 +39,16 @@ fun screenBackgroundGradient(): List<Color> =
     }
 
 @Composable
-fun heroContentColor(): Color =
-    if (isAppDarkTheme()) BrutalWhite else Color.White
+fun heroContentColor(): Color = Color.White
 
 @Composable
 fun heroIconBackdrop(): Color =
-    if (isAppDarkTheme()) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.18f)
+    if (isAppDarkTheme()) Color.White.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.18f)
 
 @Composable
 fun iconBadgeGradient(): List<Color> =
     if (isAppDarkTheme()) {
-        listOf(Color(0xFF3A3A3A), Color(0xFF525252))
+        listOf(MintOnDark.copy(alpha = 0.24f), SkyOnDark.copy(alpha = 0.24f))
     } else {
         listOf(MintPrimary.copy(alpha = 0.28f), SkyPrimary.copy(alpha = 0.28f))
     }
@@ -54,20 +56,19 @@ fun iconBadgeGradient(): List<Color> =
 @Composable
 fun scoreRingGradient(): List<Color> =
     if (isAppDarkTheme()) {
-        listOf(BrutalWhite, BrutalAccent, BrutalWhite)
+        listOf(Color.White, MintOnDark, Color.White)
     } else {
         listOf(Color.White, MintPrimary, Color.White)
     }
 
 @Composable
-fun brandingAccentColor(): Color =
-    if (isAppDarkTheme()) BrutalWhite else MaterialTheme.colorScheme.primary
+fun brandingAccentColor(): Color = MaterialTheme.colorScheme.primary
 
 /** Кольца и диаграммы (сон, шаги, БЖУ). */
 @Composable
 fun chartSweepGradient(): List<Color> =
     if (isAppDarkTheme()) {
-        listOf(Color(0xFF3A3A3A), BrutalWhite, Color(0xFF3A3A3A))
+        listOf(MintOnDark, SkyOnDark, MintOnDark)
     } else {
         listOf(MintPrimary, SkyPrimary, MintPrimary)
     }
@@ -75,7 +76,7 @@ fun chartSweepGradient(): List<Color> =
 @Composable
 fun chartSweepGradientWithSurface(surface: Color): List<Color> =
     if (isAppDarkTheme()) {
-        listOf(surface, BrutalAccent, surface, Color(0xFF4A4A4A))
+        listOf(surface, SkyOnDark, MintOnDark, surface)
     } else {
         listOf(surface, SkyPrimary, MintPrimary, surface)
     }
@@ -84,7 +85,10 @@ fun chartSweepGradientWithSurface(surface: Color): List<Color> =
 @Composable
 fun metricIconGradient(cardBase: Color, mintTint: Boolean = false): List<Color> =
     if (isAppDarkTheme()) {
-        listOf(cardBase, Color(if (mintTint) 0xFF4A4A4A else 0xFF3D3D3D))
+        listOf(
+            cardBase,
+            if (mintTint) MintOnDark.copy(alpha = 0.35f) else SkyOnDark.copy(alpha = 0.45f),
+        )
     } else {
         listOf(
             cardBase,
@@ -96,23 +100,19 @@ fun metricIconGradient(cardBase: Color, mintTint: Boolean = false): List<Color> 
 @Composable
 fun cardHeaderGradient(cardBase: Color, accentAlpha: Float = 0.4f): List<Color> =
     if (isAppDarkTheme()) {
-        listOf(cardBase.copy(alpha = 0.95f), Color(0xFF383838))
+        listOf(cardBase.copy(alpha = 0.95f), SkyOnDark.copy(alpha = accentAlpha))
     } else {
         listOf(cardBase.copy(alpha = 0.95f), SkyPrimary.copy(alpha = accentAlpha))
     }
 
 @Composable
 fun cardHeaderGradientMuted(cardBase: Color): List<Color> =
-    if (isAppDarkTheme()) {
-        listOf(cardBase.copy(alpha = 0.85f), cardBase.copy(alpha = 0.45f))
-    } else {
-        listOf(cardBase.copy(alpha = 0.85f), cardBase.copy(alpha = 0.45f))
-    }
+    listOf(cardBase.copy(alpha = 0.85f), cardBase.copy(alpha = 0.45f))
 
 @Composable
 fun subtleTintGradient(): List<Color> =
     if (isAppDarkTheme()) {
-        listOf(Color(0xFF333333).copy(alpha = 0.55f), Color(0xFF1F1F1F).copy(alpha = 0.45f))
+        listOf(MintOnDark.copy(alpha = 0.18f), SkyOnDark.copy(alpha = 0.18f))
     } else {
         listOf(MintPrimary.copy(alpha = 0.22f), SkyPrimary.copy(alpha = 0.22f))
     }
@@ -120,19 +120,19 @@ fun subtleTintGradient(): List<Color> =
 @Composable
 fun subtleFillGradient(): List<Color> =
     if (isAppDarkTheme()) {
-        listOf(Color(0xFF2A2A2A).copy(alpha = 0.65f), Color(0xFF1A1A1A).copy(alpha = 0.5f))
+        listOf(MintOnDark.copy(alpha = 0.1f), SkyOnDark.copy(alpha = 0.08f))
     } else {
         listOf(MintPrimary.copy(alpha = 0.12f), SkyPrimary.copy(alpha = 0.1f))
     }
 
 @Composable
 fun chartBarGuideColor(): Color =
-    if (isAppDarkTheme()) BrutalAccent.copy(alpha = 0.5f) else MintPrimary.copy(alpha = 0.5f)
+    if (isAppDarkTheme()) MintOnDark.copy(alpha = 0.45f) else MintPrimary.copy(alpha = 0.5f)
 
 @Composable
 fun chartBarFillGradient(): List<Color> =
     if (isAppDarkTheme()) {
-        listOf(Color(0xFF6B6B6B), BrutalWhite)
+        listOf(SkyOnDark, MintOnDark)
     } else {
         listOf(SkyPrimary, MintPrimary)
     }
@@ -140,9 +140,22 @@ fun chartBarFillGradient(): List<Color> =
 @Composable
 fun chartBarFillGradientSoft(cardBase: Color): List<Color> =
     if (isAppDarkTheme()) {
-        listOf(cardBase.copy(alpha = 0.7f), Color(0xFF525252).copy(alpha = 0.45f))
+        listOf(cardBase.copy(alpha = 0.7f), SkyOnDark.copy(alpha = 0.45f))
     } else {
         listOf(cardBase.copy(alpha = 0.7f), SkyPrimary.copy(alpha = 0.45f))
+    }
+
+/** Подложка цветной карточки: в тёмной теме — приглушённый аналог светлой. */
+@Composable
+fun cardTint(light: Color): Color =
+    if (!isAppDarkTheme()) {
+        light
+    } else {
+        when (light) {
+            CardMint -> CardMintDark
+            CardLavender -> CardLavenderDark
+            else -> CardBlueDark
+        }
     }
 
 @Composable
@@ -150,70 +163,67 @@ fun recommendationPriorityColor(priority: String): Color {
     val p = priority.lowercase()
     return when {
         p in listOf("high", "high_priority", "высокий", "high_priority_recommendation") ->
-            if (isAppDarkTheme()) Color(0xFFFF6B6B) else ErrorColor
-        p in listOf("medium", "средний") ->
-            if (isAppDarkTheme()) BrutalAccent else WarningColor
-        else ->
-            if (isAppDarkTheme()) Color(0xFF9CA3AF) else MintPrimary
+            recommendationPriorityColorHigh()
+        p in listOf("medium", "средний") -> recommendationPriorityColorMedium()
+        else -> recommendationPriorityColorLow()
     }
 }
 
 @Composable
-fun recommendationPriorityColorHigh(): Color =
-    if (isAppDarkTheme()) Color(0xFFFF6B6B) else ErrorColor
+fun recommendationPriorityColorHigh(): Color = MaterialTheme.colorScheme.error
 
 @Composable
 fun recommendationPriorityColorMedium(): Color =
-    if (isAppDarkTheme()) BrutalAccent else WarningColor
+    if (isAppDarkTheme()) Color(0xFFFFC46B) else WarningColor
 
 @Composable
 fun recommendationPriorityColorLow(): Color =
-    if (isAppDarkTheme()) Color(0xFF9CA3AF) else MintPrimary
+    if (isAppDarkTheme()) MintOnDark else MintPrimary
 
 @Composable
 fun bmiCategoryColor(category: BmiHelper.Category): Color =
     when (category) {
-        BmiHelper.Category.NORMAL -> if (isAppDarkTheme()) BrutalWhite else MintPrimary
-        BmiHelper.Category.UNDERWEIGHT -> if (isAppDarkTheme()) BrutalAccent else SkyPrimary
+        BmiHelper.Category.NORMAL -> if (isAppDarkTheme()) MintOnDark else MintPrimary
+        BmiHelper.Category.UNDERWEIGHT -> if (isAppDarkTheme()) SkyOnDark else SkyPrimary
         BmiHelper.Category.OVERWEIGHT ->
-            if (isAppDarkTheme()) Color(0xFF9CA3AF) else SkyPrimary.copy(alpha = 0.85f)
+            if (isAppDarkTheme()) Color(0xFFFFC46B) else SkyPrimary.copy(alpha = 0.85f)
         BmiHelper.Category.OBESE -> MaterialTheme.colorScheme.error.copy(alpha = 0.85f)
     }
 
 @Composable
-fun bmiScaleGradient(): List<Color> =
-    if (isAppDarkTheme()) {
-        listOf(
-            Color(0xFF525252).copy(alpha = 0.35f),
-            Color(0xFF9CA3AF).copy(alpha = 0.55f),
-            Color(0xFF737373).copy(alpha = 0.45f),
-            MaterialTheme.colorScheme.error.copy(alpha = 0.35f),
-        )
-    } else {
-        listOf(
-            SkyPrimary.copy(alpha = 0.35f),
-            MintPrimary.copy(alpha = 0.55f),
-            SkyPrimary.copy(alpha = 0.45f),
-            MaterialTheme.colorScheme.error.copy(alpha = 0.35f),
-        )
-    }
+fun bmiScaleGradient(): List<Color> {
+    val sky = if (isAppDarkTheme()) SkyOnDark else SkyPrimary
+    val mint = if (isAppDarkTheme()) MintOnDark else MintPrimary
+    return listOf(
+        sky.copy(alpha = 0.35f),
+        mint.copy(alpha = 0.55f),
+        sky.copy(alpha = 0.45f),
+        MaterialTheme.colorScheme.error.copy(alpha = 0.35f),
+    )
+}
 
 @Composable
 fun tipBannerColors(): Pair<Color, Color> =
     if (isAppDarkTheme()) {
-        Color(0xFF2A2A2A) to BrutalAccent
+        SkyOnDark.copy(alpha = 0.14f) to SkyOnDark
     } else {
         SkyPrimary.copy(alpha = 0.08f) to SkyPrimary
     }
 
 @Composable
 fun priorityBadgeBackground(): Color =
-    if (isAppDarkTheme()) Color(0xFF2A2A2A) else CardLavender
+    if (isAppDarkTheme()) CardLavenderDark else CardLavender
 
 @Composable
-fun chipSelectedColor(card: Color): Color =
-    if (isAppDarkTheme()) card.copy(alpha = 0.95f) else card.copy(alpha = if (card == CardBlue || card == CardMint) 0.85f else 0.95f)
+fun chipSelectedColor(card: Color): Color {
+    val base = cardTint(card)
+    return if (isAppDarkTheme()) {
+        base
+    } else {
+        base.copy(alpha = if (card == CardBlue || card == CardMint) 0.85f else 0.95f)
+    }
+}
 
 @Composable
 fun sliderAccentColor(): Color =
-    if (isAppDarkTheme()) BrutalWhite else MintPrimary
+    if (isAppDarkTheme()) MintOnDark else MintPrimary

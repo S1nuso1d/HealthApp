@@ -9,6 +9,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.ui.animation.AppMotion
@@ -16,7 +17,13 @@ import com.example.healtapp.core.ui.theme.accentColor
 import com.example.healtapp.core.ui.theme.contentPrimaryColor
 
 @Composable
-fun ProgressRing(progress: Float, text: String) {
+fun ProgressRing(
+    progress: Float,
+    text: String,
+    color: Color = accentColor(),
+    trackColor: Color = MaterialTheme.colorScheme.surfaceVariant,
+    textColor: Color = contentPrimaryColor(),
+) {
     val animatedProgress by animateFloatAsState(
         targetValue = progress.coerceIn(0f, 1f),
         animationSpec = AppMotion.springGentle(),
@@ -26,13 +33,14 @@ fun ProgressRing(progress: Float, text: String) {
         CircularProgressIndicator(
             progress = { animatedProgress },
             modifier = Modifier.size(72.dp),
-            color = accentColor(),
-            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            color = color,
+            trackColor = trackColor,
         )
         Text(
             text = text,
             style = MaterialTheme.typography.titleMedium,
-            color = contentPrimaryColor(),
+            color = textColor,
         )
     }
 }
+

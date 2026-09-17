@@ -7,6 +7,7 @@ data class UserStateCreateDto(
     val energy: Int? = null,
     val stress: Int? = null,
     val focus: Int? = null,
+    val wellbeing: Int? = null,
     @SerializedName("record_time") val recordTime: String,
     val notes: String? = null,
 )
@@ -18,6 +19,7 @@ data class UserStateDto(
     val energy: Int? = null,
     val stress: Int? = null,
     val focus: Int? = null,
+    val wellbeing: Int? = null,
     @SerializedName("record_time") val recordTime: String,
     val notes: String? = null,
 )

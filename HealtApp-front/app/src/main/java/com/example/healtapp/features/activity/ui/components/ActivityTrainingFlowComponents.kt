@@ -56,6 +56,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.ui.components.AppButton
 import com.example.healtapp.core.ui.components.AppCard
+import com.example.healtapp.core.ui.components.AppMessageBanner
+import com.example.healtapp.core.ui.components.AppMessageType
 import com.example.healtapp.core.ui.components.AppTextField
 import com.example.healtapp.core.ui.components.SectionHeader
 import com.example.healtapp.core.ui.theme.brandingGradient
@@ -173,15 +175,6 @@ fun ActivityTrainingQuickPickRow(
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
             )
-            Text(
-                text = if (favoriteSlugs.isEmpty()) {
-                    "Частые типы или выберите из полного каталога"
-                } else {
-                    "Избранное и частые — нажмите «Ещё» для всех типов"
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = contentSecondaryColor(),
-            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -262,10 +255,11 @@ private fun TrainingMoreTile(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val grad = cardHeaderGradient(themedCardMint(), 0.5f)
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(18.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
             .clickable(onClick = onClick)
             .padding(vertical = 12.dp, horizontal = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -275,16 +269,18 @@ private fun TrainingMoreTile(
             modifier = Modifier
                 .size(44.dp)
                 .clip(RoundedCornerShape(14.dp))
-                .background(Brush.linearGradient(brandingGradient().map { it.copy(alpha = 0.55f) })),
+                .background(Brush.linearGradient(grad)),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Filled.GridView, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Icon(Icons.Filled.GridView, contentDescription = null, tint = iconTintColor(), modifier = Modifier.size(24.dp))
         }
         Text(
             text = "Ещё",
             style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
             minLines = 2,
         )
     }
@@ -407,9 +403,15 @@ fun ActivityTrainingLogScreen(
     onNotesChange: (String) -> Unit,
     perceivedExertion: String,
     onPerceivedExertionChange: (String) -> Unit,
+    startTime: String,
+    onStartTimeChange: (String) -> Unit,
+    photoUri: String?,
+    onPickPhoto: () -> Unit,
+    onClearPhoto: () -> Unit,
     isSaving: Boolean,
     onBack: () -> Unit,
     onSave: () -> Unit,
+    bedtimeWarning: String? = null,
     modifier: Modifier = Modifier,
 ) {
     val slug = remember(activityType) {
@@ -436,16 +438,20 @@ fun ActivityTrainingLogScreen(
                     .background(Brush.linearGradient(brandingGradient().map { it.copy(alpha = 0.55f) })),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(trainingIconForSlug(slug), null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp))
+                Icon(trainingIconForSlug(slug), null, tint = iconTintColor(), modifier = Modifier.size(26.dp))
             }
             Column(Modifier.weight(1f)) {
                 Text(activityType, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text(
-                    "Заполните детали и сохраните в дневник",
+                    fields.hint,
                     style = MaterialTheme.typography.bodySmall,
                     color = contentSecondaryColor(),
                 )
             }
+        }
+
+        bedtimeWarning?.let { warning ->
+            AppMessageBanner(text = warning, type = AppMessageType.Warning)
         }
 
         AppCard {
@@ -456,15 +462,23 @@ fun ActivityTrainingLogScreen(
                     label = "Длительность (мин)",
                 )
                 AppTextField(
-                    value = calories,
-                    onValueChange = onCaloriesChange,
-                    label = "Сожжённые калории (ккал)",
+                    value = startTime,
+                    onValueChange = onStartTimeChange,
+                    label = "Начало (ЧЧ:ММ)",
+                    placeholder = "например 18:30",
                 )
                 if (fields.showDistance) {
                     AppTextField(
                         value = distanceKm,
                         onValueChange = onDistanceChange,
                         label = fields.distanceLabel,
+                    )
+                }
+                if (fields.showCalories) {
+                    AppTextField(
+                        value = calories,
+                        onValueChange = onCaloriesChange,
+                        label = "Сожжённые калории (ккал)",
                     )
                 }
                 if (fields.showExertion) {
@@ -479,29 +493,58 @@ fun ActivityTrainingLogScreen(
                         color = contentSecondaryColor(),
                     )
                 }
-                if (fields.showNotes) {
-                    AppTextField(
-                        value = notes,
-                        onValueChange = onNotesChange,
-                        label = fields.notesLabel,
-                        placeholder = fields.notesPlaceholder,
-                    )
+                AppTextField(
+                    value = notes,
+                    onValueChange = onNotesChange,
+                    label = fields.notesLabel,
+                    placeholder = fields.notesPlaceholder.ifBlank { "Как прошла тренировка" },
+                    singleLine = false,
+                    maxLines = 4,
+                )
+                if (fields.showIntensity) {
+                    Text("Интенсивность", style = MaterialTheme.typography.labelLarge, color = contentSecondaryColor())
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        intensityOptions.forEach { level ->
+                            FilterChip(
+                                selected = intensity == level,
+                                onClick = { onIntensitySelected(level) },
+                                label = { Text(level) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                ),
+                            )
+                        }
+                    }
                 }
-                Text("Интенсивность", style = MaterialTheme.typography.labelLarge, color = contentSecondaryColor())
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    intensityOptions.forEach { level ->
-                        FilterChip(
-                            selected = intensity == level,
-                            onClick = { onIntensitySelected(level) },
-                            label = { Text(level) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            ),
+                    AppButton(
+                        text = if (photoUri == null) "Прикрепить фото" else "Заменить фото",
+                        onClick = onPickPhoto,
+                        isSecondary = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (photoUri != null) {
+                        AppButton(
+                            text = "Убрать",
+                            onClick = onClearPhoto,
+                            isSecondary = true,
+                            modifier = Modifier.weight(1f),
                         )
                     }
+                }
+                if (photoUri != null) {
+                    Text(
+                        text = "Фото прикреплено",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = contentSecondaryColor(),
+                    )
                 }
                 AppButton(
                     text = if (isSaving) "Сохраняем…" else "Сохранить тренировку",
@@ -513,7 +556,7 @@ fun ActivityTrainingLogScreen(
     }
 }
 
-enum class ActivityTrainingPane { Hub, Catalog, Form }
+enum class ActivityTrainingPane { Hub, Catalog, Form, Run, Summary }
 
 @Composable
 fun ActivityTrainingSection(
@@ -531,7 +574,7 @@ fun ActivityTrainingSection(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        SectionHeader(title = "Тренировки", subtitle = "Быстрый старт и дневник")
+        SectionHeader(title = "Тренировки")
         ActivityTrainingStatsCard(
             minutesToday = minutesToday,
             countToday = countToday,

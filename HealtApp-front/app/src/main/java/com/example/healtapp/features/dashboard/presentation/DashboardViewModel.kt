@@ -3,13 +3,13 @@ package com.example.healtapp.features.dashboard.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.healtapp.core.common.AppRefreshBus
-import com.example.healtapp.core.common.LocalDemoData
 import com.example.healtapp.core.common.WeeklySummaryCalculator
 import com.example.healtapp.data.healthconnect.HealthConnectReader
 import com.example.healtapp.data.network.dto.activity.ActivityDto
 import com.example.healtapp.data.network.dto.hydration.HydrationDto
 import com.example.healtapp.data.preferences.TokenStorage
 import com.example.healtapp.domain.repository.ActivityRepository
+import com.example.healtapp.domain.repository.CycleRepository
 import com.example.healtapp.domain.repository.HydrationRepository
 import com.example.healtapp.domain.repository.MealRepository
 import com.example.healtapp.domain.repository.ProfileRepository
@@ -18,6 +18,7 @@ import com.example.healtapp.core.common.ActionPlanAutoComplete
 import com.example.healtapp.core.common.CalorieBurnCalculator
 import com.example.healtapp.core.common.DailyAdviceBuilder
 import com.example.healtapp.core.common.HealthScoreCalculator
+import com.example.healtapp.core.common.UserFacingMessages
 import com.example.healtapp.data.network.api.DashboardApi
 import com.example.healtapp.data.network.api.HealthApi
 import com.example.healtapp.data.network.dto.ai.AIRecommendationDto
@@ -25,6 +26,7 @@ import com.example.healtapp.domain.repository.AiRepository
 import com.example.healtapp.data.preferences.DashboardCache
 import com.example.healtapp.data.preferences.ProfileCache
 import com.example.healtapp.data.preferences.WidgetSnapshotStore
+import com.example.healtapp.wear.WearSnapshotSync
 import com.example.healtapp.features.recommendations.presentation.RecommendationUiItem
 import com.example.healtapp.data.network.dto.dashboard.GoalsCalendarDayDto
 import com.example.healtapp.domain.repository.WellnessRepository
@@ -67,6 +69,11 @@ class DashboardViewModel @Inject constructor(
     private val widgetSnapshotStore: WidgetSnapshotStore,
     private val dashboardCache: DashboardCache,
     private val profileCache: ProfileCache,
+    private val notificationPrefs: com.example.healtapp.data.preferences.NotificationPrefs,
+    private val recoveryModePrefs: com.example.healtapp.data.preferences.RecoveryModePrefs,
+    private val experimentCheckinStore: com.example.healtapp.data.preferences.ExperimentCheckinStore,
+    private val workoutWaterBoostPrefs: com.example.healtapp.data.preferences.WorkoutWaterBoostPrefs,
+    private val cycleRepository: CycleRepository,
 ) : ViewModel() {
 
     private var lastCalendarMonth: YearMonth? = null
@@ -116,12 +123,6 @@ class DashboardViewModel @Inject constructor(
 
     private fun loadGoalsCalendar(month: YearMonth) {
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) {
-                _uiState.update {
-                    it.copy(goalsCalendarDays = emptyList(), goalsCalendarLoading = false)
-                }
-                return@launch
-            }
             val monthChanged = lastCalendarMonth != month
             if (monthChanged || _uiState.value.goalsCalendarDays.isEmpty()) {
                 _uiState.update { it.copy(goalsCalendarLoading = true, goalsCalendarMonth = month) }
@@ -149,31 +150,166 @@ class DashboardViewModel @Inject constructor(
         loadGoalsCalendar(_uiState.value.goalsCalendarMonth)
     }
 
-    fun refreshLiveSteps() {
+    fun refreshLiveSteps(showMessage: Boolean = false) {
         viewModelScope.launch {
             val todayKey = LocalDate.now().toString()
             val fromRecords = ActivityStepsHelper.sumStepsForDate(cachedActivityHistory, todayKey)
             val hcSteps = runCatching { healthConnectReader.readTodaySteps() }.getOrNull()
             val stepsToday = resolveStepsToday(fromRecords, hcSteps, _uiState.value.stepsToday)
+            if (showMessage) {
+                val text = if (stepsToday > 0) {
+                    "Шаги с часов: $stepsToday"
+                } else {
+                    "Пока нет шагов с часов"
+                }
+                _uiState.update { it.copy(quickActionMessage = text) }
+            }
             if (stepsToday == _uiState.value.stepsToday) return@launch
             applyStepsTodayUpdate(stepsToday)
         }
     }
 
+    fun consumeQuickActionMessage() {
+        _uiState.update { it.copy(quickActionMessage = null) }
+    }
+
+    fun addQuickWater() {
+        viewModelScope.launch {
+            if (_uiState.value.isQuickWaterSaving) return@launch
+            _uiState.update { it.copy(isQuickWaterSaving = true) }
+            hydrationRepository.addHydration(250).fold(
+                onSuccess = {
+                    _uiState.update { state ->
+                        state.copy(
+                            isQuickWaterSaving = false,
+                            waterMl = state.waterMl + 250,
+                            quickActionMessage = "+250 мл",
+                        )
+                    }
+                    AppRefreshBus.notifyDataChanged()
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(
+                            isQuickWaterSaving = false,
+                            quickActionMessage = UserFacingMessages.fromThrowable(
+                                error,
+                                "Не удалось добавить воду",
+                            ),
+                        )
+                    }
+                },
+            )
+        }
+    }
+
+    fun toggleRecoveryMode() {
+        val next = !_uiState.value.recoveryMode
+        recoveryModePrefs.setActiveToday(next)
+        _uiState.update {
+            it.copy(
+                recoveryMode = next,
+                quickActionMessage = if (next) {
+                    "Сегодня день восстановления — цели мягче"
+                } else {
+                    "Обычные цели на сегодня"
+                },
+            )
+        }
+        loadDashboard(showFullLoading = false)
+    }
+
+    fun markExperimentToday(kept: Boolean) {
+        val id = _uiState.value.habitExperiment?.id ?: return
+        experimentCheckinStore.markToday(id, kept)
+        _uiState.update {
+            it.copy(
+                experimentCheckedToday = kept,
+                experimentKeptCount = experimentCheckinStore.keptCount(id),
+                quickActionMessage = if (kept) "День эксперимента отмечен" else "Сегодня не получилось — ок",
+            )
+        }
+    }
+
+    fun deferEveningTraining() {
+        _uiState.update { it.copy(quickActionMessage = "Тренировку оставляем на завтра") }
+    }
+
+    fun startSuggestedExperiment() {
+        val suggested = _uiState.value.tonightRisk?.suggestedExperiment ?: return
+        val factorId = suggested.factorId ?: return
+        startHabitExperiment(factorId, suggested.title, suggested.action)
+    }
+
+    fun startHabitExperiment(factorId: String, title: String? = null, action: String? = null) {
+        viewModelScope.launch {
+            wellnessRepository.startHabitExperiment(factorId, title, action).fold(
+                onSuccess = { item ->
+                    _uiState.update {
+                        it.copy(
+                            habitExperiment = item,
+                            quickActionMessage = "Эксперимент на 7 дней начат",
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    _uiState.update {
+                        it.copy(
+                            quickActionMessage = UserFacingMessages.fromThrowable(
+                                error,
+                                "Не удалось начать эксперимент",
+                            ),
+                        )
+                    }
+                },
+            )
+        }
+    }
+
+    private suspend fun loadTonightContext() {
+        val risk = wellnessRepository.getTonightRisk().getOrNull()
+        val experiments = wellnessRepository.getHabitExperiments().getOrNull()
+        val circadian = wellnessRepository.getCircadian().getOrNull()
+        if (circadian?.usualBedtimeHour != null && circadian.usualBedtimeMinute != null) {
+            notificationPrefs.setUsualBedtime(circadian.usualBedtimeHour, circadian.usualBedtimeMinute)
+            com.example.healtapp.notifications.ReminderScheduler.rescheduleSleepEvening(
+                appContext,
+                enabled = notificationPrefs.current().hydrationReminders ||
+                    notificationPrefs.current().recommendationReminders,
+            )
+        }
+        val experiment = experiments?.active
+        val cycleTitle = runCatching {
+            cycleRepository.getInsights().getOrNull()?.currentPhaseTitle
+        }.getOrNull()
+        _uiState.update {
+            it.copy(
+                tonightRisk = risk,
+                habitExperiment = experiment,
+                circadian = circadian,
+                recoveryMode = recoveryModePrefs.isActiveToday(),
+                experimentCheckedToday = experiment?.id?.takeIf { id -> id > 0 }
+                    ?.let { id -> experimentCheckinStore.todayValue(id) },
+                experimentKeptCount = experiment?.id?.takeIf { id -> id > 0 }
+                    ?.let { id -> experimentCheckinStore.keptCount(id) } ?: 0,
+                cyclePhaseTitle = cycleTitle,
+            )
+        }
+    }
+
+    private fun lifestyleWater(base: Int): Int =
+        recoveryModePrefs.waterTarget(base) + workoutWaterBoostPrefs.extraMlToday()
+
+    private fun lifestyleSteps(base: Int): Int = recoveryModePrefs.stepsGoal(base)
+
     fun loadDashboard(showFullLoading: Boolean = false) {
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) {
-                _uiState.value = LocalDemoData.dashboardUiState()
-                return@launch
-            }
-
             val showSkeleton = (showFullLoading || !_uiState.value.hasLoadedOnce) && !_uiState.value.isOfflineCache
             _uiState.update {
                 it.copy(
                     isLoading = showSkeleton,
                     isRefreshing = !showSkeleton && it.hasLoadedOnce,
                     error = null,
-                    isGuestMode = false,
                 )
             }
 
@@ -207,9 +343,9 @@ class DashboardViewModel @Inject constructor(
 
                 launch { loadDashboardHome() }
                 launch { loadAiRecommendations() }
-                launch { loadDashboardHints() }
                 launch { refreshStepsFromHealthConnect() }
                 launch { loadDashboardExtras(phase1.profileResult.getOrNull()) }
+                launch { loadTonightContext() }
                 loadGoalsCalendar(_uiState.value.goalsCalendarMonth)
             } catch (e: Exception) {
                 _uiState.update {
@@ -292,8 +428,8 @@ class DashboardViewModel @Inject constructor(
         val caloriesTargetBase = profile?.target_daily_calories?.takeIf { it > 0 } ?: 2200
         val sleepTarget = profile?.target_sleep_hours?.takeIf { it > 0f } ?: 8f
 
-        val waterTarget = waterTargetBase
-        val stepsGoal = stepsGoalBase
+        val waterTarget = lifestyleWater(waterTargetBase)
+        val stepsGoal = lifestyleSteps(stepsGoalBase)
         val caloriesTarget = caloriesTargetBase
 
         val burnGoal = CalorieBurnCalculator.dailyBurnGoal(stepsGoal, profile?.goal)
@@ -329,7 +465,6 @@ class DashboardViewModel @Inject constructor(
             isRefreshing = false,
             hasLoadedOnce = true,
             error = failures.singleOrNull()?.exceptionOrNull()?.message?.takeIf { failures.size >= 3 },
-            isGuestMode = false,
             isOfflineCache = previous.isOfflineCache,
             greetingText = DashboardGreeting.forNow(),
             headerSubtitle = "Сводка за сегодня",
@@ -379,6 +514,13 @@ class DashboardViewModel @Inject constructor(
             recommendationsError = previous.recommendationsError,
             dashboardHints = previous.dashboardHints,
             hintsLoading = previous.hintsLoading,
+            tonightRisk = previous.tonightRisk,
+            habitExperiment = previous.habitExperiment,
+            circadian = previous.circadian,
+            recoveryMode = recoveryModePrefs.isActiveToday(),
+            experimentCheckedToday = previous.experimentCheckedToday,
+            experimentKeptCount = previous.experimentKeptCount,
+            cyclePhaseTitle = previous.cyclePhaseTitle,
             ),
         )
         syncWidgetsFromState(_uiState.value)
@@ -462,8 +604,10 @@ class DashboardViewModel @Inject constructor(
     }
 
     private suspend fun syncWidgetsFromState(state: DashboardUiState) {
-        widgetSnapshotStore.save(state.toWidgetSnapshot())
+        val snapshot = state.toWidgetSnapshot()
+        widgetSnapshotStore.save(snapshot)
         refreshAllWidgets(appContext)
+        runCatching { WearSnapshotSync.push(appContext, snapshot) }
     }
 
     private suspend fun loadDashboardHome() {
@@ -608,8 +752,8 @@ class DashboardViewModel @Inject constructor(
                 )
             },
         )
-        val waterTarget = profile?.target_water_ml?.toInt() ?: _uiState.value.waterTargetMl
-        val stepsGoal = profile?.target_steps?.takeIf { it > 0 } ?: _uiState.value.stepsGoal
+        val waterTarget = lifestyleWater(profile?.target_water_ml?.toInt() ?: 2500)
+        val stepsGoal = lifestyleSteps(profile?.target_steps?.takeIf { it > 0 } ?: 10_000)
         val mealCountToday = extras.mealHistory.count { it.meal_time.take(10) == todayKey }
         val todayActivities = activityHistory.filter {
             ActivityStepsHelper.activityDateKey(it.start_time) == todayKey
@@ -648,9 +792,13 @@ class DashboardViewModel @Inject constructor(
                         mood = todayState?.mood?.coerceIn(1, 10) ?: current.moodCheckIn.mood,
                         energy = todayState?.energy?.coerceIn(1, 10) ?: current.moodCheckIn.energy,
                         stress = todayState?.stress?.coerceIn(1, 10) ?: current.moodCheckIn.stress,
+                        wellbeing = todayState?.wellbeing?.coerceIn(1, 10) ?: current.moodCheckIn.wellbeing,
                         savedToday = todayState != null,
                     ),
                     waterStreakDays = computeWaterStreak(extras.hydrationHistory, waterTarget),
+                    waterTargetMl = waterTarget,
+                    stepsGoal = stepsGoal,
+                    recoveryMode = recoveryModePrefs.isActiveToday(),
                     heartRateBpm = vitalsHeartRate,
                     spo2Percent = vitalsSpo2,
                     dailyBrief = current.dailyBrief,
@@ -670,7 +818,6 @@ class DashboardViewModel @Inject constructor(
     }
 
     private suspend fun loadAiRecommendations(days: Int = 7) {
-        if (tokenStorage.isGuestMode()) return
         _uiState.update {
             it.copy(
                 recommendationsLoading = it.recommendations.isEmpty(),
@@ -697,7 +844,6 @@ class DashboardViewModel @Inject constructor(
     }
 
     private suspend fun loadDashboardHints() {
-        if (tokenStorage.isGuestMode()) return
         _uiState.update { it.copy(hintsLoading = it.dashboardHints.isEmpty()) }
         aiRepository.getDashboardHints().onSuccess { hints ->
             _uiState.update { current ->
@@ -778,6 +924,10 @@ class DashboardViewModel @Inject constructor(
         _uiState.update { it.copy(moodCheckIn = it.moodCheckIn.copy(stress = stress.coerceIn(1, 10))) }
     }
 
+    fun updateWellbeing(wellbeing: Int) {
+        _uiState.update { it.copy(moodCheckIn = it.moodCheckIn.copy(wellbeing = wellbeing.coerceIn(1, 10))) }
+    }
+
     fun submitMoodCheckIn() {
         val check = _uiState.value.moodCheckIn
         viewModelScope.launch {
@@ -788,6 +938,7 @@ class DashboardViewModel @Inject constructor(
                 stress = check.stress,
                 focus = null,
                 notes = null,
+                wellbeing = check.wellbeing,
             ).onSuccess {
                 val stateScore = HealthScoreCalculator.computeStateScore(
                     mood = check.mood,

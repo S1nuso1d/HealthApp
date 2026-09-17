@@ -2,7 +2,6 @@ package com.example.healtapp.features.aicoach.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,12 +15,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.dp
@@ -34,7 +34,6 @@ import com.example.healtapp.features.aicoach.ui.components.AiAssistantMessage
 import com.example.healtapp.features.aicoach.ui.components.AiChatHistorySheet
 import com.example.healtapp.features.aicoach.ui.components.AiCoachHeroBar
 import com.example.healtapp.features.aicoach.ui.components.AiComposerDock
-import com.example.healtapp.features.aicoach.ui.components.AiGuestPanel
 import com.example.healtapp.features.aicoach.ui.components.AiInlineNotice
 import com.example.healtapp.features.aicoach.ui.components.AiThinkingBubble
 import com.example.healtapp.features.aicoach.ui.components.AiWelcomePanel
@@ -53,7 +52,7 @@ fun AiAssistantScreen(
     }
 
     val hasUserMessages = uiState.messages.any { it.isUser }
-    val showWelcome = !uiState.isGuestMode && !hasUserMessages && !uiState.isLoading
+    val showWelcome = !hasUserMessages && !uiState.isLoading
     val chatMessages = if (showWelcome) emptyList() else uiState.messages
 
     LaunchedEffect(chatMessages.size, uiState.isLoading) {
@@ -68,9 +67,7 @@ fun AiAssistantScreen(
         }
     }
 
-    val composerBottomPadding = if (!uiState.isGuestMode) 88.dp else 16.dp
-
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Brush.verticalGradient(screenBackgroundGradient()))
@@ -78,88 +75,82 @@ fun AiAssistantScreen(
             .navigationBarsPadding()
             .imePadding(),
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            AiCoachHeroBar(
-                onBack = onBack,
-                llmAvailable = uiState.llmAvailable,
-                isGuestMode = uiState.isGuestMode,
-                onRefreshStatus = viewModel::refreshLlmStatus,
-                onNewChat = viewModel::clearChat,
-                onOpenHistory = viewModel::openHistorySheet,
-                showNewChat = hasUserMessages && !uiState.isGuestMode,
-                enabled = !uiState.isLoading,
-            )
+        AiCoachHeroBar(
+            onBack = onBack,
+            llmAvailable = uiState.llmAvailable,
+            onRefreshStatus = viewModel::refreshLlmStatus,
+            onNewChat = viewModel::clearChat,
+            onOpenHistory = viewModel::openHistorySheet,
+            showNewChat = hasUserMessages,
+            enabled = !uiState.isLoading,
+        )
 
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(
-                    start = 20.dp,
-                    end = 20.dp,
-                    top = 16.dp,
-                    bottom = composerBottomPadding,
-                ),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                uiState.info?.let { info ->
-                    item(key = "info") {
-                        AiInlineNotice(text = info, isError = false)
-                    }
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            contentPadding = PaddingValues(
+                start = 20.dp,
+                end = 20.dp,
+                top = 16.dp,
+                bottom = 20.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            uiState.info?.let { info ->
+                item(key = "info") {
+                    AiInlineNotice(text = info, isError = false)
                 }
+            }
 
-                if (uiState.isGuestMode) {
-                    item(key = "guest") {
-                        AiGuestPanel()
-                    }
+            if (showWelcome) {
+                item(key = "welcome") {
+                    AiWelcomePanel(
+                        onTopicClick = viewModel::sendTopicAnalysis,
+                        prompts = AiSuggestedPrompts,
+                        onPromptClick = viewModel::sendSuggestedPrompt,
+                        enabled = !uiState.isLoading,
+                    )
                 }
+            }
 
-                if (showWelcome) {
-                    item(key = "welcome") {
-                        AiWelcomePanel(
-                            onTopicClick = viewModel::sendTopicAnalysis,
-                            prompts = AiSuggestedPrompts,
-                            onPromptClick = viewModel::sendSuggestedPrompt,
-                            enabled = !uiState.isLoading,
-                        )
-                    }
-                }
+            items(chatMessages, key = { it.id }) { message ->
+                AiAssistantMessage(message = message)
+            }
 
-                items(chatMessages, key = { it.id }) { message ->
-                    AiAssistantMessage(message = message)
-                }
-
-                if (uiState.isLoading && chatMessages.lastOrNull()?.isUser == true) {
-                    item(key = "typing") {
-                        AiThinkingBubble()
-                    }
+            if (uiState.isLoading && chatMessages.lastOrNull()?.isUser == true) {
+                item(key = "typing") {
+                    AiThinkingBubble()
                 }
             }
         }
 
-        if (!uiState.isGuestMode) {
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .padding(bottom = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                uiState.error?.let { err ->
-                    AiInlineNotice(
-                        text = err,
-                        isError = true,
-                        onDismiss = viewModel::clearError,
-                    )
-                }
-
-                AiComposerDock(
-                    value = uiState.input,
-                    onValueChange = viewModel::updateInput,
-                    onSend = { viewModel.sendMessage() },
-                    enabled = !uiState.isLoading,
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 12.dp, top = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            uiState.error?.let { err ->
+                AiInlineNotice(
+                    text = err,
+                    isError = true,
+                    onDismiss = viewModel::clearError,
                 )
             }
+            Text(
+                text = "ИИ не ставит диагноз и не заменяет консультацию врача.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            AiComposerDock(
+                value = uiState.input,
+                onValueChange = viewModel::updateInput,
+                onSend = { viewModel.sendMessage() },
+                enabled = !uiState.isLoading,
+            )
         }
     }
 

@@ -1,14 +1,12 @@
 package com.example.healtapp.features.recommendations.ui
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,6 +22,7 @@ import com.example.healtapp.core.ui.components.EmptyStateCard
 import com.example.healtapp.core.ui.components.FeatureHeroChip
 import com.example.healtapp.core.ui.components.FeatureHighlightPanel
 import com.example.healtapp.core.ui.components.FeatureInlineNotice
+import com.example.healtapp.core.ui.components.LoadingView
 import com.example.healtapp.core.ui.components.FeatureScreenShell
 import com.example.healtapp.core.ui.components.FeatureSectionTitle
 import com.example.healtapp.core.ui.theme.contentPrimaryColor
@@ -67,14 +66,7 @@ fun RecommendationsScreen(
         },
     ) {
         if (uiState.isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 32.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                CircularProgressIndicator()
-            }
+            LoadingView()
             return@FeatureScreenShell
         }
 

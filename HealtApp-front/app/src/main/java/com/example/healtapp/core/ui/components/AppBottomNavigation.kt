@@ -32,10 +32,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.healtapp.core.navigation.BottomNavItem
 import com.example.healtapp.core.ui.theme.brandingGradient
 import com.example.healtapp.core.ui.theme.accentColor
 import com.example.healtapp.core.ui.theme.contentSecondaryColor
+import com.example.healtapp.core.ui.theme.heroContentColor
 import com.example.healtapp.core.ui.theme.isAppDarkTheme
 
 @Composable
@@ -89,7 +91,7 @@ private fun BottomNavItemCell(
     modifier: Modifier = Modifier,
 ) {
     val scale by animateFloatAsState(
-        targetValue = if (selected) 1.1f else 1f,
+        targetValue = if (selected) 1.06f else 1f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessMedium,
@@ -122,9 +124,7 @@ private fun BottomNavItemCell(
                         .scale(pillAlpha)
                         .clip(RoundedCornerShape(if (isAppDarkTheme()) 6.dp else 14.dp))
                         .background(
-                            Brush.linearGradient(
-                                brandingGradient().map { it.copy(alpha = 0.35f) },
-                            ),
+                            Brush.linearGradient(brandingGradient()),
                         ),
                 )
             }
@@ -134,15 +134,16 @@ private fun BottomNavItemCell(
                 modifier = Modifier
                     .size(26.dp)
                     .scale(scale),
-                tint = if (selected) accentColor() else contentSecondaryColor(),
+                tint = if (selected) heroContentColor() else contentSecondaryColor(),
             )
         }
         Text(
             text = item.title,
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
             color = if (selected) accentColor() else contentSecondaryColor(),
             maxLines = 1,
+            softWrap = false,
         )
         if (selected) {
             Box(

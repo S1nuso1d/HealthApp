@@ -16,13 +16,21 @@ class SleepEveningReminderWorker(
             applicationContext,
             ReminderEntryPoint::class.java,
         )
-        if (!entry.notificationPrefs().current().hydrationReminders) return Result.success()
-        if (entry.tokenStorage().getToken() == null || entry.tokenStorage().isGuestMode()) {
+        val settings = entry.notificationPrefs().current()
+        if (!settings.hydrationReminders && !settings.recommendationReminders) return Result.success()
+        if (entry.tokenStorage().getToken() == null) {
             return Result.success()
         }
         if (!HealthNotificationHelper.canPost(applicationContext)) return Result.success()
 
-        HealthNotificationHelper.sleepEveningReminder(applicationContext)
+        val bedtime = entry.notificationPrefs().current().let { settings ->
+            if (settings.usualBedtimeHour != null && settings.usualBedtimeMinute != null) {
+                "%02d:%02d".format(settings.usualBedtimeHour, settings.usualBedtimeMinute)
+            } else {
+                null
+            }
+        }
+        HealthNotificationHelper.sleepEveningReminder(applicationContext, bedtime)
         ReminderScheduler.rescheduleSleepEvening(applicationContext, enabled = true)
         return Result.success()
     }

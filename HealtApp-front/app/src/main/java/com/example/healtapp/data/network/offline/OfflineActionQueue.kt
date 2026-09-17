@@ -28,6 +28,7 @@ class OfflineActionQueue @Inject constructor(
         val actions = getActions().toMutableList()
         actions.add(OfflineAction(path = path, method = method, body = body))
         saveActions(actions)
+        com.example.healtapp.core.common.AppPendingSyncBus.notifyQueueChanged()
     }
 
     fun getActions(): List<OfflineAction> {

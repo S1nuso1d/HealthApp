@@ -1,5 +1,10 @@
 package com.example.healtapp.features.pills.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -7,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -28,10 +34,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.healtapp.core.ui.theme.screenBackgroundGradient
 import com.example.healtapp.data.network.dto.health.PillDto
+import com.example.healtapp.data.preferences.PillDoseStatus
 import com.example.healtapp.features.aicoach.ui.components.AiInlineNotice
 import com.example.healtapp.features.pills.presentation.PillsViewModel
 import com.example.healtapp.features.pills.ui.components.PillReminderBubble
@@ -40,7 +48,6 @@ import com.example.healtapp.features.pills.ui.components.PillsAddReminderDock
 import com.example.healtapp.features.pills.ui.components.PillsFilterStrip
 import com.example.healtapp.features.pills.ui.components.PillsHeroBar
 import com.example.healtapp.features.pills.ui.components.PillsWelcomePanel
-import com.example.healtapp.notifications.PillReminderScheduler
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,19 +62,18 @@ fun PillsScreen(
     var tab by remember { mutableIntStateOf(0) }
     val listState = rememberLazyListState()
 
-    LaunchedEffect(uiState.pills) {
-        uiState.pills.forEach { pill ->
-            val id = pill.id ?: return@forEach
-            if (pill.isActive) {
-                PillReminderScheduler.schedulePillReminder(
-                    context,
-                    id,
-                    pill.name,
-                    pill.dosage,
-                    pill.timeOfDay,
-                )
-            } else {
-                PillReminderScheduler.cancelPillReminder(context, id)
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { /* отказ — уведомления не покажутся, пока пользователь не разрешит в настройках */ }
+
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val granted = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!granted) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
     }
@@ -89,11 +95,13 @@ fun PillsScreen(
             .fillMaxSize()
             .background(Brush.verticalGradient(screenBackgroundGradient()))
             .statusBarsPadding()
-            .navigationBarsPadding(),
+            .navigationBarsPadding()
+            .imePadding(),
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             PillsHeroBar(
                 activeCount = activePills.size,
+                adherencePercent = uiState.adherencePercent,
                 onBack = onBack,
             )
 
@@ -136,17 +144,22 @@ fun PillsScreen(
                         }
                     } else {
                         items(displayed, key = { pill -> pill.id ?: pill.hashCode() }) { pill ->
+                            val pillId = pill.id
                             PillReminderBubble(
                                 pill = pill,
+                                todayStatus = pillId?.let { uiState.todayStatusByPillId[it] },
+                                onTaken = {
+                                    pillId?.let { viewModel.logDose(it, PillDoseStatus.Taken) }
+                                },
+                                onSkipped = {
+                                    pillId?.let { viewModel.logDose(it, PillDoseStatus.Skipped) }
+                                },
                                 onEdit = { editingPill = pill },
                                 onDelete = {
-                                    pill.id?.let { id ->
-                                        PillReminderScheduler.cancelPillReminder(context, id)
-                                        viewModel.deletePill(id)
-                                    }
+                                    pillId?.let { id -> viewModel.deletePill(id) }
                                 },
                                 onToggleActive = { isActive ->
-                                    pill.id?.let { id ->
+                                    pillId?.let { id ->
                                         viewModel.updatePill(id, pill.name, pill.dosage, pill.timeOfDay, isActive)
                                     }
                                 },

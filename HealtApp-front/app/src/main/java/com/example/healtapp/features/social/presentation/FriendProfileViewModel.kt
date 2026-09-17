@@ -50,18 +50,10 @@ class FriendProfileViewModel @Inject constructor(
 
     fun load() {
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode() || userId <= 0) {
-                _uiState.value = FriendProfileUiState(
-                    isLoading = false,
-                    user = UserCardDto(userId.coerceAtLeast(102), "Иван***@gmail.com", "LOSE_WEIGHT"),
-                    activities = listOf(
-                        FriendActivityDto(1, "run", 35, 280f, null, "2026-05-19T07:00:00"),
-                    ),
-                    achievements = listOf(
-                        FriendAchievementDto("steps_10k", "10 000 шагов", "steps", 30, null),
-                    ),
-                    isFriend = true,
-                )
+            if (userId <= 0) {
+                _uiState.update {
+                    it.copy(isLoading = false, error = "Некорректный профиль")
+                }
                 return@launch
             }
             _uiState.update { it.copy(isLoading = true, error = null) }

@@ -19,6 +19,7 @@ interface WellnessRepository {
         stress: Int?,
         focus: Int?,
         notes: String?,
+        wellbeing: Int? = null,
     ): Result<UserStateDto>
     suspend fun listUserStates(): Result<List<UserStateDto>>
     suspend fun listActionPlan(): Result<List<ActionPlanDto>>
@@ -27,6 +28,17 @@ interface WellnessRepository {
     suspend fun getAnalyticsOverview(days: Int = 7): Result<AnalyticsResponseDto>
     suspend fun getInsights(): Result<List<InsightItemDto>>
     suspend fun getAnalysisRuns(limit: Int = 20): Result<List<AnalysisRunDto>>
+    suspend fun getInfluenceFactors(days: Int = 14): Result<com.example.healtapp.data.network.dto.analytics.InfluenceFactorsResponseDto>
+    suspend fun compareAnalytics(): Result<com.example.healtapp.data.network.dto.analytics.AnalyticsCompareDto>
+    suspend fun getTonightRisk(): Result<com.example.healtapp.data.network.dto.analytics.TonightRiskDto>
+    suspend fun getCircadian(): Result<com.example.healtapp.data.network.dto.analytics.CircadianProfileDto>
+    suspend fun getHabitExperiments(): Result<com.example.healtapp.data.network.dto.analytics.HabitExperimentsResponseDto>
+    suspend fun startHabitExperiment(
+        factorId: String,
+        title: String? = null,
+        action: String? = null,
+    ): Result<com.example.healtapp.data.network.dto.analytics.HabitExperimentDto>
+    suspend fun cancelHabitExperiment(id: Int): Result<com.example.healtapp.data.network.dto.analytics.HabitExperimentDto>
     suspend fun activeReminders(): Result<List<SmartReminderDto>>
     suspend fun completeReminder(id: Int): Result<Unit>
     suspend fun dismissReminder(id: Int): Result<Unit>

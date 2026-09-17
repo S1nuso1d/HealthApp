@@ -46,12 +46,6 @@ class DataPrivacyViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) {
-                _uiState.update {
-                    it.copy(deleteError = "В демо-режиме аккаунта на сервере нет. Выйди через «Выйти из аккаунта» в профиле.")
-                }
-                return@launch
-            }
             _uiState.update {
                 it.copy(isDeleting = true, deleteError = null)
             }

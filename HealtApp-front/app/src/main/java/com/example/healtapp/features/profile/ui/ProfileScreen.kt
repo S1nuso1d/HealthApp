@@ -18,18 +18,23 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.DynamicFeed
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Groups
-import androidx.compose.material.icons.filled.HowToVote
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Medication
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Watch
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.PhotoCamera
@@ -72,23 +77,26 @@ import com.example.healtapp.core.ui.components.FeatureGuideContent
 import com.example.healtapp.core.ui.components.FeatureGuideOverlay
 import com.example.healtapp.core.ui.components.FeatureGuidePrefs
 import com.example.healtapp.core.ui.components.FeatureGuideScreen
-import com.example.healtapp.core.ui.components.SectionHeader
+import com.example.healtapp.core.ui.components.RoundedSectionTabs
+import com.example.healtapp.core.ui.components.RoundedTabItem
+import com.example.healtapp.core.ui.theme.ThemeMode
 import com.example.healtapp.di.ApiServerConfigEntryPoint
 import com.example.healtapp.di.ImageLoaderEntryPoint
 import com.example.healtapp.features.auth.ui.components.ChangePasswordForm
 import com.example.healtapp.features.auth.ui.components.ChangePasswordFormHeader
-import com.example.healtapp.features.profile.PoliticalRecommendations
+import com.example.healtapp.features.profile.ProfileRus
+import com.example.healtapp.features.profile.presentation.ProfileEditUiState
 import com.example.healtapp.features.profile.presentation.ProfileEditViewModel
 import com.example.healtapp.features.profile.presentation.ProfileEditViewModel.Companion.PROFILE_SAVE_SUCCESS
 import com.example.healtapp.features.profile.ui.components.ProfileBodyStatsCard
-import com.example.healtapp.features.profile.ui.components.ProfileDietSection
+import com.example.healtapp.features.profile.ui.components.ProfileFormSheet
 import com.example.healtapp.features.profile.ui.components.ProfileGoalsEditSheet
-import com.example.healtapp.features.profile.ui.components.ProfileGoalsHabitsSection
+import com.example.healtapp.features.profile.ui.components.ProfileGoalsHabitsFields
 import com.example.healtapp.features.profile.ui.components.ProfileGoalsStrip
 import com.example.healtapp.features.profile.ui.components.ProfileHeroBlock
 import com.example.healtapp.features.profile.ui.components.ProfileLogoutCard
 import com.example.healtapp.features.profile.ui.components.ProfileNavLink
-import com.example.healtapp.features.profile.ui.components.ProfilePersonalDataSection
+import com.example.healtapp.features.profile.ui.components.ProfilePersonalDataFields
 import com.example.healtapp.features.profile.ui.components.ProfileSaveSuccessOverlay
 import com.example.healtapp.features.profile.ui.components.ProfileThemeSelector
 import dagger.hilt.android.EntryPointAccessors
@@ -103,11 +111,12 @@ fun ProfileScreen(
     onOpenServerConnection: () -> Unit = {},
     onOpenNotifications: () -> Unit = {},
     onOpenAchievements: () -> Unit = {},
+    onOpenCommunity: () -> Unit = {},
     onOpenFriends: () -> Unit = {},
     onOpenClubs: () -> Unit = {},
-    onOpenPoliticalRecommendations: () -> Unit = {},
     onOpenPills: () -> Unit = {},
     onOpenCycle: () -> Unit = {},
+    onOpenDataImport: () -> Unit = {},
     onLogout: () -> Unit = {},
 ) {
     val viewModel: ProfileEditViewModel = hiltViewModel()
@@ -137,11 +146,11 @@ fun ProfileScreen(
 
     var showAvatarSheet by remember { mutableStateOf(false) }
     var showGoalsSheet by remember { mutableStateOf(false) }
-    var goalsCardExpanded by remember { mutableStateOf(false) }
-    var basicsCardExpanded by remember { mutableStateOf(false) }
-    var dietCardExpanded by remember { mutableStateOf(false) }
+    var showProfileDataSheet by remember { mutableStateOf(false) }
+    var showThemeSheet by remember { mutableStateOf(false) }
+    var showPasswordSheet by remember { mutableStateOf(false) }
     var goalsSavePending by remember { mutableStateOf(false) }
-    var collapsingSection by remember { mutableStateOf<ProfileSaveSection?>(null) }
+    var pendingFormSheet by remember { mutableStateOf(false) }
     var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
     var showGuide by remember { mutableStateOf(false) }
     var showSaveSuccessAnim by remember { mutableStateOf(false) }
@@ -164,14 +173,9 @@ fun ProfileScreen(
             showGoalsSheet = false
             goalsSavePending = false
         }
-        if (!uiState.isSaving && uiState.success != null) {
-            when (collapsingSection) {
-                ProfileSaveSection.BASICS -> basicsCardExpanded = false
-                ProfileSaveSection.GOALS -> goalsCardExpanded = false
-                ProfileSaveSection.DIET -> dietCardExpanded = false
-                null -> {}
-            }
-            collapsingSection = null
+        if (pendingFormSheet && !uiState.isSaving && uiState.success != null) {
+            showProfileDataSheet = false
+            pendingFormSheet = false
         }
     }
 
@@ -267,7 +271,7 @@ fun ProfileScreen(
         }
     }
 
-    val avatarEnabled = !uiState.isLoading && !uiState.isUploadingAvatar && !uiState.guestMode
+    val avatarEnabled = !uiState.isLoading && !uiState.isUploadingAvatar
 
     Box(modifier = Modifier.fillMaxSize()) {
         AppScreen(
@@ -276,59 +280,17 @@ fun ProfileScreen(
             scrollable = true,
             scrollStateKey = "profile",
         ) {
-            ProfileHeroBlock(
-                initial = initial,
-                displayName = displayName,
-                avatarUrl = avatarUrl,
-                imageLoader = imageLoader,
-                age = uiState.age,
-                guestMode = uiState.guestMode,
-                isUploadingAvatar = uiState.isUploadingAvatar,
-                enabled = avatarEnabled,
-                onAvatarClick = { if (avatarEnabled) showAvatarSheet = true },
-            )
-
-            if (!uiState.guestMode) {
-                ProfileGoalsStrip(
-                    targetSleep = uiState.targetSleep,
-                    targetWater = uiState.targetWater,
-                    targetSteps = uiState.targetSteps,
-                    onEditClick = { showGoalsSheet = true },
+            if (uiState.selectedTab == 0) {
+                ProfileHeroBlock(
+                    initial = initial,
+                    displayName = displayName,
+                    avatarUrl = avatarUrl,
+                    imageLoader = imageLoader,
+                    age = uiState.age,
+                    isUploadingAvatar = uiState.isUploadingAvatar,
+                    enabled = avatarEnabled,
+                    onAvatarClick = { if (avatarEnabled) showAvatarSheet = true },
                 )
-
-                ProfileBodyStatsCard(
-                    heightCm = uiState.height,
-                    weightKg = uiState.weight,
-                    weightHistory = uiState.weightHistory,
-                    weightWeeklyReminder = uiState.weightWeeklyReminder,
-                )
-            }
-
-            ProfileGoalsEditSheet(
-                visible = showGoalsSheet,
-                targetSleep = uiState.targetSleep,
-                targetWater = uiState.targetWater,
-                targetSteps = uiState.targetSteps,
-                isSaving = uiState.isSaving,
-                guestMode = uiState.guestMode,
-                onDismiss = { showGoalsSheet = false },
-                onSleepChange = viewModel::updateTargetSleep,
-                onWaterChange = viewModel::updateTargetWater,
-                onStepsChange = viewModel::updateTargetSteps,
-                onSave = {
-                    goalsSavePending = true
-                    viewModel.save()
-                },
-            )
-
-            if (uiState.guestMode) {
-                AppCard {
-                    Text(
-                        text = "Локальный режим: разделы открыты, но API без входа недоступен. Выйди и войди с email для синхронизации.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
             }
 
             uiState.error?.let {
@@ -338,15 +300,83 @@ fun ProfileScreen(
                 AppMessageBanner(text = it, type = AppMessageType.Success)
             }
 
-            SectionHeader(
-                title = "Личные данные",
-                subtitle = "Имя, возраст и параметры тела",
+            RoundedSectionTabs(
+                tabs = listOf(
+                    RoundedTabItem(0, "Профиль"),
+                    RoundedTabItem(1, "Здоровье"),
+                    RoundedTabItem(2, "Сообщество"),
+                    RoundedTabItem(3, "Ещё"),
+                ),
+                selected = uiState.selectedTab,
+                onSelect = viewModel::selectTab,
             )
 
-            ProfilePersonalDataSection(
+            when (uiState.selectedTab) {
+                0 -> ProfileYouTab(
+                    uiState = uiState,
+                    onEditGoals = { showGoalsSheet = true },
+                    onOpenProfileData = { showProfileDataSheet = true },
+                    onOpenTheme = { showThemeSheet = true },
+                    onOpenPassword = { showPasswordSheet = true },
+                )
+                1 -> ProfileHealthTab(
+                    uiState = uiState,
+                    onOpenPills = onOpenPills,
+                    onOpenCycle = onOpenCycle,
+                    onOpenNotifications = onOpenNotifications,
+                    onSyncHealthConnect = {
+                        viewModel.onSyncHealthConnectClicked { permissions ->
+                            requestHealthPermissions.launch(permissions)
+                        }
+                    },
+                )
+                2 -> ProfileCircleTab(
+                    onOpenCommunity = onOpenCommunity,
+                    onOpenAchievements = onOpenAchievements,
+                    onOpenFriends = onOpenFriends,
+                    onOpenClubs = onOpenClubs,
+                )
+                else -> ProfileMoreTab(
+                    uiState = uiState,
+                    onOpenDataPrivacy = onOpenDataPrivacy,
+                    onOpenDataImport = onOpenDataImport,
+                    onExportReport = { if (!uiState.isExportingReport) viewModel.exportHealthReport() },
+                    onOpenServerConnection = onOpenServerConnection,
+                    onOpenIntegrations = onOpenIntegrations,
+                    onOpenMiBandBle = onOpenMiBandBle,
+                    onShowGuides = {
+                        FeatureGuidePrefs.requestShowAllAgain(context)
+                        showGuide = true
+                    },
+                    onLogout = { viewModel.logout(onLogout) },
+                )
+            }
+        }
+
+        ProfileGoalsEditSheet(
+            visible = showGoalsSheet,
+            targetSleep = uiState.targetSleep,
+            targetWater = uiState.targetWater,
+            targetSteps = uiState.targetSteps,
+            isSaving = uiState.isSaving,
+            onDismiss = { showGoalsSheet = false },
+            onSleepChange = viewModel::updateTargetSleep,
+            onWaterChange = viewModel::updateTargetWater,
+            onStepsChange = viewModel::updateTargetSteps,
+            onSave = {
+                goalsSavePending = true
+                viewModel.save()
+            },
+        )
+
+        ProfileFormSheet(
+            visible = showProfileDataSheet,
+            title = "Основные данные",
+            subtitle = "Имя, тело, цель и активность",
+            onDismiss = { showProfileDataSheet = false },
+        ) {
+            ProfilePersonalDataFields(
                 uiState = uiState,
-                expanded = basicsCardExpanded,
-                onExpandedChange = { basicsCardExpanded = it },
                 onFirstNameChange = viewModel::updateFirstName,
                 onLastNameChange = viewModel::updateLastName,
                 onNicknameChange = viewModel::updateNickname,
@@ -354,212 +384,54 @@ fun ProfileScreen(
                 onHeightChange = viewModel::updateHeight,
                 onWeightChange = viewModel::updateWeight,
                 onSexChange = viewModel::updateSex,
-                onSave = {
-                    collapsingSection = ProfileSaveSection.BASICS
-                    viewModel.save()
-                },
-            )
-
-            ProfileGoalsHabitsSection(
-                uiState = uiState,
-                expanded = goalsCardExpanded,
-                onExpandedChange = { goalsCardExpanded = it },
-                onGoalChange = viewModel::updateGoal,
-                onActivityLevelChange = viewModel::updateActivityLevel,
-                onSave = {
-                    collapsingSection = ProfileSaveSection.GOALS
-                    viewModel.save()
-                },
-            )
-
-            ProfileDietSection(
-                uiState = uiState,
-                expanded = dietCardExpanded,
-                onExpandedChange = { dietCardExpanded = it },
                 onIsVegetarianChange = viewModel::updateIsVegetarian,
                 onHasAllergiesChange = viewModel::updateHasAllergies,
                 onAllergiesTextChange = viewModel::updateAllergiesText,
+                onSave = {},
+                includeSave = false,
+            )
+            ProfileGoalsHabitsFields(
+                uiState = uiState,
+                onGoalChange = viewModel::updateGoal,
+                onActivityLevelChange = viewModel::updateActivityLevel,
                 onSave = {
-                    collapsingSection = ProfileSaveSection.DIET
+                    pendingFormSheet = true
                     viewModel.save()
                 },
             )
+        }
 
-            SectionHeader(
-                title = "Аккаунт",
-                subtitle = "Оформление и безопасность",
+        ProfileFormSheet(
+            visible = showThemeSheet,
+            title = "Оформление",
+            subtitle = "Тема приложения",
+            onDismiss = { showThemeSheet = false },
+        ) {
+            ProfileThemeSelector(
+                selected = uiState.themeMode,
+                onSelected = viewModel::setThemeMode,
             )
+        }
 
-            ProfileExpandableCard(
-                title = "Оформление",
-                icon = Icons.Filled.Palette,
-                initiallyExpanded = false,
-            ) {
-                ProfileThemeSelector(
-                    selected = uiState.themeMode,
-                    onSelected = viewModel::setThemeMode,
-                )
-            }
-
-            ProfileExpandableCard(
-                title = "Пароль",
-                icon = Icons.Filled.Lock,
-                initiallyExpanded = false,
-            ) {
-                ChangePasswordFormHeader()
-                ChangePasswordForm(
-                    currentPassword = uiState.currentPassword,
-                    newPassword = uiState.newPassword,
-                    confirmPassword = uiState.confirmPassword,
-                    isChanging = uiState.isChangingPassword,
-                    enabled = !uiState.isLoading && !uiState.isSaving && !uiState.guestMode,
-                    error = null,
-                    success = null,
-                    onCurrentChange = viewModel::updateCurrentPassword,
-                    onNewChange = viewModel::updateNewPassword,
-                    onConfirmChange = viewModel::updateConfirmPassword,
-                    onSubmit = viewModel::changeAccountPassword,
-                )
-            }
-
-            SectionHeader(
-                title = "Здоровье",
-                subtitle = "Напоминания, цикл и добавки",
-            )
-
-            AppCard {
-                Column {
-                    ProfileNavLink(
-                        icon = Icons.Filled.Medication,
-                        title = "Витамины и таблетки",
-                        subtitle = "Напоминания о приёме",
-                        onClick = onOpenPills,
-                        showDivider = false,
-                    )
-                    if (uiState.sex == Constants.Sex.FEMALE) {
-                        ProfileCardDivider()
-                        ProfileNavLink(
-                            icon = Icons.Filled.CalendarMonth,
-                            title = "Женское здоровье",
-                            subtitle = "Менструальный календарь и цикл",
-                            onClick = onOpenCycle,
-                            showDivider = false,
-                        )
-                    }
-                }
-            }
-
-            SectionHeader(
-                title = "Сообщество",
-                subtitle = "Достижения, друзья и клубы",
-            )
-
-            AppCard {
-                Column {
-                    ProfileNavLink(
-                        icon = Icons.Filled.EmojiEvents,
-                        title = "Достижения",
-                        subtitle = "Серии, цели и рекорды",
-                        onClick = onOpenAchievements,
-                        showDivider = false,
-                    )
-                    ProfileCardDivider()
-                    ProfileNavLink(
-                        icon = Icons.Filled.Group,
-                        title = "Друзья",
-                        subtitle = "Поиск, заявки и челлендж",
-                        onClick = onOpenFriends,
-                        showDivider = false,
-                    )
-                    ProfileCardDivider()
-                    ProfileNavLink(
-                        icon = Icons.Filled.Groups,
-                        title = "Клубы",
-                        subtitle = "Обсуждения, опросы и достижения",
-                        onClick = onOpenClubs,
-                        showDivider = false,
-                    )
-                }
-            }
-
-            SectionHeader(
-                title = "Сервис",
-                subtitle = "Синхронизация, интеграции и обучение",
-            )
-
-            AppCard {
-                Column {
-                    AppButton(
-                        text = if (uiState.isLoading) "Синхронизация..." else "Синхронизировать с Health Connect",
-                        onClick = {
-                            viewModel.onSyncHealthConnectClicked { permissions ->
-                                requestHealthPermissions.launch(permissions)
-                            }
-                        },
-                        enabled = !uiState.isLoading && !uiState.guestMode,
-                        modifier = Modifier.padding(16.dp),
-                    )
-                    ProfileCardDivider()
-                    ProfileNavLink(
-                        icon = Icons.Filled.Description,
-                        title = "Конфиденциальность",
-                        subtitle = "Данные, аккаунт и удаление",
-                        onClick = onOpenDataPrivacy,
-                        showDivider = false,
-                    )
-                    ProfileCardDivider()
-                    ProfileNavLink(
-                        icon = Icons.Filled.Link,
-                        title = "Интеграции",
-                        subtitle = "Health Connect, FatSecret, Mi Band BLE",
-                        onClick = onOpenIntegrations,
-                        showDivider = false,
-                    )
-                    ProfileCardDivider()
-                    ProfileNavLink(
-                        icon = Icons.Filled.Watch,
-                        title = "Умные часы и трекеры",
-                        subtitle = "Mi Band, Garmin, Health Connect",
-                        onClick = onOpenMiBandBle,
-                        showDivider = false,
-                    )
-                    ProfileCardDivider()
-                    ProfileNavLink(
-                        icon = Icons.Filled.Notifications,
-                        title = "Уведомления",
-                        subtitle = "Вода, еда, советы",
-                        onClick = onOpenNotifications,
-                        showDivider = false,
-                    )
-                    ProfileCardDivider()
-                    ProfileNavLink(
-                        icon = Icons.Filled.MenuBook,
-                        title = "Обучение по разделам",
-                        subtitle = "Показать подсказки снова на всех экранах",
-                        onClick = {
-                            FeatureGuidePrefs.requestShowAllAgain(context)
-                            showGuide = true
-                        },
-                        showDivider = false,
-                    )
-                    ProfileCardDivider()
-                    ProfileNavLink(
-                        icon = Icons.Filled.HowToVote,
-                        title = "Политические рекомендации",
-                        subtitle = PoliticalRecommendations.previewSubtitle(
-                            activityLevel = uiState.activityLevel,
-                            goal = uiState.goal.ifBlank { Constants.Goals.IMPROVE_ENERGY },
-                        ),
-                        onClick = onOpenPoliticalRecommendations,
-                        showDivider = false,
-                    )
-                }
-            }
-
-            ProfileLogoutCard(
-                enabled = !uiState.isLoading && !uiState.isSaving &&
-                    !uiState.isUploadingAvatar && !uiState.isChangingPassword,
-                onLogout = { viewModel.logout(onLogout) },
+        ProfileFormSheet(
+            visible = showPasswordSheet,
+            title = "Пароль",
+            subtitle = "Смена пароля аккаунта",
+            onDismiss = { showPasswordSheet = false },
+        ) {
+            ChangePasswordFormHeader()
+            ChangePasswordForm(
+                currentPassword = uiState.currentPassword,
+                newPassword = uiState.newPassword,
+                confirmPassword = uiState.confirmPassword,
+                isChanging = uiState.isChangingPassword,
+                enabled = !uiState.isLoading && !uiState.isSaving,
+                error = null,
+                success = null,
+                onCurrentChange = viewModel::updateCurrentPassword,
+                onNewChange = viewModel::updateNewPassword,
+                onConfirmChange = viewModel::updateConfirmPassword,
+                onSubmit = viewModel::changeAccountPassword,
             )
         }
 
@@ -580,6 +452,253 @@ fun ProfileScreen(
             },
         )
     }
+}
+
+@Composable
+private fun ProfileYouTab(
+    uiState: ProfileEditUiState,
+    onEditGoals: () -> Unit,
+    onOpenProfileData: () -> Unit,
+    onOpenTheme: () -> Unit,
+    onOpenPassword: () -> Unit,
+) {
+    ProfileGoalsStrip(
+        targetSleep = uiState.targetSleep,
+        targetWater = uiState.targetWater,
+        targetSteps = uiState.targetSteps,
+        onEditClick = onEditGoals,
+    )
+    ProfileBodyStatsCard(
+        heightCm = uiState.height,
+        weightKg = uiState.weight,
+        weightHistory = uiState.weightHistory,
+        weightWeeklyReminder = uiState.weightWeeklyReminder,
+    )
+
+    AppCard {
+        ProfileNavLink(
+            icon = Icons.Filled.Tune,
+            title = "Основные данные",
+            subtitle = listOf(
+                personalSummary(uiState),
+                "${ProfileRus.goalLabel(uiState.goal)} · ${ProfileRus.activityLevelLabel(uiState.activityLevel)}",
+            ).filter { it.isNotBlank() }.joinToString(" · "),
+            onClick = onOpenProfileData,
+            showDivider = false,
+        )
+    }
+    AppCard {
+        ProfileNavLink(
+            icon = Icons.Filled.Palette,
+            title = "Оформление",
+            subtitle = themeModeLabel(uiState.themeMode),
+            onClick = onOpenTheme,
+            showDivider = false,
+        )
+    }
+    AppCard {
+        ProfileNavLink(
+            icon = Icons.Filled.Lock,
+            title = "Пароль",
+            subtitle = "Смена пароля аккаунта",
+            onClick = onOpenPassword,
+            showDivider = false,
+        )
+    }
+}
+
+@Composable
+private fun ProfileHealthTab(
+    uiState: ProfileEditUiState,
+    onOpenPills: () -> Unit,
+    onOpenCycle: () -> Unit,
+    onOpenNotifications: () -> Unit,
+    onSyncHealthConnect: () -> Unit,
+) {
+    AppCard {
+        Column {
+            ProfileNavLink(
+                icon = Icons.Filled.Medication,
+                title = "Витамины и таблетки",
+                subtitle = "Напоминания о приёме",
+                onClick = onOpenPills,
+                showDivider = false,
+            )
+            if (uiState.sex == Constants.Sex.FEMALE) {
+                ProfileCardDivider()
+                ProfileNavLink(
+                    icon = Icons.Filled.CalendarMonth,
+                    title = "Женское здоровье",
+                    subtitle = "Менструальный календарь и цикл",
+                    onClick = onOpenCycle,
+                    showDivider = false,
+                )
+            }
+            ProfileCardDivider()
+            ProfileNavLink(
+                icon = Icons.Filled.Notifications,
+                title = "Уведомления",
+                subtitle = "Вода, еда и режим сна",
+                onClick = onOpenNotifications,
+                showDivider = false,
+            )
+        }
+    }
+    AppButton(
+        text = if (uiState.isLoading) "Синхронизация..." else "Синхронизировать с Health Connect",
+        onClick = onSyncHealthConnect,
+        enabled = !uiState.isLoading,
+    )
+}
+
+@Composable
+private fun ProfileCircleTab(
+    onOpenCommunity: () -> Unit,
+    onOpenAchievements: () -> Unit,
+    onOpenFriends: () -> Unit,
+    onOpenClubs: () -> Unit,
+) {
+    AppCard {
+        Column {
+            ProfileNavLink(
+                icon = Icons.Filled.DynamicFeed,
+                title = "Сообщество",
+                subtitle = "Лента постов, истории и реакции",
+                onClick = onOpenCommunity,
+                showDivider = false,
+            )
+            ProfileCardDivider()
+            ProfileNavLink(
+                icon = Icons.Filled.Group,
+                title = "Друзья",
+                subtitle = "Поиск, заявки и челлендж",
+                onClick = onOpenFriends,
+                showDivider = false,
+            )
+            ProfileCardDivider()
+            ProfileNavLink(
+                icon = Icons.Filled.Groups,
+                title = "Клубы",
+                subtitle = "Обсуждения, опросы и достижения",
+                onClick = onOpenClubs,
+                showDivider = false,
+            )
+            ProfileCardDivider()
+            ProfileNavLink(
+                icon = Icons.Filled.EmojiEvents,
+                title = "Достижения",
+                subtitle = "Серии, цели и рекорды",
+                onClick = onOpenAchievements,
+                showDivider = false,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProfileMoreTab(
+    uiState: ProfileEditUiState,
+    onOpenDataPrivacy: () -> Unit,
+    onOpenDataImport: () -> Unit,
+    onExportReport: () -> Unit,
+    onOpenServerConnection: () -> Unit,
+    onOpenIntegrations: () -> Unit,
+    onOpenMiBandBle: () -> Unit,
+    onShowGuides: () -> Unit,
+    onLogout: () -> Unit,
+) {
+    AppCard {
+        Column {
+            ProfileNavLink(
+                icon = Icons.Filled.Description,
+                title = "Конфиденциальность",
+                subtitle = "Данные, аккаунт и удаление",
+                onClick = onOpenDataPrivacy,
+                showDivider = false,
+            )
+            ProfileCardDivider()
+            ProfileNavLink(
+                icon = Icons.Filled.FileUpload,
+                title = "Импорт данных",
+                subtitle = "CSV и JSON с телефона или Health Connect",
+                onClick = onOpenDataImport,
+                showDivider = false,
+            )
+            ProfileCardDivider()
+            ProfileNavLink(
+                icon = Icons.Filled.FileDownload,
+                title = "Экспорт отчёта",
+                subtitle = if (uiState.isExportingReport) {
+                    "Готовим PDF и CSV…"
+                } else {
+                    "PDF, текст и таблица за 30 дней"
+                },
+                onClick = onExportReport,
+                showDivider = false,
+            )
+            ProfileCardDivider()
+            if (BuildConfig.SERVER_OVERRIDE_ENABLED) {
+                ProfileNavLink(
+                    icon = Icons.Filled.Cloud,
+                    title = "Сервер",
+                    subtitle = "Адрес API для локальной разработки",
+                    onClick = onOpenServerConnection,
+                    showDivider = false,
+                )
+                ProfileCardDivider()
+            }
+            ProfileNavLink(
+                icon = Icons.Filled.Link,
+                title = "Интеграции",
+                subtitle = "Health Connect, FatSecret, Mi Band BLE",
+                onClick = onOpenIntegrations,
+                showDivider = false,
+            )
+            ProfileCardDivider()
+            ProfileNavLink(
+                icon = Icons.Filled.Watch,
+                title = "Умные часы и трекеры",
+                subtitle = "Mi Band, Garmin, Health Connect",
+                onClick = onOpenMiBandBle,
+                showDivider = false,
+            )
+            ProfileCardDivider()
+            ProfileNavLink(
+                icon = Icons.AutoMirrored.Filled.MenuBook,
+                title = "Обучение по разделам",
+                subtitle = "Показать подсказки снова на всех экранах",
+                onClick = onShowGuides,
+                showDivider = false,
+            )
+        }
+    }
+
+    ProfileLogoutCard(
+        enabled = !uiState.isLoading && !uiState.isSaving &&
+            !uiState.isUploadingAvatar && !uiState.isChangingPassword,
+        onLogout = onLogout,
+    )
+}
+
+private fun personalSummary(uiState: ProfileEditUiState): String {
+    val parts = buildList {
+        val name = listOf(uiState.firstName, uiState.lastName).filter { it.isNotBlank() }.joinToString(" ")
+        if (name.isNotBlank()) add(name)
+        if (uiState.age.isNotBlank()) add("${uiState.age} лет")
+        add(dietSummary(uiState))
+    }
+    return parts.joinToString(" · ").ifBlank { "Имя, тело и питание" }
+}
+
+private fun dietSummary(uiState: ProfileEditUiState): String = buildList {
+    add(if (uiState.isVegetarian) "Вегетарианство" else "Без ограничений по мясу")
+    if (uiState.hasAllergies) add("есть аллергии")
+}.joinToString(" · ")
+
+private fun themeModeLabel(mode: ThemeMode): String = when (mode) {
+    ThemeMode.LIGHT -> "Светлая тема"
+    ThemeMode.DARK -> "Тёмная тема"
+    ThemeMode.SYSTEM -> "Как в системе"
 }
 
 private fun launchCamera(context: android.content.Context, onUri: (Uri) -> Unit) {
@@ -626,10 +745,4 @@ private fun AvatarSheetRow(
             color = contentColor,
         )
     }
-}
-
-private enum class ProfileSaveSection {
-    BASICS,
-    GOALS,
-    DIET,
 }

@@ -1,7 +1,6 @@
 package com.example.healtapp.data.preferences
 
 import android.content.Context
-import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -18,7 +17,6 @@ class TokenStorage(
     companion object {
         private val TOKEN_KEY = stringPreferencesKey("token")
         private val REFRESH_TOKEN_KEY = stringPreferencesKey("refresh_token")
-        private val GUEST_MODE_KEY = booleanPreferencesKey("guest_mode")
         private val USER_ID_KEY = stringPreferencesKey("user_id")
     }
 
@@ -30,7 +28,6 @@ class TokenStorage(
             } else {
                 prefs.remove(REFRESH_TOKEN_KEY)
             }
-            prefs[GUEST_MODE_KEY] = false
             JwtUserId.fromAccessToken(accessToken)?.let { id ->
                 prefs[USER_ID_KEY] = id.toString()
             }
@@ -40,28 +37,11 @@ class TokenStorage(
     suspend fun saveToken(token: String) {
         context.dataStore.edit { prefs ->
             prefs[TOKEN_KEY] = token
-            prefs[GUEST_MODE_KEY] = false
             JwtUserId.fromAccessToken(token)?.let { id ->
                 prefs[USER_ID_KEY] = id.toString()
             }
         }
     }
-
-    /** Локальный просмотр без JWT: главная и рекомендации с демо-данными, без синхронизации. */
-    suspend fun setGuestMode(enabled: Boolean) {
-        context.dataStore.edit { prefs ->
-            if (enabled) {
-                prefs.remove(TOKEN_KEY)
-                prefs.remove(REFRESH_TOKEN_KEY)
-                prefs[GUEST_MODE_KEY] = true
-            } else {
-                prefs[GUEST_MODE_KEY] = false
-            }
-        }
-    }
-
-    suspend fun isGuestMode(): Boolean =
-        context.dataStore.data.first()[GUEST_MODE_KEY] == true
 
     fun tokenFlow(): Flow<String?> {
         return context.dataStore.data.map { prefs -> prefs[TOKEN_KEY] }
@@ -94,7 +74,6 @@ class TokenStorage(
             prefs.remove(TOKEN_KEY)
             prefs.remove(REFRESH_TOKEN_KEY)
             prefs.remove(USER_ID_KEY)
-            prefs[GUEST_MODE_KEY] = false
         }
     }
 }

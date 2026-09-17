@@ -46,10 +46,15 @@ import com.example.healtapp.core.ui.components.SectionHeader
 import com.example.healtapp.data.network.dto.meal.MealCreateRequestDto
 import com.example.healtapp.data.network.dto.meal.MealDto
 import com.example.healtapp.features.meal.presentation.MealViewModel
+import com.example.healtapp.features.meal.ui.components.MealDiaryCalendar
 import com.example.healtapp.features.meal.ui.components.MealDiaryRowCompact
 import com.example.healtapp.features.meal.ui.components.MealNutritionSummaryCard
 import com.example.healtapp.features.meal.ui.components.MealNutritionTargetsSheet
+import com.example.healtapp.data.preferences.MealSlotPhotoStore
 import com.example.healtapp.features.meal.ui.components.MealSlotSection
+import com.example.healtapp.features.social.ui.components.createSocialCameraUri
+import androidx.activity.result.PickVisualMediaRequest
+import android.net.Uri
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -68,7 +73,8 @@ private val diarySlotApiTypes = mealTypeOrder.map { it.first }.toSet()
 @Composable
 fun MealTabContent(
     snackbarHostState: SnackbarHostState,
-    onOpenPlanner: () -> Unit = {}
+    onOpenPlanner: () -> Unit = {},
+    openFoodCamera: Boolean = false,
 ) {
     val mealViewModel: MealViewModel = hiltViewModel()
     val mealUiState by mealViewModel.uiState.collectAsStateWithLifecycle()
@@ -98,6 +104,41 @@ fun MealTabContent(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
         if (granted) showBarcodeScanner = true
+    }
+    var coverPhotoTargetApi by remember { mutableStateOf<String?>(null) }
+    var coverPhotosTick by remember { mutableStateOf(0) }
+    var pendingCoverCameraUri by remember { mutableStateOf<Uri?>(null) }
+    var showCoverSourceDialog by remember { mutableStateOf(false) }
+    val coverGalleryLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        val api = coverPhotoTargetApi
+        coverPhotoTargetApi = null
+        if (uri != null && api != null) {
+            MealSlotPhotoStore.persistFromUri(context, LocalDate.now().toString(), api, uri)
+            coverPhotosTick++
+        }
+    }
+    val coverCameraLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicture(),
+    ) { ok ->
+        val api = coverPhotoTargetApi
+        val uri = pendingCoverCameraUri
+        coverPhotoTargetApi = null
+        pendingCoverCameraUri = null
+        if (ok && uri != null && api != null) {
+            MealSlotPhotoStore.persistFromUri(context, LocalDate.now().toString(), api, uri)
+            coverPhotosTick++
+        }
+    }
+    var launchedFoodCamera by remember { mutableStateOf(false) }
+    LaunchedEffect(openFoodCamera) {
+        if (openFoodCamera && !launchedFoodCamera) {
+            launchedFoodCamera = true
+            activeSlotLabel = "Перекус"
+            mealViewModel.focusMealSlot("Перекус")
+            showSearchSheet = true
+        }
     }
 
     LaunchedEffect(mealUiState.snackMessage) {
@@ -192,8 +233,6 @@ fun MealTabContent(
             },
         )
 
-        Spacer(Modifier.height(16.dp))
-        SectionHeader(title = "ИИ и дневник", subtitle = "План питания и записи за сегодня")
         AppCard(onClick = onOpenPlanner) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -207,21 +246,39 @@ fun MealTabContent(
                 )
                 Column(modifier = Modifier.weight(1f)) {
                     Text("ИИ план питания", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text("Сгенерировать меню и список покупок", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "Персональное меню на неделю и список покупок по вашим целям калорий.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }
 
-        CollapsibleAppCard(
-            title = "Дневник на сегодня",
-            subtitle = "${todayMeals.size} записей · все приёмы пищи",
-            initiallyExpanded = true,
-        ) {
-            mealTypeOrder.forEach { (apiType, titleRu) ->
+        MealDiaryCalendar(
+            meals = mealUiState.mealHistory,
+            photoTick = coverPhotosTick,
+        )
+
+        mealTypeOrder.forEach { (apiType, titleRu) ->
                 val block = todayMeals.filter { it.meal_type.equals(apiType, ignoreCase = true) }
+                val coverUri = remember(todayKey, apiType, coverPhotosTick) {
+                    MealSlotPhotoStore.get(context, todayKey, apiType)
+                }
                 MealSlotSection(
                     titleRu = titleRu,
                     meals = block,
+                    timeHint = slotTimeHint(apiType, block),
+                    initiallyExpanded = false,
+                    coverPhotoUri = coverUri,
+                    onPickCoverPhoto = {
+                        coverPhotoTargetApi = apiType
+                        showCoverSourceDialog = true
+                    },
+                    onClearCoverPhoto = {
+                        MealSlotPhotoStore.clear(context, todayKey, apiType)
+                        coverPhotosTick++
+                    },
                     onAdd = {
                         activeSlotLabel = titleRu
                         mealViewModel.focusMealSlot(titleRu)
@@ -248,6 +305,7 @@ fun MealTabContent(
                 MealSlotSection(
                     titleRu = "Прочее",
                     meals = otherToday,
+                    initiallyExpanded = false,
                     onAdd = {
                         activeSlotLabel = "Перекус"
                         mealViewModel.focusMealSlot("Перекус")
@@ -266,7 +324,6 @@ fun MealTabContent(
                     onDelete = { mealToDelete = it },
                 )
             }
-        }
 
         if (pastMeals.isNotEmpty()) {
             CollapsibleAppCard(
@@ -360,6 +417,37 @@ fun MealTabContent(
         },
     )
 
+    if (showCoverSourceDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showCoverSourceDialog = false
+                coverPhotoTargetApi = null
+            },
+            title = { Text("Фото приёма пищи") },
+            text = { Text("Добавьте обложку к завтраку, обеду или ужину — как к тренировке.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showCoverSourceDialog = false
+                        coverGalleryLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                        )
+                    },
+                ) { Text("Галерея") }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showCoverSourceDialog = false
+                        val uri = createSocialCameraUri(context, "meal_cover")
+                        pendingCoverCameraUri = uri
+                        coverCameraLauncher.launch(uri)
+                    },
+                ) { Text("Камера") }
+            },
+        )
+    }
+
     mealToDelete?.let { m ->
         AlertDialog(
             onDismissRequest = { mealToDelete = null },
@@ -452,4 +540,12 @@ fun MealTabContent(
             )
         }
     }
+}
+
+private fun slotTimeHint(apiType: String, meals: List<MealDto>): String {
+    meals.firstOrNull()?.meal_time?.let { raw ->
+        val clock = raw.substringAfter('T', missingDelimiterValue = "").take(5)
+        if (clock.length == 5) return clock
+    }
+    return ""
 }

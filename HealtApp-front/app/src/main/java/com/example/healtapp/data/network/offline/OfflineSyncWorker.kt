@@ -18,7 +18,8 @@ class OfflineSyncWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted workerParams: WorkerParameters,
     private val offlineActionQueue: OfflineActionQueue,
-    private val okHttpClient: OkHttpClient
+    private val okHttpClient: OkHttpClient,
+    private val serverConfig: com.example.healtapp.data.network.ApiServerConfig,
 ) : CoroutineWorker(context, workerParams) {
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
@@ -29,9 +30,10 @@ class OfflineSyncWorker @AssistedInject constructor(
         }
 
         val jsonMediaType = "application/json; charset=utf-8".toMediaTypeOrNull()
+        val base = serverConfig.baseUrl().trimEnd('/')
 
         for (action in actions) {
-            val url = "http://127.0.0.1/${action.path.removePrefix("/")}"
+            val url = "$base/${action.path.removePrefix("/")}"
             
             val requestBuilder = Request.Builder().url(url)
             

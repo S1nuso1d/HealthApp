@@ -1,4 +1,5 @@
 import java.util.Properties
+import java.io.FileInputStream
 
 plugins {
     id("com.android.application")
@@ -28,30 +29,78 @@ val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use { load(it) }
 }
-val apiBaseUrl = localProperties.getProperty("API_BASE_URL", "http://192.168.31.183:8001/")
+
+val keystoreProperties = Properties().apply {
+    val file = rootProject.file("keystore.properties")
+    if (file.exists()) FileInputStream(file).use { load(it) }
+}
+
+/** Debug / локальная разработка: LAN или override из local.properties. */
+val debugApiBaseUrl = localProperties.getProperty("API_BASE_URL", "http://10.0.2.2:8001/")
     .let { if (it.endsWith("/")) it else "$it/" }
+
+/**
+ * Release: только HTTPS. Задайте PROD_API_BASE_URL в local.properties или CI.
+ * Плейсхолдер не должен указывать на LAN.
+ */
+val prodApiBaseUrl = localProperties.getProperty(
+    "PROD_API_BASE_URL",
+    "https://api.healthapp.app/",
+).let { if (it.endsWith("/")) it else "$it/" }
+
+val privacyPolicyUrl = localProperties.getProperty(
+    "PRIVACY_POLICY_URL",
+    "https://healthapp.app/legal/privacy",
+)
+val termsOfServiceUrl = localProperties.getProperty(
+    "TERMS_OF_SERVICE_URL",
+    "https://healthapp.app/legal/terms",
+)
+val sentryDsn = localProperties.getProperty("SENTRY_DSN", "")
 
 android {
     namespace = "com.example.healtapp"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.healtapp"
+        applicationId = "com.healthapp.android"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField("String", "BASE_URL", "\"$apiBaseUrl\"")
+        buildConfigField("String", "PRIVACY_POLICY_URL", "\"$privacyPolicyUrl\"")
+        buildConfigField("String", "TERMS_OF_SERVICE_URL", "\"$termsOfServiceUrl\"")
+        buildConfigField("String", "SENTRY_DSN", "\"$sentryDsn\"")
 
         vectorDrawables {
             useSupportLibrary = true
         }
     }
 
+    signingConfigs {
+        create("release") {
+            val storeFilePath = keystoreProperties.getProperty("storeFile")
+            if (storeFilePath != null) {
+                storeFile = rootProject.file(storeFilePath)
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
+        debug {
+            isMinifyEnabled = false
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+            buildConfigField("String", "BASE_URL", "\"$debugApiBaseUrl\"")
+            buildConfigField("boolean", "SERVER_OVERRIDE_ENABLED", "true")
+            buildConfigField("boolean", "ALLOW_CLEARTEXT", "true")
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -59,10 +108,12 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-        }
-        debug {
-            // Отладочную сборку не сжимаем — иначе каждая пересборка длится минутами
-            isMinifyEnabled = false
+            buildConfigField("String", "BASE_URL", "\"$prodApiBaseUrl\"")
+            buildConfigField("boolean", "SERVER_OVERRIDE_ENABLED", "false")
+            buildConfigField("boolean", "ALLOW_CLEARTEXT", "false")
+            if (keystoreProperties.getProperty("storeFile") != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
@@ -87,7 +138,6 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
-            // bcprov-jdk18on vs jspecify — одинаковый OSGI MANIFEST
             excludes += "/META-INF/versions/**"
         }
     }
@@ -156,12 +206,9 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:$cam")
     implementation("androidx.camera:camera-view:$cam")
 
-    // CameraX ProcessCameraProvider uses Guava ListenableFuture on the compile classpath
     implementation("com.google.guava:guava:33.3.1-android")
 
-    val vico = "1.15.0"
-    implementation("com.patrykandpatrick.vico:compose:$vico")
-    implementation("com.patrykandpatrick.vico:compose-m3:$vico")
+    implementation("io.sentry:sentry-android:7.22.4")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
@@ -169,5 +216,7 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     
     implementation("com.google.android.gms:play-services-wearable:18.1.0")
+    implementation("com.google.android.gms:play-services-location:21.3.0")
+    implementation("org.osmdroid:osmdroid-android:6.1.20")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
 }

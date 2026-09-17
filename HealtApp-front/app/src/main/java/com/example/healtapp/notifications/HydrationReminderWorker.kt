@@ -23,15 +23,12 @@ class HydrationReminderWorker(
             applicationContext,
             ReminderEntryPoint::class.java,
         )
-        if (entry.tokenStorage().getToken() != null && !entry.tokenStorage().isGuestMode()) {
-            val profile = entry.profileRepository().getMyProfile().getOrNull()
-            val target = profile?.target_water_ml?.toInt() ?: 2500
-            val current = ReminderDataChecker.todayWaterMl(entry.hydrationRepository())
-            if (current >= target) return Result.success()
-            if (current < (target * 0.85f).toInt()) {
-                HealthNotificationHelper.hydrationReminder(applicationContext)
-            }
-        } else {
+        if (entry.tokenStorage().getToken() == null) return Result.success()
+        val profile = entry.profileRepository().getMyProfile().getOrNull()
+        val target = profile?.target_water_ml?.toInt() ?: 2500
+        val current = ReminderDataChecker.todayWaterMl(entry.hydrationRepository())
+        if (current >= target) return Result.success()
+        if (current < (target * 0.85f).toInt()) {
             HealthNotificationHelper.hydrationReminder(applicationContext)
         }
         return Result.success()

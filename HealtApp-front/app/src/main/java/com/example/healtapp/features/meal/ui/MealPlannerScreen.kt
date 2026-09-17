@@ -7,13 +7,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -21,7 +19,6 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -62,217 +59,194 @@ fun MealPlannerScreen(
     val viewModel: MealPlannerViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    Box(Modifier.fillMaxSize()) {
-        FeatureScreenShell(
-            title = "ИИ план питания",
-            subtitle = "Меню и список покупок по профилю",
-            icon = Icons.Filled.Restaurant,
-            onBack = onBack,
-            scrollStateKey = "meal_planner",
-            extraBottomPadding = 88.dp,
-            heroActions = {
-                IconButton(onClick = viewModel::refreshAiStatus) {
-                    Icon(
-                        Icons.Filled.Refresh,
-                        contentDescription = "Обновить статус ИИ",
-                        tint = heroContentColor(),
+    FeatureScreenShell(
+        title = "ИИ план питания",
+        subtitle = "Меню и список покупок по профилю",
+        icon = Icons.Filled.Restaurant,
+        onBack = onBack,
+        scrollStateKey = "meal_planner",
+        heroActions = {
+            IconButton(onClick = viewModel::refreshAiStatus) {
+                Icon(
+                    Icons.Filled.Refresh,
+                    contentDescription = "Обновить статус ИИ",
+                    tint = heroContentColor(),
+                )
+            }
+        },
+        heroFooter = if (!uiState.isLoading || uiState.plan != null) {
+            {
+                Row(
+                    modifier = Modifier.padding(start = 12.dp, top = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FeatureHeroChip(label = "План: ${uiState.planDays} дн.")
+                    uiState.plan?.let { plan ->
+                        FeatureHeroChip(label = "Блюд: ${plan.days.sumOf { it.meals.size }}")
+                        FeatureHeroChip(label = "Покупок: ${plan.grocery_list.size}")
+                    }
+                }
+            }
+        } else {
+            null
+        },
+    ) {
+        if (uiState.isLoading && uiState.plan == null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 32.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator()
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        "Составляем меню…",
+                        color = contentSecondaryColor(),
+                    )
+                    Text(
+                        mealPlanLoadingHint(uiState.planDays),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = contentSecondaryColor(),
                     )
                 }
-            },
-            heroFooter = if (!uiState.isLoading || uiState.plan != null) {
-                {
-                    Row(
-                        modifier = Modifier.padding(start = 12.dp, top = 10.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        FeatureHeroChip(label = "План: ${uiState.planDays} дн.")
-                        uiState.plan?.let { plan ->
-                            FeatureHeroChip(label = "Блюд: ${plan.days.sumOf { it.meals.size }}")
-                            FeatureHeroChip(label = "Покупок: ${plan.grocery_list.size}")
-                        }
-                    }
-                }
-            } else {
-                null
-            },
-        ) {
-            if (uiState.isLoading && uiState.plan == null) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 32.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator()
-                        Spacer(Modifier.height(12.dp))
-                        Text(
-                            "Составляем меню…",
-                            color = contentSecondaryColor(),
-                        )
-                        Text(
-                            mealPlanLoadingHint(uiState.planDays),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = contentSecondaryColor(),
-                        )
-                    }
-                }
-                return@FeatureScreenShell
             }
+            return@FeatureScreenShell
+        }
 
-            uiState.info?.let { FeatureInlineNotice(text = it) }
-            uiState.error?.let { FeatureInlineNotice(text = it, isError = true) }
+        uiState.info?.let { FeatureInlineNotice(text = it) }
+        uiState.error?.let { FeatureInlineNotice(text = it, isError = true) }
 
-            if (uiState.plan == null) {
-                FeatureSectionTitle(
-                    title = "Генерация меню",
-                    subtitle = "По целям, аллергиям и вегетарианству из профиля",
-                )
-                GradientFormPanel {
-                    Column(
+        if (uiState.plan == null) {
+            FeatureSectionTitle(
+                title = "Генерация меню",
+                subtitle = "КБЖУ пересчитываем по каталогу продуктов, не «на глаз»",
+            )
+            GradientFormPanel {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Icon(
+                        Icons.Filled.Restaurant,
+                        contentDescription = null,
+                        modifier = Modifier.size(44.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        text = "Персональное меню на несколько дней",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = contentPrimaryColor(),
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = "ИИ подбирает блюда и порции, а калории и БЖУ считаются по продуктам из каталога.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = contentSecondaryColor(),
+                        textAlign = TextAlign.Center,
+                    )
+                    PlanDaysSelector(
+                        selected = uiState.planDays,
+                        onSelect = viewModel::setPlanDays,
+                    )
+                    AppButton(
+                        text = if (uiState.isLoading) {
+                            "Составляем…"
+                        } else {
+                            "Сгенерировать план (${uiState.planDays} дн.)"
+                        },
+                        onClick = viewModel::generatePlan,
+                        enabled = !uiState.isLoading,
                         modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Icon(
-                            Icons.Filled.Restaurant,
-                            contentDescription = null,
-                            modifier = Modifier.size(44.dp),
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
-                        Text(
-                            text = "Персональное меню на несколько дней",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = contentPrimaryColor(),
-                            textAlign = TextAlign.Center,
-                        )
-                        Text(
-                            text = "ИИ учтёт КБЖУ, ограничения и цели из профиля. 3 дня — быстрее всего.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = contentSecondaryColor(),
-                            textAlign = TextAlign.Center,
-                        )
-                        PlanDaysSelector(
-                            selected = uiState.planDays,
-                            onSelect = viewModel::setPlanDays,
-                        )
-                        AppButton(
-                            text = if (uiState.isLoading) {
-                                "Составляем…"
-                            } else {
-                                "Сгенерировать план (${uiState.planDays} дн.)"
-                            },
-                            onClick = viewModel::generatePlan,
-                            enabled = !uiState.isLoading,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
+                    )
                 }
-                EmptyStateCard(
-                    text = "Нажмите кнопку внизу справа или «Сгенерировать план», чтобы получить меню и список покупок.",
-                    icon = Icons.Filled.AutoAwesome,
-                )
+            }
+            EmptyStateCard(
+                text = "Нажмите «Сгенерировать план», чтобы получить меню и список покупок.",
+                icon = Icons.Filled.AutoAwesome,
+            )
+        } else {
+            val plan = uiState.plan ?: return@FeatureScreenShell
+
+            PlanDaysSelector(
+                selected = uiState.planDays,
+                onSelect = viewModel::setPlanDays,
+            )
+            AppButton(
+                text = if (uiState.isLoading) "Обновляем…" else "Обновить план (${uiState.planDays} дн.)",
+                onClick = viewModel::generatePlan,
+                enabled = !uiState.isLoading,
+                isSecondary = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            FeatureSectionTitle(
+                title = "Список покупок",
+                subtitle = "${plan.grocery_list.size} позиций · ${groceryPeriodLabel(plan.days.size)}",
+            )
+            if (plan.grocery_list.isEmpty()) {
+                MealPlanListCard {
+                    Text(
+                        "Список покупок пуст",
+                        color = contentSecondaryColor(),
+                    )
+                }
             } else {
-                val plan = uiState.plan ?: return@FeatureScreenShell
-
-                PlanDaysSelector(
-                    selected = uiState.planDays,
-                    onSelect = viewModel::setPlanDays,
-                )
-
-                FeatureSectionTitle(
-                    title = "Список покупок",
-                    subtitle = "${plan.grocery_list.size} позиций · ${groceryPeriodLabel(plan.days.size)}",
-                )
-                if (plan.grocery_list.isEmpty()) {
-                    MealPlanListCard {
-                        Text(
-                            "Список покупок пуст",
-                            color = contentSecondaryColor(),
-                        )
-                    }
-                } else {
-                    MealPlanListCard {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Icon(
-                                    Icons.Filled.ShoppingCart,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                )
-                                Text(
-                                    groceryPeriodLabel(plan.days.size),
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = contentPrimaryColor(),
-                                )
-                            }
-                            val grouped = plan.grocery_list.groupBy { it.category }
-                            grouped.forEach { (category, items) ->
-                                Text(
-                                    category,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
-                                items.forEach { item ->
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                    ) {
-                                        Text(
-                                            item.name,
-                                            color = contentPrimaryColor(),
-                                            modifier = Modifier.weight(1f),
-                                        )
-                                        Spacer(Modifier.width(8.dp))
-                                        Text(
-                                            item.amount,
-                                            color = contentSecondaryColor(),
-                                        )
-                                    }
+                MealPlanListCard {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                Icons.Filled.ShoppingCart,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(
+                                groceryPeriodLabel(plan.days.size),
+                                fontWeight = FontWeight.SemiBold,
+                                color = contentPrimaryColor(),
+                            )
+                        }
+                        val grouped = plan.grocery_list.groupBy { it.category }
+                        grouped.forEach { (category, items) ->
+                            Text(
+                                category,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            items.forEach { item ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                ) {
+                                    Text(
+                                        item.name,
+                                        color = contentPrimaryColor(),
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        item.amount,
+                                        color = contentSecondaryColor(),
+                                    )
                                 }
                             }
                         }
                     }
                 }
-
-                FeatureSectionTitle(
-                    title = "Меню",
-                    subtitle = "${plan.days.size} дней",
-                )
-                plan.days.forEach { day ->
-                    MealPlanDayCard(day)
-                }
             }
-        }
 
-        FloatingActionButton(
-            onClick = viewModel::generatePlan,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 20.dp, bottom = 24.dp),
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-            shape = CircleShape,
-        ) {
-            if (uiState.isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    strokeWidth = 2.dp,
-                )
-            } else {
-                Icon(
-                    Icons.Filled.AutoAwesome,
-                    contentDescription = if (uiState.plan == null) {
-                        "Сгенерировать план"
-                    } else {
-                        "Обновить план"
-                    },
-                )
+            FeatureSectionTitle(
+                title = "Меню",
+                subtitle = "${plan.days.size} дней · КБЖУ из каталога",
+            )
+            plan.days.forEach { day ->
+                MealPlanDayCard(day)
             }
         }
     }

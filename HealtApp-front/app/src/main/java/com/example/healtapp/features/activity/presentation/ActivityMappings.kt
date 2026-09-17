@@ -57,18 +57,58 @@ data class TrainingFormFields(
     val showDistance: Boolean,
     val showNotes: Boolean,
     val showExertion: Boolean,
+    val showCalories: Boolean = false,
+    val showIntensity: Boolean = false,
+    val supportsLiveGps: Boolean = false,
     val distanceLabel: String = "Дистанция (км)",
     val notesLabel: String = "Заметки",
     val notesPlaceholder: String = "",
+    val hint: String = "Заполните детали и сохраните",
 )
 
 fun trainingFormFieldsFor(displayRu: String): TrainingFormFields = when (displayRu) {
+    "Бег" -> TrainingFormFields(
+        showDistance = true,
+        showNotes = true,
+        showExertion = false,
+        supportsLiveGps = true,
+        distanceLabel = "Дистанция (км)",
+        hint = "Живая запись на карте или ручной ввод",
+    )
+    "Ходьба", "Прогулка" -> TrainingFormFields(
+        showDistance = true,
+        showNotes = true,
+        showExertion = false,
+        supportsLiveGps = true,
+        distanceLabel = "Дистанция (км)",
+        hint = "Шаги идут отдельно — здесь прогулка или ходьба",
+    )
+    "Велосипед" -> TrainingFormFields(
+        showDistance = true,
+        showNotes = true,
+        showExertion = false,
+        supportsLiveGps = true,
+        distanceLabel = "Дистанция (км)",
+        hint = "Километраж и время на карте или вручную",
+    )
+    "Поход" -> TrainingFormFields(
+        showDistance = true,
+        showNotes = true,
+        showExertion = false,
+        supportsLiveGps = true,
+        distanceLabel = "Дистанция (км)",
+        notesLabel = "Маршрут",
+        notesPlaceholder = "Тропа, набор высоты, покрытие",
+        hint = "Маршрут на карте или ручная запись",
+    )
     "Силовая тренировка" -> TrainingFormFields(
         showDistance = false,
         showNotes = true,
         showExertion = true,
+        showIntensity = true,
         notesLabel = "Упражнения и подходы",
         notesPlaceholder = "Например: жим 3×8, присед 4×10",
+        hint = "Подходы, повторения и ощущаемая нагрузка",
     )
     "Йога" -> TrainingFormFields(
         showDistance = false,
@@ -76,6 +116,7 @@ fun trainingFormFieldsFor(displayRu: String): TrainingFormFields = when (display
         showExertion = true,
         notesLabel = "Практика",
         notesPlaceholder = "Стиль, ключевые асаны, самочувствие",
+        hint = "Длительность и характер практики",
     )
     "Растяжка" -> TrainingFormFields(
         showDistance = false,
@@ -83,25 +124,108 @@ fun trainingFormFieldsFor(displayRu: String): TrainingFormFields = when (display
         showExertion = true,
         notesLabel = "Фокус тренировки",
         notesPlaceholder = "Зоны тела, длительность удержаний",
+        hint = "Какие мышцы растягивали",
+    )
+    "Пилатес" -> TrainingFormFields(
+        showDistance = false,
+        showNotes = true,
+        showExertion = true,
+        notesLabel = "Блок",
+        notesPlaceholder = "Коврик, реформер, акцент на корпус",
+        hint = "Длительность и ощущаемая нагрузка",
     )
     "Плавание" -> TrainingFormFields(
         showDistance = true,
         showNotes = true,
         showExertion = false,
         distanceLabel = "Дистанция (м)",
-        notesLabel = "Заметки",
+        notesLabel = "Стиль",
+        notesPlaceholder = "Кроль, брасс, интервалы",
+        hint = "Метры и стиль в бассейне",
     )
-    "Велосипед" -> TrainingFormFields(
-        showDistance = true,
+    "HIIT" -> TrainingFormFields(
+        showDistance = false,
         showNotes = true,
-        showExertion = false,
+        showExertion = true,
+        showIntensity = true,
+        notesLabel = "Протокол",
+        notesPlaceholder = "20/10, 8 раундов, упражнения",
+        hint = "Интервалы и оценка нагрузки",
+    )
+    "Кроссфит" -> TrainingFormFields(
+        showDistance = false,
+        showNotes = true,
+        showExertion = true,
+        showIntensity = true,
+        notesLabel = "WOD",
+        notesPlaceholder = "Комплекс, раунды, вес",
+        hint = "Комплекс и ощущаемая нагрузка",
+    )
+    "Бокс" -> TrainingFormFields(
+        showDistance = false,
+        showNotes = true,
+        showExertion = true,
+        showIntensity = true,
+        notesLabel = "Раунды",
+        notesPlaceholder = "Мешок, спарринг, работа на лапах",
+        hint = "Раунды и интенсивность",
+    )
+    "Танцы" -> TrainingFormFields(
+        showDistance = false,
+        showNotes = true,
+        showExertion = true,
+        notesLabel = "Стиль",
+        notesPlaceholder = "Зумба, хип-хоп, бальные",
+        hint = "Длительность и стиль",
+    )
+    "Футбол", "Теннис" -> TrainingFormFields(
+        showDistance = false,
+        showNotes = true,
+        showExertion = true,
+        showIntensity = true,
+        notesLabel = "Игра",
+        notesPlaceholder = "Тренировка или матч, счёт",
+        hint = "Длительность и характер игры",
+    )
+    "Эллипс" -> TrainingFormFields(
+        showDistance = true,
+        showNotes = false,
+        showExertion = true,
         distanceLabel = "Дистанция (км)",
+        hint = "Время и дистанция с тренажёра",
+    )
+    "Гребля" -> TrainingFormFields(
+        showDistance = true,
+        showNotes = false,
+        showExertion = true,
+        distanceLabel = "Дистанция (км)",
+        hint = "Дистанция и время на эргометре",
     )
     else -> TrainingFormFields(
-        showDistance = true,
+        showDistance = false,
         showNotes = true,
-        showExertion = false,
-        distanceLabel = "Дистанция (км)",
-        notesLabel = "Заметки",
+        showExertion = true,
+        showIntensity = true,
+        hint = "Длительность и заметки по тренировке",
     )
+}
+
+fun estimateTrainingCalories(displayRu: String, durationMinutes: Int, distanceKm: Float?): Float {
+    val hours = durationMinutes.coerceAtLeast(1) / 60f
+    val perMinute = when (displayRu) {
+        "Бег" -> 10f
+        "Велосипед" -> 8f
+        "Поход" -> 7f
+        "Плавание" -> 9f
+        "HIIT", "Кроссфит", "Бокс" -> 11f
+        "Силовая тренировка" -> 6f
+        "Эллипс", "Гребля" -> 8f
+        "Танцы", "Футбол", "Теннис" -> 7f
+        "Йога", "Пилатес", "Растяжка" -> 3.5f
+        "Ходьба", "Прогулка" -> 4f
+        else -> 6f
+    }
+    val fromTime = perMinute * durationMinutes
+    val fromDistance = distanceKm?.let { it * 60f }
+    return (fromDistance?.coerceAtLeast(fromTime) ?: fromTime).coerceAtLeast(hours * 50f)
 }

@@ -26,7 +26,13 @@ object CycleCalculator {
         val cycleDay: Int?,
         val averageCycleLength: Int,
         val periodLength: Int,
+        /** Дней до ожидаемых месячных; null если уже идут или есть задержка. */
         val daysUntilNextPeriod: Int?,
+        /** Дней просрочки относительно прогноза; null если не просрочено. */
+        val daysLate: Int?,
+        val isLate: Boolean,
+        val isDueToday: Boolean,
+        val currentlyOnPeriod: Boolean,
         val phase: Phase,
         val nextPeriodDate: LocalDate?,
         val ovulationDate: LocalDate?,
@@ -36,6 +42,7 @@ object CycleCalculator {
         val predictedPeriodDates: Set<LocalDate>,
         val predictedOvulationDates: Set<LocalDate>,
         val fertileDates: Set<LocalDate>,
+        val overdueDates: Set<LocalDate>,
         val todayMood: MoodInsight,
     )
 
@@ -62,6 +69,7 @@ object CycleCalculator {
         val isToday: Boolean,
         val isLoggedPeriod: Boolean,
         val isPredictedPeriod: Boolean,
+        val isOverdue: Boolean,
         val isOvulation: Boolean,
         val isFertile: Boolean,
         val phase: Phase,
@@ -82,6 +90,10 @@ object CycleCalculator {
                 averageCycleLength = 28,
                 periodLength = 5,
                 daysUntilNextPeriod = null,
+                daysLate = null,
+                isLate = false,
+                isDueToday = false,
+                currentlyOnPeriod = false,
                 phase = Phase.UNKNOWN,
                 nextPeriodDate = null,
                 ovulationDate = null,
@@ -91,6 +103,7 @@ object CycleCalculator {
                 predictedPeriodDates = emptySet(),
                 predictedOvulationDates = emptySet(),
                 fertileDates = emptySet(),
+                overdueDates = emptySet(),
                 todayMood = moodForPhase(Phase.UNKNOWN, null, 28, 5),
             )
         }
@@ -102,7 +115,16 @@ object CycleCalculator {
 
         val cycleDay = (ChronoUnit.DAYS.between(lastStart, today).toInt() + 1).coerceAtLeast(1)
         val nextPeriodDate = lastStart.plusDays(averageCycleLength.toLong())
-        val daysUntilNextPeriod = ChronoUnit.DAYS.between(today, nextPeriodDate).toInt().coerceAtLeast(0)
+        val periodDates = buildPeriodDates(sorted)
+        val currentlyOnPeriod = periodDates.contains(today)
+        val rawDaysUntil = ChronoUnit.DAYS.between(today, nextPeriodDate).toInt()
+        val isLate = !currentlyOnPeriod && rawDaysUntil < 0
+        val isDueToday = !currentlyOnPeriod && rawDaysUntil == 0
+        val daysLate = if (isLate) -rawDaysUntil else null
+        val daysUntilNextPeriod = when {
+            currentlyOnPeriod || isLate -> null
+            else -> rawDaysUntil
+        }
 
         val ovulationDate = lastStart.plusDays((averageCycleLength - 14).toLong().coerceAtLeast(periodLength.toLong()))
         val fertileWindowStart = ovulationDate.minusDays(5)
@@ -116,7 +138,6 @@ object CycleCalculator {
         )
 
         val horizonEnd = today.plusMonths(4)
-        val periodDates = buildPeriodDates(sorted)
         val predictedPeriodDates = buildPredictedPeriodDates(
             firstStart = nextPeriodDate,
             periodLength = periodLength,
@@ -129,12 +150,21 @@ object CycleCalculator {
             until = horizonEnd,
         )
         val fertileDates = buildFertileDates(predictedOvulationDates)
+        val overdueDates = if (isLate) {
+            buildDateRange(nextPeriodDate, today)
+        } else {
+            emptySet()
+        }
 
         return Insight(
             cycleDay = cycleDay,
             averageCycleLength = averageCycleLength,
             periodLength = periodLength,
             daysUntilNextPeriod = daysUntilNextPeriod,
+            daysLate = daysLate,
+            isLate = isLate,
+            isDueToday = isDueToday,
+            currentlyOnPeriod = currentlyOnPeriod,
             phase = phase,
             nextPeriodDate = nextPeriodDate,
             ovulationDate = ovulationDate,
@@ -144,6 +174,7 @@ object CycleCalculator {
             predictedPeriodDates = predictedPeriodDates,
             predictedOvulationDates = predictedOvulationDates,
             fertileDates = fertileDates,
+            overdueDates = overdueDates,
             todayMood = moodForPhase(phase, cycleDay, averageCycleLength, periodLength),
         )
     }
@@ -235,7 +266,8 @@ object CycleCalculator {
         return (1..length).map { day ->
             val date = month.atDay(day)
             val isLogged = insight.periodDates.contains(date)
-            val isPredicted = !isLogged && insight.predictedPeriodDates.contains(date)
+            val isOverdue = !isLogged && insight.overdueDates.contains(date)
+            val isPredicted = !isLogged && !isOverdue && insight.predictedPeriodDates.contains(date)
             val isOvulation = insight.predictedOvulationDates.contains(date)
             val isFertile = insight.fertileDates.contains(date) && !isOvulation
 
@@ -259,6 +291,7 @@ object CycleCalculator {
                 isToday = date == today,
                 isLoggedPeriod = isLogged,
                 isPredictedPeriod = isPredicted,
+                isOverdue = isOverdue,
                 isOvulation = isOvulation,
                 isFertile = isFertile,
                 phase = phase,
@@ -394,11 +427,18 @@ object CycleCalculator {
     private fun buildPeriodDates(sorted: List<Pair<LocalDate, LocalDate>>): Set<LocalDate> {
         val dates = mutableSetOf<LocalDate>()
         sorted.take(12).forEach { (start, end) ->
-            var current = start
-            while (!current.isAfter(end)) {
-                dates += current
-                current = current.plusDays(1)
-            }
+            dates += buildDateRange(start, end)
+        }
+        return dates
+    }
+
+    private fun buildDateRange(start: LocalDate, end: LocalDate): Set<LocalDate> {
+        if (end.isBefore(start)) return emptySet()
+        val dates = mutableSetOf<LocalDate>()
+        var current = start
+        while (!current.isAfter(end)) {
+            dates += current
+            current = current.plusDays(1)
         }
         return dates
     }

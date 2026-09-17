@@ -150,6 +150,9 @@ class CorrelationAnalyzer:
                 "late_meal": False,
                 "late_meal_count": 0,
                 "meal_count": 0,
+                "calories": 0.0,
+                "protein_g": 0.0,
+                "last_meal_hour": None,
             }
         )
         daily_hydration: dict[str, dict] = defaultdict(
@@ -164,7 +167,9 @@ class CorrelationAnalyzer:
                 "total_duration_minutes": 0,
                 "steps": 0,
                 "high_evening_activity": False,
+                "evening_light_activity": False,
                 "activity_count": 0,
+                "last_activity_hour": None,
             }
         )
         daily_state: dict[str, dict] = defaultdict(
@@ -192,6 +197,12 @@ class CorrelationAnalyzer:
             day_key = m.meal_time.date().isoformat()
             daily_meals[day_key]["meal_count"] += 1
             daily_meals[day_key]["total_caffeine_mg"] += float(m.caffeine_mg or 0.0)
+            daily_meals[day_key]["calories"] += float(m.calories or 0.0)
+            daily_meals[day_key]["protein_g"] += float(m.protein_g or 0.0)
+            meal_hour = datetime_to_hour_decimal(m.meal_time)
+            prev_hour = daily_meals[day_key]["last_meal_hour"]
+            if meal_hour is not None and (prev_hour is None or meal_hour > prev_hour):
+                daily_meals[day_key]["last_meal_hour"] = meal_hour
 
             is_late_caffeine = False
             if float(m.caffeine_mg or 0.0) >= 30:
@@ -222,7 +233,7 @@ class CorrelationAnalyzer:
             if (h.drink_type or "").lower() == "water":
                 daily_hydration[day_key]["water_only_ml"] += float(h.amount_ml or 0.0)
 
-            if normalize_bool(getattr(h, "is_late_drink", False)):
+            if normalize_bool(getattr(h, "is_late_drink", False)) or h.record_time.hour >= 21:
                 daily_hydration[day_key]["late_drink"] = True
 
         # Активность
@@ -232,15 +243,24 @@ class CorrelationAnalyzer:
             daily_activity[day_key]["total_duration_minutes"] += int(a.duration_minutes or 0)
             daily_activity[day_key]["steps"] += int(a.steps or 0)
 
+            start_hour = a.start_time.hour if a.start_time is not None else None
+            if start_hour is not None:
+                prev_act = daily_activity[day_key]["last_activity_hour"]
+                if prev_act is None or start_hour > prev_act:
+                    daily_activity[day_key]["last_activity_hour"] = start_hour
+
+            intensity = (a.intensity or "").lower()
             is_high_evening = False
-            if normalize_bool(getattr(a, "is_evening_activity", False)) and (a.intensity or "").lower() == "high":
+            if normalize_bool(getattr(a, "is_evening_activity", False)) and intensity == "high":
                 is_high_evening = True
-
-            if a.minutes_before_sleep is not None and a.minutes_before_sleep < 180 and (a.intensity or "").lower() == "high":
+            if a.minutes_before_sleep is not None and a.minutes_before_sleep < 180 and intensity == "high":
                 is_high_evening = True
-
+            if start_hour is not None and start_hour >= 18 and intensity == "high":
+                is_high_evening = True
             if is_high_evening:
                 daily_activity[day_key]["high_evening_activity"] = True
+            elif start_hour is not None and start_hour >= 18:
+                daily_activity[day_key]["evening_light_activity"] = True
 
         # Субъективное состояние
         for st in states:
@@ -284,12 +304,18 @@ class CorrelationAnalyzer:
                 "total_caffeine_mg": meal_data.get("total_caffeine_mg", 0.0),
                 "late_meal": meal_data.get("late_meal", False),
                 "late_meal_count": meal_data.get("late_meal_count", 0),
+                "meal_count": meal_data.get("meal_count", 0),
+                "calories": meal_data.get("calories", 0.0),
+                "protein_g": meal_data.get("protein_g", 0.0),
+                "last_meal_hour": meal_data.get("last_meal_hour"),
                 "hydration_ml": hydration_data.get("hydration_ml", 0.0),
                 "water_only_ml": hydration_data.get("water_only_ml", 0.0),
                 "late_drink": hydration_data.get("late_drink", False),
                 "activity_minutes": activity_data.get("total_duration_minutes", 0),
                 "steps": activity_data.get("steps", 0),
                 "high_evening_activity": activity_data.get("high_evening_activity", False),
+                "evening_light_activity": activity_data.get("evening_light_activity", False),
+                "last_activity_hour": activity_data.get("last_activity_hour"),
                 "energy": safe_mean(state_data.get("energy", [])),
                 "mood": safe_mean(state_data.get("mood", [])),
                 "stress": safe_mean(state_data.get("stress", [])),
@@ -370,6 +396,8 @@ class CorrelationAnalyzer:
                         "confidence": confidence,
                         "severity": severity,
                         "impact": "negative",
+                        "sample_with": len(late_caffeine_days),
+                        "sample_without": len(normal_caffeine_days),
                         "evidence_json": json.dumps(evidence, ensure_ascii=False),
                         "window_days": period_days,
                     }
@@ -427,6 +455,8 @@ class CorrelationAnalyzer:
                         "confidence": confidence,
                         "severity": "medium",
                         "impact": "negative",
+                        "sample_with": len(late_meal_days),
+                        "sample_without": len(normal_meal_days),
                         "evidence_json": json.dumps(evidence, ensure_ascii=False),
                         "window_days": period_days,
                     }
@@ -480,6 +510,8 @@ class CorrelationAnalyzer:
                         "confidence": confidence,
                         "severity": "medium",
                         "impact": "negative",
+                        "sample_with": len(low_hydration_days),
+                        "sample_without": len(good_hydration_days),
                         "evidence_json": json.dumps(evidence, ensure_ascii=False),
                         "window_days": period_days,
                     }
@@ -535,6 +567,8 @@ class CorrelationAnalyzer:
                         "confidence": confidence,
                         "severity": severity,
                         "impact": "negative",
+                        "sample_with": len(short_sleep_days),
+                        "sample_without": len(normal_sleep_days),
                         "evidence_json": json.dumps(evidence, ensure_ascii=False),
                         "window_days": period_days,
                     }
@@ -591,6 +625,8 @@ class CorrelationAnalyzer:
                         "confidence": confidence,
                         "severity": "medium",
                         "impact": "negative",
+                        "sample_with": len(evening_high_days),
+                        "sample_without": len(normal_activity_days),
                         "evidence_json": json.dumps(evidence, ensure_ascii=False),
                         "window_days": period_days,
                     }
@@ -650,9 +686,19 @@ class CorrelationAnalyzer:
                         "confidence": confidence,
                         "severity": "low",
                         "impact": "positive",
+                        "sample_with": len(strong_days),
+                        "sample_without": len(weak_days),
                         "evidence_json": json.dumps(evidence, ensure_ascii=False),
                         "window_days": period_days,
                     }
                 )
+
+        from app.services.analytics.cross_factor_service import discover_cross_factor_insights
+
+        existing_types = {item["insight_type"] for item in insights}
+        for extra in discover_cross_factor_insights(day_rows, period_days):
+            if extra["insight_type"] not in existing_types:
+                insights.append(extra)
+                existing_types.add(extra["insight_type"])
 
         return insights

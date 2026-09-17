@@ -76,7 +76,6 @@ import com.example.healtapp.features.aicoach.presentation.ChatMessageUi
 fun AiCoachHeroBar(
     onBack: () -> Unit,
     llmAvailable: Boolean?,
-    isGuestMode: Boolean,
     onRefreshStatus: () -> Unit,
     onNewChat: () -> Unit,
     onOpenHistory: () -> Unit,
@@ -86,25 +85,19 @@ fun AiCoachHeroBar(
 ) {
     FeatureHeroBar(
         title = "ИИ помощник",
-        subtitle = if (isGuestMode) {
-            "Войдите, чтобы видеть ваш дневник"
-        } else {
-            ""
-        },
+        subtitle = "",
         icon = Icons.Filled.AutoAwesome,
         onBack = onBack,
         modifier = modifier,
         actions = {
-            if (!isGuestMode) {
-                IconButton(onClick = onOpenHistory, enabled = enabled) {
-                    Icon(
-                        Icons.Outlined.History,
-                        contentDescription = "История",
-                        tint = heroContentColor(),
-                    )
-                }
+            IconButton(onClick = onOpenHistory, enabled = enabled) {
+                Icon(
+                    Icons.Outlined.History,
+                    contentDescription = "История",
+                    tint = heroContentColor(),
+                )
             }
-            if (!isGuestMode && llmAvailable == false) {
+            if (llmAvailable == false) {
                 IconButton(onClick = onRefreshStatus, enabled = enabled) {
                     Icon(
                         Icons.Filled.Refresh,
@@ -123,13 +116,9 @@ fun AiCoachHeroBar(
                 }
             }
         },
-        footer = if (!isGuestMode) {
-            {
-                androidx.compose.foundation.layout.Spacer(Modifier.height(10.dp))
-                AiLlmStatusChip(llmAvailable = llmAvailable)
-            }
-        } else {
-            null
+        footer = {
+            androidx.compose.foundation.layout.Spacer(Modifier.height(10.dp))
+            AiLlmStatusChip(llmAvailable = llmAvailable)
         },
     )
 }
@@ -187,6 +176,11 @@ fun AiWelcomePanel(
                 text = "Выберите тему — разберу ваши данные, что мешает и какие шаги помогут улучшить показатели.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = contentSecondaryColor(),
+            )
+            Text(
+                text = "Не ставит диагноз и не заменяет врача. Это подсказки по вашим записям в приложении.",
+                style = MaterialTheme.typography.bodySmall,
+                color = contentSecondaryColor().copy(alpha = 0.9f),
             )
         }
 
@@ -353,7 +347,7 @@ fun AiAssistantMessage(
     modifier: Modifier = Modifier,
 ) {
     if (message.isUser) {
-        AiUserBubble(message.text, modifier)
+        AiUserBubble(message.text, pendingNetwork = message.pendingNetwork, modifier = modifier)
     } else if (message.text.isBlank()) {
         AiThinkingBubble(modifier)
     } else {
@@ -364,6 +358,7 @@ fun AiAssistantMessage(
 @Composable
 fun AiUserBubble(
     text: String,
+    pendingNetwork: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -377,11 +372,20 @@ fun AiUserBubble(
                 .background(Brush.linearGradient(brandingGradient()))
                 .padding(horizontal = 16.dp, vertical = 12.dp),
         ) {
-            Text(
-                text = text,
-                style = MaterialTheme.typography.bodyLarge,
-                color = Color.White,
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.White,
+                )
+                if (pendingNetwork) {
+                    Text(
+                        text = "Ждёт сеть",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.White.copy(alpha = 0.85f),
+                    )
+                }
+            }
         }
     }
 }
@@ -527,41 +531,6 @@ fun AiInlineNotice(
             style = MaterialTheme.typography.bodySmall,
             color = fg,
             modifier = Modifier.weight(1f),
-        )
-    }
-}
-
-@Composable
-fun AiGuestPanel(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
-            .background(Brush.linearGradient(subtleFillGradient()))
-            .border(
-                1.dp,
-                MaterialTheme.colorScheme.outline.copy(alpha = 0.12f),
-                RoundedCornerShape(24.dp),
-            )
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Icon(
-            Icons.Filled.AutoAwesome,
-            contentDescription = null,
-            modifier = Modifier.size(40.dp),
-            tint = MaterialTheme.colorScheme.primary,
-        )
-        Text(
-            text = "Нужен аккаунт",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-        )
-        Text(
-            text = "Войдите или зарегистрируйтесь — тогда ИИ помощник увидит сон, воду, питание и шаги из вашего дневника.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = contentSecondaryColor(),
         )
     }
 }

@@ -1,6 +1,7 @@
 package com.example.healtapp.features.activity.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,6 +45,7 @@ import com.example.healtapp.core.ui.theme.contentSecondaryColor
 import com.example.healtapp.core.ui.theme.iconTintColor
 import com.example.healtapp.core.ui.theme.themedCardBlue
 import com.example.healtapp.data.network.dto.activity.ActivityDto
+import com.example.healtapp.features.activity.live.WorkoutNotesCodec
 import com.example.healtapp.features.activity.presentation.activityTitleFromApi
 import com.example.healtapp.features.activity.presentation.trainingFormFieldsFor
 
@@ -171,6 +173,7 @@ fun ActivityTrainingHistoryRow(
     activity: ActivityDto,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    onOpen: (() -> Unit)? = null,
     showSourceBadge: Boolean = false,
 ) {
     val title = activityTitleFromApi(activity.activity_type)
@@ -209,7 +212,12 @@ fun ActivityTrainingHistoryRow(
             ) {
                 Icon(icon, contentDescription = null, tint = iconTintColor())
             }
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .then(if (onOpen != null) Modifier.clickable(onClick = onOpen) else Modifier),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleSmall,
@@ -232,7 +240,7 @@ fun ActivityTrainingHistoryRow(
                     style = MaterialTheme.typography.bodySmall,
                     color = contentSecondaryColor(),
                 )
-                activity.notes?.takeIf { it.isNotBlank() }?.let { note ->
+                WorkoutNotesCodec.decode(activity.notes).note.takeIf { it.isNotBlank() }?.let { note ->
                     Text(
                         text = note,
                         style = MaterialTheme.typography.bodySmall,

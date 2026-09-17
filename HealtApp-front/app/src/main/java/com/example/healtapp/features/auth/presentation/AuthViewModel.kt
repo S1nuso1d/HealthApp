@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.healtapp.core.common.AgeUtils
 import com.example.healtapp.core.common.UserFacingMessages
-import com.example.healtapp.data.preferences.TokenStorage
 import com.example.healtapp.domain.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -18,15 +17,7 @@ import javax.inject.Inject
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val authRepository: AuthRepository,
-    private val tokenStorage: TokenStorage,
 ) : ViewModel() {
-
-    fun enterGuestMode(onSuccess: () -> Unit) {
-        viewModelScope.launch {
-            tokenStorage.setGuestMode(true)
-            onSuccess()
-        }
-    }
 
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()

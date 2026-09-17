@@ -17,9 +17,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.healtapp.core.common.UserFacingMessages
+import com.example.healtapp.core.legal.LegalLinks
 import com.example.healtapp.core.ui.components.AppButton
 import com.example.healtapp.core.ui.components.AppMessageBanner
 import com.example.healtapp.core.ui.components.AppMessageType
@@ -39,9 +41,11 @@ import com.example.healtapp.features.settings.ui.components.SettingsInfoText
 fun DataPrivacyScreen(
     onBack: () -> Unit,
     onAccountDeleted: () -> Unit = {},
+    onOpenDataImport: () -> Unit = {},
 ) {
     val viewModel: DataPrivacyViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     LaunchedEffect(uiState.deleteSuccessEvent) {
         if (uiState.deleteSuccessEvent) {
@@ -74,6 +78,29 @@ fun DataPrivacyScreen(
         )
 
         FeatureSectionTitle(
+            title = "Документы",
+            subtitle = "Политика и условия использования",
+        )
+        FeatureGlassCard {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SettingsInfoText(
+                    text = "Приложение не ставит медицинских диагнозов и не заменяет консультацию врача. " +
+                        "Полные тексты политики конфиденциальности и условий использования открываются в браузере.",
+                )
+                AppButton(
+                    text = "Политика конфиденциальности",
+                    onClick = { LegalLinks.openPrivacyPolicy(context) },
+                    isSecondary = true,
+                )
+                AppButton(
+                    text = "Условия использования",
+                    onClick = { LegalLinks.openTermsOfService(context) },
+                    isSecondary = true,
+                )
+            }
+        }
+
+        FeatureSectionTitle(
             title = "О данных",
             subtitle = "Как хранится информация в HealthApp",
         )
@@ -84,6 +111,39 @@ fun DataPrivacyScreen(
                     "• Не вносить в заметки чувствительные диагнозы, если не хотите хранить их на сервере.\n" +
                     "• Использовать отдельный пароль для приложения.\n" +
                     "• На новом телефоне войти в тот же аккаунт — данные подтянутся с сервера.",
+            )
+        }
+
+        FeatureSectionTitle(
+            title = "Перенос данных",
+            subtitle = "Импорт с телефона или Health Connect",
+        )
+
+        FeatureGlassCard {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SettingsInfoText(
+                    text = "CSV, JSON и Health Connect подтягиваются на отдельном экране — оттуда же можно проверить, что попало в дневник.",
+                )
+                AppButton(
+                    text = "Открыть импорт",
+                    onClick = onOpenDataImport,
+                    isSecondary = true,
+                )
+            }
+        }
+
+        FeatureSectionTitle(
+            title = "Разрешения устройства",
+            subtitle = "Зачем они нужны",
+        )
+        FeatureGlassCard {
+            SettingsInfoText(
+                text = "• Уведомления — напоминания о воде, еде и таблетках.\n" +
+                    "• Камера — фото еды и обложки тренировок.\n" +
+                    "• Геолокация — трек пробежки (только во время живой тренировки).\n" +
+                    "• Bluetooth — опциональное подключение Mi Band.\n" +
+                    "• Микрофон — опциональный анализ звука сна, если включите.\n" +
+                    "• Health Connect — чтение шагов, сна и пульса с вашего согласия.",
             )
         }
 

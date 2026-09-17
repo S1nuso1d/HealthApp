@@ -236,3 +236,6 @@ def test_cycle_insights_returns_phase_stats(client, auth_headers, db_session):
     assert body["tracked_cycles"] == 1
     phases = [row["phase"] for row in body["phase_stats"]]
     assert phases == ["menstrual", "follicular", "ovulation", "luteal"]
+    assert body["current_phase"] in {"menstrual", "follicular", "ovulation", "luteal"}
+    assert "recovery_tip" in body
+    assert "activity_minutes" in body["phase_stats"][0]

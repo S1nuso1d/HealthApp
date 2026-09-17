@@ -31,7 +31,6 @@ fun ProfileGoalsEditSheet(
     targetWater: String,
     targetSteps: String,
     isSaving: Boolean,
-    guestMode: Boolean,
     onDismiss: () -> Unit,
     onSleepChange: (String) -> Unit,
     onWaterChange: (String) -> Unit,
@@ -119,13 +118,9 @@ fun ProfileGoalsEditSheet(
             AppTextField(targetWater, onWaterChange, label = "Цель воды (мл)")
 
             AppButton(
-                text = when {
-                    guestMode -> "Войдите для сохранения"
-                    isSaving -> "Сохраняем…"
-                    else -> "Сохранить цели"
-                },
+                text = if (isSaving) "Сохраняем…" else "Сохранить цели",
                 onClick = onSave,
-                enabled = !isSaving && !guestMode,
+                enabled = !isSaving,
             )
         }
     }

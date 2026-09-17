@@ -13,8 +13,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.padding
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.healtapp.core.ui.components.AppButton
@@ -33,7 +31,6 @@ import com.example.healtapp.features.auth.ui.components.AuthStepHint
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
-    onGuestDemo: () -> Unit = {},
     onRegisterClick: () -> Unit,
     onForgotPassword: () -> Unit = {},
 ) {
@@ -108,22 +105,6 @@ fun LoginScreen(
                 onClick = onRegisterClick,
                 enabled = !uiState.isLoading,
             )
-            AppButton(
-                text = "Попробовать демо",
-                onClick = { viewModel.enterGuestMode(onGuestDemo) },
-                enabled = !uiState.isLoading,
-                isSecondary = true,
-            )
         }
-
-        Text(
-            text = "Демо-режим работает без сервера — для полного опыта войдите с email",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 4.dp),
-            textAlign = TextAlign.Center,
-        )
     }
 }

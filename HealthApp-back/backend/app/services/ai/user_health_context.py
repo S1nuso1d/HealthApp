@@ -309,6 +309,19 @@ def build_user_health_context_text(
                     }
                 )
 
+        from app.services.analytics.cross_factor_service import format_patterns_for_llm
+        from app.services.correlation_analyzer import CorrelationAnalyzer
+
+        patterns = CorrelationAnalyzer.analyze_correlations(
+            db=db,
+            user_id=user_id,
+            period_days=period_days,
+        )
+        pattern_block = format_patterns_for_llm(patterns)
+        if pattern_block:
+            lines.append("")
+            lines.append(pattern_block)
+
     if personal and not compact:
         lines.append("")
         lines.append("=== ПЕРСОНАЛЬНЫЕ РЕКОМЕНДАЦИИ СИСТЕМЫ ===")

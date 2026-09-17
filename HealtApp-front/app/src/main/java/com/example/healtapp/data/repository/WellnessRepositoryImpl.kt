@@ -40,6 +40,7 @@ class WellnessRepositoryImpl @Inject constructor(
         stress: Int?,
         focus: Int?,
         notes: String?,
+        wellbeing: Int?,
     ) = runCatching {
         statesApi.createState(
             UserStateCreateDto(
@@ -47,6 +48,7 @@ class WellnessRepositoryImpl @Inject constructor(
                 energy = energy,
                 stress = stress,
                 focus = focus,
+                wellbeing = wellbeing,
                 recordTime = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
                 notes = notes,
             ),
@@ -72,6 +74,30 @@ class WellnessRepositoryImpl @Inject constructor(
 
     override suspend fun getAnalysisRuns(limit: Int) =
         runCatching { analyticsApi.getRuns(limit) }
+
+    override suspend fun getInfluenceFactors(days: Int) =
+        runCatching { analyticsApi.getInfluenceFactors(days) }
+
+    override suspend fun compareAnalytics() =
+        runCatching { analyticsApi.compareRuns() }
+
+    override suspend fun getTonightRisk() =
+        runCatching { analyticsApi.getTonightRisk() }
+
+    override suspend fun getCircadian() =
+        runCatching { analyticsApi.getCircadian() }
+
+    override suspend fun getHabitExperiments() =
+        runCatching { analyticsApi.getHabitExperiments() }
+
+    override suspend fun startHabitExperiment(
+        factorId: String,
+        title: String?,
+        action: String?,
+    ) = runCatching { analyticsApi.startHabitExperiment(factorId, title, action) }
+
+    override suspend fun cancelHabitExperiment(id: Int) =
+        runCatching { analyticsApi.cancelHabitExperiment(id) }
 
     override suspend fun activeReminders() =
         runCatching { smartApi.activeReminders() }

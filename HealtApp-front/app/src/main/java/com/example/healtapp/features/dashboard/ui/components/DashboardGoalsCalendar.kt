@@ -29,6 +29,10 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,10 +45,12 @@ import com.example.healtapp.core.common.LocaleRu
 import com.example.healtapp.core.ui.components.AppCard
 import com.example.healtapp.core.ui.components.SectionHeader
 import com.example.healtapp.data.network.dto.dashboard.GoalsCalendarDayDto
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
+import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 
 private val dayDetailTitleFormatter = DateTimeFormatter.ofPattern("d MMMM yyyy", LocaleRu)
@@ -66,6 +72,7 @@ fun DashboardGoalsCalendarBlock(
     onNextMonth: () -> Unit,
     onDayClick: (LocalDate) -> Unit,
     onDismissDetail: () -> Unit,
+    cyclePhaseTitle: String? = null,
     modifier: Modifier = Modifier,
 ) {
     val currentMonth = YearMonth.now()
@@ -75,12 +82,21 @@ fun DashboardGoalsCalendarBlock(
     val byDate = days.associateBy { it.date }
     val dayNumberColor = MaterialTheme.colorScheme.onSurface
     val mutedText = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.92f)
+    var showMonth by remember { mutableStateOf(false) }
+    val today = LocalDate.now()
+    val weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+    val weekDates = (0L..6L).map { weekStart.plusDays(it) }
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        SectionHeader(
-            title = "Календарь целей",
-            subtitle = "Нажмите на день — детали",
-        )
+        SectionHeader(title = "Эта неделя")
+        if (!cyclePhaseTitle.isNullOrBlank()) {
+            Text(
+                text = cyclePhaseTitle,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
         AppCard {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(
@@ -88,23 +104,64 @@ fun DashboardGoalsCalendarBlock(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    IconButton(onClick = onPrevMonth) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Предыдущий месяц")
-                    }
                     Text(
-                        text = "$monthTitle ${yearMonth.year}",
+                        text = if (showMonth) "$monthTitle ${yearMonth.year}" else "Пн–вс",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = dayNumberColor,
                     )
-                    IconButton(onClick = onNextMonth, enabled = canGoNextMonth) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Следующий месяц")
-                    }
+                    Text(
+                        text = if (showMonth) "Неделя" else "Месяц",
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { showMonth = !showMonth }
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                 }
 
-                if (isLoading && days.isEmpty()) {
-                    Text("Загрузка…", color = mutedText)
+                if (!showMonth) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        weekDates.forEach { date ->
+                            val dto = byDate[date.toString()]
+                            WeekDayDot(
+                                date = date,
+                                dto = dto,
+                                selected = selectedDate == date,
+                                isToday = date == today,
+                                cycleMark = date == today && !cyclePhaseTitle.isNullOrBlank(),
+                                onClick = { onDayClick(date) },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
                 } else {
+                    if (isLoading && days.isEmpty()) {
+                        Text("Загрузка…", color = mutedText)
+                    } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        IconButton(onClick = onPrevMonth) {
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Предыдущий месяц")
+                        }
+                        Text(
+                            text = "$monthTitle ${yearMonth.year}",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = dayNumberColor,
+                        )
+                        IconButton(onClick = onNextMonth, enabled = canGoNextMonth) {
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Следующий месяц")
+                        }
+                    }
                     val firstOfMonth = yearMonth.atDay(1)
                     val startOffset = (firstOfMonth.dayOfWeek.value + 6) % 7
                     val daysInMonth = yearMonth.lengthOfMonth()
@@ -151,6 +208,7 @@ fun DashboardGoalsCalendarBlock(
                             }
                         }
                     }
+                    }
                 }
             }
         }
@@ -168,6 +226,66 @@ fun DashboardGoalsCalendarBlock(
             } else {
                 GoalsDayDetailEmpty(date = date, onClose = onDismissDetail)
             }
+        }
+    }
+}
+
+@Composable
+private fun WeekDayDot(
+    date: LocalDate,
+    dto: GoalsCalendarDayDto?,
+    selected: Boolean,
+    isToday: Boolean,
+    cycleMark: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val allMet = dto?.all_goals_met == true
+    val hasData = dto?.has_any_data == true
+    val label = date.dayOfWeek.getDisplayName(TextStyle.SHORT, LocaleRu).take(2).replaceFirstChar { it.uppercase() }
+    val fill = when {
+        allMet -> MaterialTheme.colorScheme.primary
+        selected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+        hasData -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+    }
+    val ring = when {
+        isToday -> MaterialTheme.colorScheme.primary
+        selected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+        else -> Color.Transparent
+    }
+    Column(
+        modifier = modifier.clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .clip(CircleShape)
+                .background(fill)
+                .border(1.dp, ring, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = date.dayOfMonth.toString(),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (allMet) Color.White else MaterialTheme.colorScheme.onSurface,
+            )
+        }
+        if (cycleMark) {
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.secondary),
+            )
         }
     }
 }

@@ -17,12 +17,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -34,18 +36,24 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import com.example.healtapp.core.ui.animation.AppMotion
 import com.example.healtapp.core.ui.components.AppCard
 import com.example.healtapp.core.ui.components.ShimmerBox
@@ -54,7 +62,6 @@ import com.example.healtapp.core.ui.theme.chartSweepGradient
 import com.example.healtapp.core.ui.theme.sliderAccentColor
 import com.example.healtapp.data.network.dto.meal.MealDto
 import com.example.healtapp.data.network.dto.meal.SavedDishDto
-import com.example.healtapp.features.meal.presentation.MealViewModel
 import com.example.healtapp.features.meal.util.FatSecretFoodHit
 import com.example.healtapp.features.meal.util.FatSecretServingOption
 import kotlin.math.min
@@ -180,52 +187,152 @@ fun MealSlotSection(
     onAdd: () -> Unit,
     onEdit: (MealDto) -> Unit,
     onDelete: (MealDto) -> Unit,
+    timeHint: String = "",
+    coverPhotoUri: String? = null,
+    onPickCoverPhoto: (() -> Unit)? = null,
+    onClearCoverPhoto: (() -> Unit)? = null,
+    initiallyExpanded: Boolean = false,
 ) {
-    AppCard {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    var expanded by rememberSaveable(titleRu) { mutableStateOf(initiallyExpanded) }
+    val totalKcal = meals.sumOf { (it.calories ?: 0f).toInt() }
+    val protein = meals.sumOf { (it.protein_g ?: 0f).toDouble() }.toFloat()
+    val fat = meals.sumOf { (it.fat_g ?: 0f).toDouble() }.toFloat()
+    val carbs = meals.sumOf { (it.carbs_g ?: 0f).toDouble() }.toFloat()
+    val subtitle = when {
+        meals.isEmpty() -> "Пока пусто · нажмите +, чтобы добавить"
+        else -> buildString {
+            append("${meals.size} поз. · $totalKcal ккал")
+            if (timeHint.isNotBlank()) append(" · $timeHint")
+        }
+    }
+    val chevronRotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = AppMotion.springGentle(),
+        label = "meal_slot_chevron",
+    )
+
+    AppCard(animateEnter = false) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded },
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        Icons.Outlined.Restaurant,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp),
+                if (coverPhotoUri != null) {
+                    AsyncImage(
+                        model = coverPhotoUri,
+                        contentDescription = "Обложка $titleRu",
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(RoundedCornerShape(16.dp)),
+                        contentScale = ContentScale.Crop,
                     )
-                    Text(text = titleRu, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                    if (meals.isNotEmpty()) {
-                        Text(
-                            text = "${meals.sumOf { (it.calories ?: 0f).toInt() }} ккал",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Brush.linearGradient(brandingGradient().map { it.copy(alpha = 0.35f) })),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Outlined.Restaurant,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(28.dp),
                         )
                     }
                 }
-                TextButton(onClick = onAdd) {
-                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Добавить")
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = titleRu,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
-            }
-            AnimatedVisibility(
-                visible = meals.isEmpty(),
-                enter = fadeIn(),
-                exit = fadeOut(),
-            ) {
-                Text(
-                    text = "Пока пусто — нажмите «Добавить»",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                TextButton(onClick = onAdd) {
+                    Icon(Icons.Filled.Add, contentDescription = "Добавить", modifier = Modifier.size(20.dp))
+                }
+                Icon(
+                    Icons.Filled.ExpandMore,
+                    contentDescription = if (expanded) "Свернуть" else "Развернуть",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .size(24.dp)
+                        .rotate(chevronRotation),
                 )
             }
-            meals.forEach { meal ->
-                MealDiaryRowCompact(meal = meal, onEdit = { onEdit(meal) }, onDelete = { onDelete(meal) })
+
+            AnimatedVisibility(
+                visible = expanded,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut(),
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (meals.isNotEmpty()) {
+                        Text(
+                            text = "Б ${"%.0f".format(protein)} · Ж ${"%.0f".format(fat)} · У ${"%.0f".format(carbs)}",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+
+                    if (coverPhotoUri != null) {
+                        Box(contentAlignment = Alignment.TopEnd) {
+                            AsyncImage(
+                                model = coverPhotoUri,
+                                contentDescription = "Обложка $titleRu",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(4f / 3f)
+                                    .clip(RoundedCornerShape(20.dp)),
+                                contentScale = ContentScale.Crop,
+                            )
+                            if (onClearCoverPhoto != null) {
+                                TextButton(onClick = onClearCoverPhoto) {
+                                    Text("Убрать фото")
+                                }
+                            }
+                        }
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        TextButton(onClick = onAdd) {
+                            Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Добавить")
+                        }
+                        if (onPickCoverPhoto != null) {
+                            TextButton(onClick = onPickCoverPhoto) {
+                                Text(if (coverPhotoUri == null) "Фото" else "Сменить фото")
+                            }
+                        }
+                    }
+
+                    if (meals.isEmpty()) {
+                        Text(
+                            text = "Добавьте продукты через поиск или штрихкод",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        meals.forEach { meal ->
+                            MealDiaryRowCompact(
+                                meal = meal,
+                                onEdit = { onEdit(meal) },
+                                onDelete = { onDelete(meal) },
+                            )
+                        }
+                    }
+                }
             }
         }
     }

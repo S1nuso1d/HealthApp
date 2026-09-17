@@ -26,7 +26,7 @@ class GoalProgressReminderWorker(
         val prefs = entry.notificationPrefs()
         if (!prefs.current().goalAchievementNotifications) return Result.success()
 
-        if (entry.tokenStorage().getToken() == null || entry.tokenStorage().isGuestMode()) {
+        if (entry.tokenStorage().getToken() == null) {
             return Result.success()
         }
         if (!HealthNotificationHelper.canPost(applicationContext)) return Result.success()

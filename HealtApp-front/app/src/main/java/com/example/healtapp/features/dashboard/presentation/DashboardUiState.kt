@@ -10,7 +10,6 @@ data class DashboardUiState(
     val isRefreshing: Boolean = false,
     val hasLoadedOnce: Boolean = false,
     val error: String? = null,
-    val isGuestMode: Boolean = false,
     val isOfflineCache: Boolean = false,
 
     val greetingText: String = "Добро пожаловать",
@@ -59,4 +58,13 @@ data class DashboardUiState(
     val dashboardHints: List<String> = emptyList(),
     val hintsLoading: Boolean = false,
 
+    val tonightRisk: com.example.healtapp.data.network.dto.analytics.TonightRiskDto? = null,
+    val habitExperiment: com.example.healtapp.data.network.dto.analytics.HabitExperimentDto? = null,
+    val circadian: com.example.healtapp.data.network.dto.analytics.CircadianProfileDto? = null,
+    val isQuickWaterSaving: Boolean = false,
+    val quickActionMessage: String? = null,
+    val recoveryMode: Boolean = false,
+    val experimentCheckedToday: Boolean? = null,
+    val experimentKeptCount: Int = 0,
+    val cyclePhaseTitle: String? = null,
 )

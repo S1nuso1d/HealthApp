@@ -28,10 +28,10 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import coil.ImageLoader
+import com.example.healtapp.core.ui.theme.Dimens
 import com.example.healtapp.core.ui.theme.heroBlockGradient
 import com.example.healtapp.core.ui.theme.heroContentColor
 import com.example.healtapp.core.ui.theme.heroIconBackdrop
-import com.example.healtapp.core.ui.theme.isAppDarkTheme
 
 @Composable
 fun ProfileHeroBlock(
@@ -40,7 +40,6 @@ fun ProfileHeroBlock(
     avatarUrl: String?,
     imageLoader: ImageLoader,
     age: String,
-    guestMode: Boolean,
     isUploadingAvatar: Boolean,
     enabled: Boolean,
     onAvatarClick: () -> Unit,
@@ -50,7 +49,7 @@ fun ProfileHeroBlock(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(if (isAppDarkTheme()) 8.dp else 26.dp))
+            .clip(RoundedCornerShape(Dimens.RadiusXl))
             .background(Brush.linearGradient(heroBlockGradient()))
             .clickable(enabled = enabled, onClick = onAvatarClick)
             .padding(20.dp),
@@ -116,13 +115,6 @@ fun ProfileHeroBlock(
                     text = "$age лет",
                     style = MaterialTheme.typography.bodyMedium,
                     color = heroContentColor().copy(alpha = 0.88f),
-                )
-            }
-            if (guestMode) {
-                Text(
-                    text = "Демо-режим — фото и синхронизация недоступны",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = heroContentColor().copy(alpha = 0.75f),
                 )
             }
         }

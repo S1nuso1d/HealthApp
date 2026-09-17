@@ -37,15 +37,13 @@ data class ProfileEditUiState(
     val isVegetarian: Boolean = false,
     val hasAllergies: Boolean = false,
     val allergiesText: String = "",
+    val selectedTab: Int = 0,
 
     val currentPassword: String = "",
     val newPassword: String = "",
     val confirmPassword: String = "",
     val isChangingPassword: Boolean = false,
     val isExportingReport: Boolean = false,
-
-    /** Локальный демо-режим: экран открыт без JWT, сохранение на сервер недоступно. */
-    val guestMode: Boolean = false,
 
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
 

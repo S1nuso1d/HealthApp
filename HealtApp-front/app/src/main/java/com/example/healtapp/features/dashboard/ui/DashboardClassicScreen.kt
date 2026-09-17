@@ -1,11 +1,16 @@
 package com.example.healtapp.features.dashboard.ui
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoStories
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -19,10 +24,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import com.example.healtapp.core.common.ShareProgressHelper
 import com.example.healtapp.core.ui.components.AppCard
 import com.example.healtapp.core.ui.components.AppMessageBanner
 import com.example.healtapp.core.ui.components.AppMessageType
@@ -33,23 +38,24 @@ import com.example.healtapp.core.ui.components.FeatureGuideOverlay
 import com.example.healtapp.core.ui.components.FeatureGuidePrefs
 import com.example.healtapp.core.ui.components.FeatureGuideScreen
 import com.example.healtapp.core.ui.components.PullToRefreshContainer
-import com.example.healtapp.core.ui.components.SectionHeader
+import com.example.healtapp.core.ui.theme.contentPrimaryColor
 import com.example.healtapp.features.dashboard.presentation.DashboardUiState
 import com.example.healtapp.features.dashboard.presentation.DashboardViewModel
-import com.example.healtapp.features.dashboard.ui.components.AnimatedDashboardSection
-import com.example.healtapp.features.dashboard.ui.components.DashboardActionPlanPreview
+import com.example.healtapp.features.dashboard.presentation.DayInsightBuilder
+import com.example.healtapp.features.dashboard.ui.components.DashboardDayInsightCard
 import com.example.healtapp.features.dashboard.ui.components.DashboardGoalsCalendarBlock
+import com.example.healtapp.features.dashboard.ui.components.DashboardHabitExperimentCard
 import com.example.healtapp.features.dashboard.ui.components.DashboardHeroCard
-import com.example.healtapp.features.dashboard.ui.components.DashboardHintsRow
 import com.example.healtapp.features.dashboard.ui.components.DashboardMetricsGrid
 import com.example.healtapp.features.dashboard.ui.components.DashboardMoodCheckInCard
 import com.example.healtapp.features.dashboard.ui.components.DashboardQuickLinksRow
-import com.example.healtapp.features.dashboard.ui.components.DashboardRecommendationsBlock
-import com.example.healtapp.features.dashboard.ui.components.DashboardScoresCard
 import com.example.healtapp.features.dashboard.ui.components.DashboardSkeleton
-import com.example.healtapp.features.dashboard.ui.components.DashboardStreaksRow
+import com.example.healtapp.features.dashboard.ui.components.DashboardTodayFocusCard
 import com.example.healtapp.features.dashboard.ui.components.DashboardVitalsStrip
-import com.example.healtapp.features.dashboard.ui.components.DashboardWeeklySummaryBlock
+import kotlinx.coroutines.delay
+import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.LocalTime
 
 @Composable
 fun DashboardClassicScreen(
@@ -59,18 +65,33 @@ fun DashboardClassicScreen(
     onOpenHydration: () -> Unit,
     onOpenNutrition: () -> Unit,
     onOpenActivity: () -> Unit,
-    onOpenRecommendations: () -> Unit,
-    onOpenActionPlan: () -> Unit,
     onOpenTimeline: () -> Unit,
     onOpenAiAssistant: () -> Unit,
     onOpenHealthVitals: () -> Unit,
+    onOpenWeeklyReview: () -> Unit = {},
+    onOpenInfluenceFactors: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val healthScore = uiState.scores.healthScore.takeIf { it > 0 }
     var showGuide by remember { mutableStateOf(false) }
+    val isEvening = remember(uiState.tonightRisk?.isEvening) {
+        LocalTime.now().hour >= 21 || uiState.tonightRisk?.isEvening == true
+    }
+    val showWeekClosed = remember(uiState.weeklySummary?.hasAnyData) {
+        val today = LocalDate.now()
+        val endOfWeek = today.dayOfWeek == DayOfWeek.SUNDAY ||
+            (today.dayOfWeek == DayOfWeek.MONDAY && LocalTime.now().hour < 12)
+        endOfWeek && uiState.weeklySummary?.hasAnyData == true
+    }
 
     LaunchedEffect(Unit) {
         showGuide = FeatureGuidePrefs.shouldShow(context, FeatureGuideScreen.Dashboard)
+    }
+
+    LaunchedEffect(uiState.quickActionMessage) {
+        if (uiState.quickActionMessage.isNullOrBlank()) return@LaunchedEffect
+        delay(3200)
+        dashboardViewModel.consumeQuickActionMessage()
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -99,28 +120,10 @@ fun DashboardClassicScreen(
                 ) {
                     DashboardHeroCard(
                         greeting = uiState.greetingText,
-                        subtitle = uiState.headerSubtitle,
                         healthScore = healthScore,
                         isRecommendationsLoading = uiState.recommendationsLoading && !uiState.hasLoadedOnce,
-                        streak = uiState.currentStreak,
+                        isEvening = isEvening,
                     )
-
-                    if (!uiState.isGuestMode) {
-                        DashboardHintsRow(
-                            hints = uiState.dashboardHints,
-                            isLoading = uiState.hintsLoading,
-                        )
-                    }
-
-                    if (uiState.isGuestMode) {
-                        AppCard {
-                            Text(
-                                text = "Демо-режим: сводка и советы — пример. Войдите в аккаунт для данных с сервера.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
 
                     if (uiState.isOfflineCache) {
                         AppMessageBanner(
@@ -131,7 +134,6 @@ fun DashboardClassicScreen(
                     }
 
                     if (uiState.isLoading && !uiState.hasLoadedOnce) {
-                        SectionHeader(title = "Сегодня", subtitle = "Загружаем метрики…")
                         DashboardSkeleton()
                     } else if (
                         uiState.error != null &&
@@ -148,56 +150,32 @@ fun DashboardClassicScreen(
                             AppMessageBanner(text = warn, type = AppMessageType.Error)
                         }
 
-                        if (!uiState.isGuestMode) {
-                            DashboardMoodCheckInCard(
-                                state = uiState.moodCheckIn,
-                                onMoodChange = dashboardViewModel::updateMood,
-                                onEnergyChange = dashboardViewModel::updateEnergy,
-                                onStressChange = dashboardViewModel::updateStress,
-                                onSubmit = dashboardViewModel::submitMoodCheckIn,
-                            )
-                        }
+                        DashboardMoodCheckInCard(
+                            state = uiState.moodCheckIn,
+                            onMoodChange = dashboardViewModel::updateMood,
+                            onEnergyChange = dashboardViewModel::updateEnergy,
+                            onStressChange = dashboardViewModel::updateStress,
+                            onWellbeingChange = dashboardViewModel::updateWellbeing,
+                            onSubmit = dashboardViewModel::submitMoodCheckIn,
+                        )
 
                         DashboardQuickLinksRow(
                             onOpenAi = onOpenAiAssistant,
-                            onOpenTimeline = onOpenTimeline,
+                            onOpenWeeklyReview = onOpenWeeklyReview,
+                            onOpenInfluenceFactors = onOpenInfluenceFactors,
                         )
 
-                        AnimatedDashboardSection(visible = uiState.scores.healthScore > 0) {
-                            DashboardScoresCard(scores = uiState.scores)
+                        uiState.quickActionMessage?.let { message ->
+                            AppMessageBanner(text = message, type = AppMessageType.Success)
                         }
 
-                        DashboardStreaksRow(
-                            waterStreak = uiState.waterStreakDays,
-                            stepsStreak = uiState.stepsStreakDays,
-                        )
-
-                        if (!uiState.isGuestMode) {
-                            DashboardGoalsCalendarBlock(
-                                yearMonth = uiState.goalsCalendarMonth,
-                                days = uiState.goalsCalendarDays,
-                                isLoading = uiState.goalsCalendarLoading,
-                                selectedDate = uiState.goalsCalendarSelectedDate,
-                                detailDate = uiState.goalsCalendarDetailDate,
-                                onPrevMonth = { dashboardViewModel.shiftGoalsCalendarMonth(-1) },
-                                onNextMonth = { dashboardViewModel.shiftGoalsCalendarMonth(1) },
-                                onDayClick = dashboardViewModel::onGoalsCalendarDayClick,
-                                onDismissDetail = dashboardViewModel::dismissGoalsCalendarDayDetail,
+                        if (isEvening) {
+                            DashboardEveningContext(
+                                uiState = uiState,
+                                onOpenTimeline = onOpenTimeline,
+                                dashboardViewModel = dashboardViewModel,
                             )
                         }
-
-                        if (!uiState.isGuestMode) {
-                            DashboardVitalsStrip(
-                                heartRateBpm = uiState.heartRateBpm,
-                                spo2Percent = uiState.spo2Percent,
-                                onOpenVitals = onOpenHealthVitals,
-                            )
-                        }
-
-                        SectionHeader(
-                            title = "Сегодня",
-                            subtitle = "Четыре опоры здоровья — нажмите на плитку",
-                        )
 
                         DashboardMetricsGrid(
                             sleepHours = uiState.sleepHours,
@@ -217,60 +195,78 @@ fun DashboardClassicScreen(
                             onOpenHydration = onOpenHydration,
                             onOpenNutrition = onOpenNutrition,
                             onOpenActivity = onOpenActivity,
+                            compact = false,
+                            isEvening = isEvening,
                         )
 
-                        DashboardWeeklySummaryBlock(
-                            summary = uiState.weeklySummary,
-                            onShare = uiState.weeklySummary?.takeIf { it.hasAnyData }?.let { summary ->
-                                {
-                                    val steps = summary.metrics.find { m -> m.key == "steps" }?.averageDisplay
-                                    val water = summary.metrics.find { m -> m.key == "water" }?.averageDisplay
-                                    val sleep = summary.metrics.find { m -> m.key == "sleep" }?.averageDisplay
-                                    ShareProgressHelper.shareWeeklySummary(
-                                        context = context,
-                                        periodLabel = summary.periodLabel,
-                                        stepsAvg = steps,
-                                        waterAvg = water,
-                                        sleepAvg = sleep,
-                                        healthScore = uiState.scores.healthScore.takeIf { it > 0 },
+                        DayInsightBuilder.insight(uiState, isEvening)?.let { insight ->
+                            DashboardDayInsightCard(insight = insight)
+                        }
+
+                        if (!isEvening) {
+                            DashboardEveningContext(
+                                uiState = uiState,
+                                onOpenTimeline = onOpenTimeline,
+                                dashboardViewModel = dashboardViewModel,
+                            )
+                        }
+
+                        DashboardGoalsCalendarBlock(
+                                yearMonth = uiState.goalsCalendarMonth,
+                                days = uiState.goalsCalendarDays,
+                                isLoading = uiState.goalsCalendarLoading,
+                                selectedDate = uiState.goalsCalendarSelectedDate,
+                                detailDate = uiState.goalsCalendarDetailDate,
+                                onPrevMonth = { dashboardViewModel.shiftGoalsCalendarMonth(-1) },
+                                onNextMonth = { dashboardViewModel.shiftGoalsCalendarMonth(1) },
+                                onDayClick = dashboardViewModel::onGoalsCalendarDayClick,
+                                onDismissDetail = dashboardViewModel::dismissGoalsCalendarDayDetail,
+                                cyclePhaseTitle = uiState.cyclePhaseTitle,
+                            )
+
+                        DashboardVitalsStrip(
+                                heartRateBpm = uiState.heartRateBpm,
+                                spo2Percent = uiState.spo2Percent,
+                                onOpenVitals = onOpenHealthVitals,
+                            )
+
+                        if (showWeekClosed) {
+                            AppCard(onClick = onOpenWeeklyReview, highlight = true) {
+                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Icon(
+                                        Icons.Filled.AutoStories,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                    )
+                                    Text(
+                                        "Неделя закрыта",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = contentPrimaryColor(),
+                                    )
+                                    Text(
+                                        uiState.weeklySummary?.periodLabel.orEmpty() +
+                                            " · средние по дням с записями",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Text(
+                                        "Открыть разбор недели",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.primary,
                                     )
                                 }
-                            },
-                        )
-
-                        DashboardActionPlanPreview(
-                            items = uiState.actionPlanItems,
-                            onOpenAll = onOpenActionPlan,
-                            onToggle = dashboardViewModel::toggleActionPlanStatus,
-                            waterMl = uiState.waterMl,
-                            waterTargetMl = uiState.waterTargetMl,
-                            stepsToday = uiState.stepsToday,
-                            stepsGoal = uiState.stepsGoal,
-                            caloriesBurnedToday = uiState.caloriesBurnedToday,
-                            caloriesBurnGoal = uiState.caloriesBurnGoal,
-                            sleepHours = uiState.sleepHours,
-                            sleepTargetHours = uiState.sleepTargetHours,
-                            caloriesToday = uiState.caloriesToday,
-                            caloriesTarget = uiState.caloriesTarget,
-                            activityMinutesToday = uiState.activityMinutesToday,
-                            moodSavedToday = uiState.moodCheckIn.savedToday,
-                        )
+                            }
+                        } else {
+                            DashboardTodayFocusCard(
+                                uiState = uiState,
+                                isEvening = isEvening,
+                            )
+                        }
                     }
 
                     Spacer(Modifier.height(4.dp))
-
-                    AnimatedDashboardSection(
-                        visible = uiState.hasLoadedOnce &&
-                            (!uiState.recommendationsLoading || uiState.recommendations.isNotEmpty()),
-                    ) {
-                        DashboardRecommendationsBlock(
-                            isLoading = uiState.recommendationsLoading,
-                            error = uiState.recommendationsError,
-                            recommendations = uiState.recommendations,
-                            onRetry = { dashboardViewModel.refresh() },
-                            onOpenAll = onOpenRecommendations,
-                        )
-                    }
                 }
             }
 
@@ -284,5 +280,22 @@ fun DashboardClassicScreen(
                 },
             )
         }
+    }
+}
+
+@Composable
+private fun DashboardEveningContext(
+    uiState: DashboardUiState,
+    onOpenTimeline: () -> Unit,
+    dashboardViewModel: DashboardViewModel,
+) {
+    uiState.habitExperiment?.let { experiment ->
+        DashboardHabitExperimentCard(
+            experiment = experiment,
+            checkedToday = uiState.experimentCheckedToday,
+            keptCount = uiState.experimentKeptCount,
+            onCheckin = dashboardViewModel::markExperimentToday,
+            onOpenFriends = onOpenTimeline,
+        )
     }
 }

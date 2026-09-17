@@ -1,20 +1,16 @@
 package com.example.healtapp.features.profile.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Eco
-import androidx.compose.material.icons.filled.Flag
-import androidx.compose.material.icons.filled.Restaurant
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -28,13 +24,10 @@ import com.example.healtapp.core.ui.theme.themedCardMint
 import com.example.healtapp.features.onboarding.ui.components.ActivityLevelSelector
 import com.example.healtapp.features.onboarding.ui.components.GoalSelector
 import com.example.healtapp.features.profile.presentation.ProfileEditUiState
-import com.example.healtapp.features.profile.ui.ProfileExpandableCard
 
 @Composable
-fun ProfilePersonalDataSection(
+fun ProfilePersonalDataFields(
     uiState: ProfileEditUiState,
-    expanded: Boolean,
-    onExpandedChange: (Boolean) -> Unit,
     onFirstNameChange: (String) -> Unit,
     onLastNameChange: (String) -> Unit,
     onNicknameChange: (String) -> Unit,
@@ -42,15 +35,13 @@ fun ProfilePersonalDataSection(
     onHeightChange: (String) -> Unit,
     onWeightChange: (String) -> Unit,
     onSexChange: (String) -> Unit,
+    onIsVegetarianChange: (Boolean) -> Unit,
+    onHasAllergiesChange: (Boolean) -> Unit,
+    onAllergiesTextChange: (String) -> Unit,
     onSave: () -> Unit,
+    includeSave: Boolean = true,
 ) {
-    ProfileExpandableCard(
-        title = "Основные данные",
-        icon = Icons.Filled.Tune,
-        initiallyExpanded = false,
-        expanded = expanded,
-        onExpandedChange = onExpandedChange,
-    ) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
             text = "Имя и фамилия обязательны — по ним вас найдут друзья в поиске.",
             style = MaterialTheme.typography.bodySmall,
@@ -60,19 +51,19 @@ fun ProfilePersonalDataSection(
             value = uiState.firstName,
             onValueChange = onFirstNameChange,
             label = "Имя",
-            enabled = !uiState.guestMode,
+            enabled = true,
         )
         AppTextField(
             value = uiState.lastName,
             onValueChange = onLastNameChange,
             label = "Фамилия",
-            enabled = !uiState.guestMode,
+            enabled = true,
         )
         AppTextField(
             value = uiState.nickname,
             onValueChange = onNicknameChange,
             label = "Никнейм",
-            enabled = !uiState.guestMode,
+            enabled = true,
         )
         if (uiState.publicDisplayName.isNotBlank()) {
             Text(
@@ -85,7 +76,7 @@ fun ProfilePersonalDataSection(
             value = uiState.birthDate,
             onValueChange = onBirthDateChange,
             label = "Дата рождения",
-            enabled = !uiState.guestMode,
+            enabled = true,
         )
         if (uiState.age.isNotBlank()) {
             Text(
@@ -122,45 +113,52 @@ fun ProfilePersonalDataSection(
             onValueChange = onHeightChange,
             label = "Рост (см)",
             keyboardType = KeyboardType.Number,
-            enabled = !uiState.guestMode,
+            enabled = true,
         )
         AppTextField(
             value = uiState.weight,
             onValueChange = onWeightChange,
             label = "Вес (кг)",
             keyboardType = KeyboardType.Decimal,
-            enabled = !uiState.guestMode,
+            enabled = true,
         )
-        AppButton(
-            text = when {
-                uiState.isSaving -> "Сохраняем..."
-                uiState.isLoading -> "Загрузка..."
-                else -> "Сохранить данные"
-            },
-            enabled = !uiState.isSaving && !uiState.isLoading && !uiState.guestMode,
-            onClick = onSave,
+        ProfileDietFields(
+            uiState = uiState,
+            onIsVegetarianChange = onIsVegetarianChange,
+            onHasAllergiesChange = onHasAllergiesChange,
+            onAllergiesTextChange = onAllergiesTextChange,
+            onSave = {},
+            includeSave = false,
         )
+        if (includeSave) {
+            AppButton(
+                text = when {
+                    uiState.isSaving -> "Сохраняем..."
+                    uiState.isLoading -> "Загрузка..."
+                    else -> "Сохранить данные"
+                },
+                enabled = !uiState.isSaving && !uiState.isLoading,
+                onClick = onSave,
+            )
+        }
     }
 }
 
 @Composable
-fun ProfileGoalsHabitsSection(
+fun ProfileGoalsHabitsFields(
     uiState: ProfileEditUiState,
-    expanded: Boolean,
-    onExpandedChange: (Boolean) -> Unit,
     onGoalChange: (String) -> Unit,
     onActivityLevelChange: (String) -> Unit,
     onSave: () -> Unit,
 ) {
-    ProfileExpandableCard(
-        title = "Цель и активность",
-        icon = Icons.Filled.Flag,
-        initiallyExpanded = false,
-        expanded = expanded,
-        onExpandedChange = onExpandedChange,
-    ) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
-            text = "Сон, вода и шаги — в блоке «Твои цели» выше. Калории и БЖУ — в разделе «Питание».",
+            text = "Цель и уровень активности",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Text(
+            text = "Сон, вода и шаги — в блоке «Твои цели» на вкладке профиля. Калории и БЖУ — в разделе «Питание».",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -178,29 +176,22 @@ fun ProfileGoalsHabitsSection(
                 uiState.isLoading -> "Загрузка..."
                 else -> "Сохранить"
             },
-            enabled = !uiState.isSaving && !uiState.isLoading && !uiState.isChangingPassword && !uiState.guestMode,
+            enabled = !uiState.isSaving && !uiState.isLoading && !uiState.isChangingPassword,
             onClick = onSave,
         )
     }
 }
 
 @Composable
-fun ProfileDietSection(
+fun ProfileDietFields(
     uiState: ProfileEditUiState,
-    expanded: Boolean,
-    onExpandedChange: (Boolean) -> Unit,
     onIsVegetarianChange: (Boolean) -> Unit,
     onHasAllergiesChange: (Boolean) -> Unit,
     onAllergiesTextChange: (String) -> Unit,
     onSave: () -> Unit,
+    includeSave: Boolean = true,
 ) {
-    ProfileExpandableCard(
-        title = "Питание и ограничения",
-        icon = Icons.Filled.Restaurant,
-        initiallyExpanded = false,
-        expanded = expanded,
-        onExpandedChange = onExpandedChange,
-    ) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
             text = "Вегетарианец?",
             style = MaterialTheme.typography.titleMedium,
@@ -246,10 +237,12 @@ fun ProfileDietSection(
                 label = "На что аллергия",
             )
         }
-        AppButton(
-            text = if (uiState.isSaving) "Сохраняем..." else "Сохранить",
-            enabled = !uiState.isSaving && !uiState.isLoading && !uiState.guestMode,
-            onClick = onSave,
-        )
+        if (includeSave) {
+            AppButton(
+                text = if (uiState.isSaving) "Сохраняем..." else "Сохранить",
+                enabled = !uiState.isSaving && !uiState.isLoading,
+                onClick = onSave,
+            )
+        }
     }
 }

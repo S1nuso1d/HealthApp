@@ -22,4 +22,7 @@ interface ReminderEntryPoint {
     fun notificationPrefs(): NotificationPrefs
     fun weightHistoryStore(): WeightHistoryStore
     fun socialRepository(): com.example.healtapp.domain.repository.SocialRepository
+
+    /** Нужен воркеру, который восстанавливает будильники таблеток после перезагрузки. */
+    fun healthRepository(): com.example.healtapp.domain.repository.HealthRepository
 }

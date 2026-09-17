@@ -1,5 +1,9 @@
 package com.example.healtapp.features.activity.ui
 
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -8,9 +12,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -25,6 +35,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import java.time.LocalDate
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -42,9 +54,12 @@ import com.example.healtapp.core.ui.components.AppMessageType
 import com.example.healtapp.core.ui.components.AppTextField
 import com.example.healtapp.core.common.UserFacingMessages
 import com.example.healtapp.core.ui.components.SectionHeader
+import com.example.healtapp.core.ui.theme.brandingGradient
+import com.example.healtapp.core.ui.theme.iconTintColor
 import com.example.healtapp.data.network.dto.activity.ActivityDto
 import com.example.healtapp.features.activity.presentation.ActivityViewModel
 import com.example.healtapp.features.activity.presentation.activityTitleFromApi
+import com.example.healtapp.features.activity.presentation.trainingFormFieldsFor
 import com.example.healtapp.features.activity.ui.components.ActivityStepsHeroCard
 import com.example.healtapp.features.activity.ui.components.ActivityStepsSkeleton
 import com.example.healtapp.features.activity.ui.components.ActivityTrainingHistoryRow
@@ -57,6 +72,7 @@ import com.example.healtapp.features.activity.ui.components.WeeklyStepsBarChart
 @Composable
 fun ActivityScreen(
     onOpenProfile: () -> Unit = {},
+    onImmersiveChanged: (Boolean) -> Unit = {},
 ) {
     val viewModel: ActivityViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -64,9 +80,42 @@ fun ActivityScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var showGuide by remember { mutableStateOf(false) }
     var trainingPane by remember { mutableStateOf(ActivityTrainingPane.Hub) }
+    var menuExpanded by remember { mutableStateOf(false) }
+    var summaryData by remember { mutableStateOf<WorkoutSummaryData?>(null) }
+    var summarySourceActivity by remember { mutableStateOf<ActivityDto?>(null) }
+
+    fun returnToActivityHub() {
+        summaryData = null
+        summarySourceActivity = null
+        viewModel.resetTrainingForm()
+        trainingPane = ActivityTrainingPane.Hub
+    }
 
     LaunchedEffect(Unit) {
         showGuide = FeatureGuidePrefs.shouldShow(context, FeatureGuideScreen.Activity)
+    }
+
+    LaunchedEffect(trainingPane) {
+        onImmersiveChanged(
+            trainingPane == ActivityTrainingPane.Run || trainingPane == ActivityTrainingPane.Summary,
+        )
+    }
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        onDispose { onImmersiveChanged(false) }
+    }
+
+    BackHandler(enabled = trainingPane != ActivityTrainingPane.Hub) {
+        when (trainingPane) {
+            ActivityTrainingPane.Summary,
+            ActivityTrainingPane.Form,
+            ActivityTrainingPane.Catalog,
+            -> returnToActivityHub()
+            ActivityTrainingPane.Run -> {
+                // Live-экран сам обрабатывает выход; если дошли сюда — на хаб.
+                returnToActivityHub()
+            }
+            ActivityTrainingPane.Hub -> Unit
+        }
     }
 
     val intensityTypes = listOf("Низкая", "Средняя", "Высокая")
@@ -79,11 +128,26 @@ fun ActivityScreen(
     var editIntensity by remember { mutableStateOf("") }
     var editType by remember { mutableStateOf("") }
 
+    val pickPhoto = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        viewModel.updateTrainingPhotoUri(uri?.toString())
+    }
+
     LaunchedEffect(uiState.snackMessage) {
         uiState.snackMessage?.let { msg ->
             snackbarHostState.showSnackbar(msg)
-            if (msg == "Тренировка сохранена" && trainingPane == ActivityTrainingPane.Form) {
+            if (msg.startsWith("Тренировка сохранена") &&
+                (trainingPane == ActivityTrainingPane.Form || trainingPane == ActivityTrainingPane.Summary)
+            ) {
                 trainingPane = ActivityTrainingPane.Hub
+                summaryData = null
+                summarySourceActivity = null
+            }
+            if (msg.startsWith("Тренировка обновлена") && trainingPane == ActivityTrainingPane.Summary) {
+                trainingPane = ActivityTrainingPane.Hub
+                summaryData = null
+                summarySourceActivity = null
             }
             viewModel.clearSnackMessage()
         }
@@ -94,6 +158,22 @@ fun ActivityScreen(
         uiState.weeklySteps.map { day ->
             if (day.dateKey == todayKey) day.copy(steps = uiState.stepsToday) else day
         }
+    }
+
+    val previousRuns = remember(uiState.trainingHistory) {
+        uiState.trainingHistory
+            .filter { it.activity_type.equals("run", ignoreCase = true) }
+            .mapNotNull { act ->
+                val dist = act.distance_km ?: return@mapNotNull null
+                if (dist < 0.5f) return@mapNotNull null
+                PreviousRunOption(
+                    distanceKm = dist,
+                    durationMin = act.duration_minutes,
+                    label = "%.1f км · %d мин".format(dist, act.duration_minutes),
+                )
+            }
+            .distinctBy { it.label }
+            .take(2)
     }
 
     Scaffold(
@@ -108,7 +188,36 @@ fun ActivityScreen(
             AppScreen(
                 title = "Активность",
                 subtitle = "Шаги, неделя и тренировки",
-                headerIcon = Icons.AutoMirrored.Filled.DirectionsWalk,
+                headerLeading = {
+                    Box {
+                        IconButton(
+                            onClick = { menuExpanded = true },
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Brush.linearGradient(brandingGradient().map { it.copy(alpha = 0.28f) })),
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.DirectionsWalk,
+                                contentDescription = "Меню",
+                                tint = iconTintColor(),
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Добавить тренировку вручную") },
+                                onClick = {
+                                    menuExpanded = false
+                                    viewModel.beginTraining(uiState.activityType.ifBlank { "Бег" })
+                                    trainingPane = ActivityTrainingPane.Form
+                                },
+                            )
+                        }
+                    }
+                },
                 scrollable = true,
                 scrollStateKey = "activity",
             ) {
@@ -137,6 +246,10 @@ fun ActivityScreen(
                         days = weeklyStepsForChart,
                         goal = uiState.stepsGoal,
                     )
+
+                    uiState.eveningWindowHint?.let { hint ->
+                        AppMessageBanner(text = hint, type = AppMessageType.Warning)
+                    }
                 }
 
                 ActivityTrainingSection(
@@ -150,7 +263,11 @@ fun ActivityScreen(
                     favoriteSlugs = uiState.favoriteTrainingSlugs,
                     onSelectType = { type ->
                         viewModel.beginTraining(type.titleRu)
-                        trainingPane = ActivityTrainingPane.Form
+                        trainingPane = if (trainingFormFieldsFor(type.titleRu).supportsLiveGps) {
+                            ActivityTrainingPane.Run
+                        } else {
+                            ActivityTrainingPane.Form
+                        }
                     },
                     onOpenCatalog = { trainingPane = ActivityTrainingPane.Catalog },
                     historyContent = {
@@ -174,6 +291,11 @@ fun ActivityScreen(
                                     uiState.trainingHistory.forEach { activity ->
                                         ActivityTrainingHistoryRow(
                                             activity = activity,
+                                            onOpen = {
+                                                summarySourceActivity = activity
+                                                summaryData = activity.toWorkoutSummaryData()
+                                                trainingPane = ActivityTrainingPane.Summary
+                                            },
                                             onEdit = {
                                                 activityToEdit = activity
                                                 editDuration = activity.duration_minutes.toString()
@@ -211,7 +333,11 @@ fun ActivityScreen(
                             },
                             onSelectType = { type ->
                                 viewModel.beginTraining(type.titleRu)
-                                trainingPane = ActivityTrainingPane.Form
+                                trainingPane = if (trainingFormFieldsFor(type.titleRu).supportsLiveGps) {
+                                    ActivityTrainingPane.Run
+                                } else {
+                                    ActivityTrainingPane.Form
+                                }
                             },
                             onToggleFavorite = viewModel::toggleTrainingFavorite,
                         )
@@ -241,12 +367,102 @@ fun ActivityScreen(
                             onNotesChange = viewModel::updateTrainingNotes,
                             perceivedExertion = uiState.perceivedExertion,
                             onPerceivedExertionChange = viewModel::updatePerceivedExertion,
+                            startTime = uiState.trainingStartTime,
+                            onStartTimeChange = viewModel::updateTrainingStartTime,
+                            photoUri = uiState.trainingPhotoUri,
+                            onPickPhoto = {
+                                pickPhoto.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                                )
+                            },
+                            onClearPhoto = { viewModel.updateTrainingPhotoUri(null) },
                             isSaving = uiState.isSaving,
+                            bedtimeWarning = uiState.bedtimeWarning,
                             onBack = {
                                 viewModel.resetTrainingForm()
                                 trainingPane = ActivityTrainingPane.Hub
                             },
                             onSave = viewModel::saveTraining,
+                        )
+                    }
+                }
+            }
+
+            if (trainingPane == ActivityTrainingPane.Run) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background),
+                ) {
+                    RunWorkoutScreen(
+                        activityTitleRu = uiState.activityType.ifBlank { "Бег" },
+                        session = viewModel.liveSession,
+                        previousRuns = previousRuns,
+                        bedtimeWarning = uiState.bedtimeWarning,
+                        onBack = {
+                            viewModel.resetTrainingForm()
+                            trainingPane = ActivityTrainingPane.Hub
+                        },
+                        onFinished = { done ->
+                            if (done.elapsedMs >= 20_000L || done.distanceMeters >= 40.0) {
+                                summarySourceActivity = null
+                                summaryData = WorkoutSummaryData(
+                                    activityTitleRu = done.activityTitleRu.ifBlank {
+                                        uiState.activityType.ifBlank { "Бег" }
+                                    },
+                                    startEpochMs = done.startedAtEpochMs,
+                                    endEpochMs = System.currentTimeMillis(),
+                                    durationMinutes = done.durationMinutes,
+                                    distanceKm = done.distanceKm.toFloat(),
+                                    calories = liveWorkoutCalories(done),
+                                    avgPaceMinPerKm = done.avgPaceMinPerKm,
+                                    cadenceSpm = done.cadenceSpm,
+                                    avgSpeedMs = done.avgSpeedKmh?.div(3.6)?.toFloat(),
+                                    lat = done.lastLat,
+                                    lon = done.lastLon,
+                                    mapPoints = done.points.size,
+                                    isNew = true,
+                                )
+                                trainingPane = ActivityTrainingPane.Summary
+                            } else {
+                                viewModel.resetTrainingForm()
+                                trainingPane = ActivityTrainingPane.Hub
+                            }
+                        },
+                    )
+                }
+            }
+
+            if (trainingPane == ActivityTrainingPane.Summary) {
+                summaryData?.let { data ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.background),
+                    ) {
+                        WorkoutSummaryScreen(
+                            data = data,
+                            isSaving = uiState.isSaving,
+                            onBack = { returnToActivityHub() },
+                            onSave = { updated ->
+                                summaryData = updated
+                                val notes = buildWorkoutNotes(updated)
+                                val existing = summarySourceActivity
+                                if (existing != null) {
+                                    viewModel.updateActivityNotes(existing, notes)
+                                } else {
+                                    viewModel.saveLiveWorkout(
+                                        activityTitleRu = updated.activityTitleRu,
+                                        startEpochMs = updated.startEpochMs,
+                                        endEpochMs = updated.endEpochMs,
+                                        durationMinutes = updated.durationMinutes,
+                                        distanceKm = updated.distanceKm,
+                                        calories = updated.calories,
+                                        avgSpeedMs = updated.avgSpeedMs,
+                                        notes = notes,
+                                    )
+                                }
+                            },
                         )
                     }
                 }
@@ -324,4 +540,31 @@ fun ActivityScreen(
             )
         }
     }
+}
+
+private fun ActivityDto.toWorkoutSummaryData(): WorkoutSummaryData {
+    val payload = com.example.healtapp.features.activity.live.WorkoutNotesCodec.decode(notes)
+    val start = com.example.healtapp.features.activity.presentation.ActivityStepsHelper.parseStartTime(start_time)
+    val end = runCatching {
+        com.example.healtapp.features.activity.presentation.ActivityStepsHelper.parseStartTime(end_time)
+    }.getOrElse { start.plusMinutes(duration_minutes.toLong()) }
+    val zone = java.time.ZoneId.systemDefault()
+    return WorkoutSummaryData(
+        activityId = id,
+        activityTitleRu = activityTitleFromApi(activity_type),
+        startEpochMs = start.atZone(zone).toInstant().toEpochMilli(),
+        endEpochMs = end.atZone(zone).toInstant().toEpochMilli(),
+        durationMinutes = duration_minutes,
+        distanceKm = distance_km ?: 0f,
+        calories = calories_burned ?: 0f,
+        avgPaceMinPerKm = payload.meta?.avgPaceMinPerKm,
+        cadenceSpm = payload.meta?.cadenceSpm,
+        avgSpeedMs = avg_speed_m_s,
+        weather = payload.meta?.weather,
+        note = payload.note,
+        photoUri = payload.meta?.photoUri,
+        photoFocusY = 0f,
+        mapPoints = payload.meta?.mapPoints ?: 0,
+        isNew = false,
+    )
 }

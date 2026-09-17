@@ -48,7 +48,11 @@ import com.example.healtapp.features.meal.ui.MyDishesTab
 
 /** Вкладки: 0 — Питание, 1 — Мои блюда, 2 — Вода, 3 — Голодание */
 @Composable
-fun NutritionHubScreen(initialTab: Int = 0, onOpenPlanner: () -> Unit = {}) {
+fun NutritionHubScreen(
+    initialTab: Int = 0,
+    openFoodCamera: Boolean = false,
+    onOpenPlanner: () -> Unit = {},
+) {
     var tab by rememberSaveable { mutableIntStateOf(initialTab.coerceIn(0, 3)) }
     val snackbarHostState = remember { SnackbarHostState() }
     var openDishBuilder by remember { mutableStateOf(false) }
@@ -72,10 +76,10 @@ fun NutritionHubScreen(initialTab: Int = 0, onOpenPlanner: () -> Unit = {}) {
     }
 
     val (title, subtitle, icon) = when (tab) {
-        0 -> Triple("Питание", "Дневник приёмов пищи и КБЖУ", Icons.Filled.Restaurant)
-        1 -> Triple("Мои блюда", "Составные блюда из продуктов", Icons.Filled.MenuBook)
-        2 -> Triple("Вода", "Гидратация и быстрый ввод", Icons.Filled.WaterDrop)
-        else -> Triple("Голодание", "Интервальное питание 16/8, 18/6, 20/4", Icons.Filled.Timer)
+        0 -> Triple("Питание", "КБЖУ и приёмы пищи", Icons.Filled.Restaurant)
+        1 -> Triple("Мои блюда", "Собрать блюдо из продуктов", Icons.Filled.MenuBook)
+        2 -> Triple("Вода", "Гидратация за сегодня", Icons.Filled.WaterDrop)
+        else -> Triple("Голодание", "Интервалы 16/8, 18/6, 20/4", Icons.Filled.Timer)
     }
 
     Scaffold(
@@ -119,6 +123,7 @@ fun NutritionHubScreen(initialTab: Int = 0, onOpenPlanner: () -> Unit = {}) {
                             MealTabContent(
                                 snackbarHostState = snackbarHostState,
                                 onOpenPlanner = onOpenPlanner,
+                                openFoodCamera = openFoodCamera,
                             )
                         }
                         1 -> Column(Modifier.fillMaxWidth()) {

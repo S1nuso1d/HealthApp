@@ -3,6 +3,7 @@ package com.example.healtapp.features.aicoach.presentation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -20,7 +21,7 @@ enum class AiHealthTopic(
 
             Структура ответа:
             1) Текущая картина — фактические часы, качество, тренд, сравнение с моей целью по сну
-            2) Что сейчас мешает восстановлению (режим, недосып, пробелы в записях, связь с настроением/стрессом)
+            2) Что сейчас мешает восстановлению — включая связи с поздней едой, кофеином, водой и вечерними тренировками, если они видны в дневнике
             3) Конкретные шаги на ближайшие 3–7 дней — что, когда и сколько менять
             4) Что отслеживать в приложении и как понять, что стало лучше
 
@@ -70,6 +71,21 @@ enum class AiHealthTopic(
             4) Что отмечать в дневнике воды и как понять улучшение
 
             Давайте практичные ориентиры в миллилитрах и по времени суток.
+        """.trimIndent(),
+    ),
+    LINKS(
+        label = "Связи",
+        icon = Icons.Filled.Insights,
+        analysisPrompt = """
+            Сделай разбор связей между моим сном, питанием, водой и активностью за последние 14 дней.
+
+            Структура ответа:
+            1) Какие закономерности уже видны в дневнике — с цифрами (например поздняя тренировка и длительность сна, поздний ужин и качество сна, мало воды в день нагрузки)
+            2) Что из этого сильнее всего влияет на самочувствие сейчас
+            3) Один эксперимент на 5–7 дней: что убрать или сдвинуть по времени и как понять, что сработало
+            4) Если данных мало для уверенной связи — скажите, каких дней и каких записей не хватает
+
+            Не перечисляйте разделы по отдельности. Говорите о сочетании привычек. Опирайтесь только на мои данные и блок найденных закономерностей.
         """.trimIndent(),
     ),
 }

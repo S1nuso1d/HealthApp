@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.ui.animation.AppAppearOnce
 import com.example.healtapp.core.ui.animation.appPressScale
+import com.example.healtapp.core.ui.theme.Dimens
 import com.example.healtapp.core.ui.theme.isAppDarkTheme
 
 @Composable
@@ -27,29 +28,38 @@ fun AppCard(
     onClick: (() -> Unit)? = null,
     animateEnter: Boolean = true,
     enterDelayMillis: Int = 0,
+    quiet: Boolean = false,
+    highlight: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val outline = when {
+        highlight -> MaterialTheme.colorScheme.primary.copy(alpha = if (isAppDarkTheme()) 0.55f else 0.38f)
+        quiet -> MaterialTheme.colorScheme.outline.copy(alpha = if (isAppDarkTheme()) 0.18f else 0.06f)
+        else -> MaterialTheme.colorScheme.outline.copy(alpha = if (isAppDarkTheme()) 0.45f else 0.14f)
+    }
     val card: @Composable () -> Unit = {
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(if (isAppDarkTheme()) 12.dp else 26.dp),
+            shape = RoundedCornerShape(Dimens.RadiusL),
             border = BorderStroke(
-                width = if (isAppDarkTheme()) 1.5.dp else 1.dp,
-                color = MaterialTheme.colorScheme.outline.copy(
-                    alpha = if (isAppDarkTheme()) 0.45f else 0.14f,
-                ),
+                width = Dimens.BorderWidth,
+                color = outline,
             ),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surface.copy(
-                    alpha = if (isAppDarkTheme()) 1f else 0.97f,
+                    alpha = when {
+                        isAppDarkTheme() -> 1f
+                        quiet -> 0.88f
+                        else -> 0.97f
+                    },
                 ),
             ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = Dimens.CardElevation),
         ) {
             val interaction = remember { MutableInteractionSource() }
             val columnModifier = Modifier
                 .fillMaxWidth()
-                .padding(18.dp)
+                .padding(Dimens.SpaceL)
                 .then(
                     if (onClick != null) {
                         Modifier

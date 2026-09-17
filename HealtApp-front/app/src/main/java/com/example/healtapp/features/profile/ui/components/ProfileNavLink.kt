@@ -25,7 +25,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.ui.theme.metricIconGradient
-import com.example.healtapp.core.ui.theme.themedCardBlue
+import com.example.healtapp.core.ui.theme.themedCardMint
 
 @Composable
 fun ProfileNavLink(
@@ -54,7 +54,7 @@ fun ProfileNavLink(
             modifier = Modifier
                 .size(40.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(Brush.linearGradient(metricIconGradient(themedCardBlue()))),
+                .background(Brush.linearGradient(metricIconGradient(themedCardMint()))),
             contentAlignment = Alignment.Center,
         ) {
             Icon(

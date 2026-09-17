@@ -3,8 +3,6 @@ package com.example.healtapp.features.recommendations.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.healtapp.core.common.AppRefreshBus
-import com.example.healtapp.core.common.LocalDemoData
-import com.example.healtapp.data.preferences.TokenStorage
 import com.example.healtapp.domain.repository.AiRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,7 +13,6 @@ import javax.inject.Inject
 
 @HiltViewModel
 class RecommendationsViewModel @Inject constructor(
-    private val tokenStorage: TokenStorage,
     private val aiRepository: AiRepository
 ) : ViewModel() {
 
@@ -36,17 +33,6 @@ class RecommendationsViewModel @Inject constructor(
 
     fun loadRecommendations(days: Int = 7) {
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) {
-                _uiState.value = RecommendationsUiState(
-                    isLoading = false,
-                    error = null,
-                    healthScore = 72,
-                    periodDays = days,
-                    recommendations = LocalDemoData.recommendationItems(),
-                )
-                return@launch
-            }
-
             val silent = _uiState.value.recommendations.isNotEmpty()
             if (!silent) {
                 _uiState.value = _uiState.value.copy(isLoading = true, error = null)

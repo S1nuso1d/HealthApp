@@ -28,7 +28,7 @@ class SmartContextReminderWorker(
         if (!prefs.current().goalAchievementNotifications && !prefs.current().hydrationReminders) {
             return Result.success()
         }
-        if (entry.tokenStorage().getToken() == null || entry.tokenStorage().isGuestMode()) {
+        if (entry.tokenStorage().getToken() == null) {
             return Result.success()
         }
         if (!HealthNotificationHelper.canPost(applicationContext)) return Result.success()

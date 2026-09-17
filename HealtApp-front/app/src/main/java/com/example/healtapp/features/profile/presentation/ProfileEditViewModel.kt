@@ -2,6 +2,7 @@ package com.example.healtapp.features.profile.presentation
 
 import android.content.Context
 import android.net.Uri
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.healtapp.core.common.AvatarJpegBytes
@@ -10,6 +11,7 @@ import com.example.healtapp.core.common.AppRefreshBus
 import com.example.healtapp.core.common.Constants
 import com.example.healtapp.core.common.NutritionTargetsCalculator
 import com.example.healtapp.core.export.HealthReportExporter
+import com.example.healtapp.data.network.api.ExportApi
 import com.example.healtapp.data.network.dto.profile.ProfileDto
 import com.example.healtapp.core.ui.theme.ThemeMode
 import com.example.healtapp.data.preferences.ThemePreferences
@@ -35,6 +37,7 @@ import com.example.healtapp.data.healthconnect.HealthConnectManager
 
 @HiltViewModel
 class ProfileEditViewModel @Inject constructor(
+    private val savedStateHandle: SavedStateHandle,
     private val getProfileUseCase: GetProfileUseCase,
     private val updateProfileUseCase: UpdateProfileUseCase,
     private val profileRepository: ProfileRepository,
@@ -44,13 +47,17 @@ class ProfileEditViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context,
     private val weightHistoryStore: WeightHistoryStore,
     private val healthConnectManager: HealthConnectManager,
+    private val exportApi: ExportApi,
 ) : ViewModel() {
 
     companion object {
         const val PROFILE_SAVE_SUCCESS = "PROFILE_SAVE_SUCCESS"
+        private const val KEY_TAB = "profile_tab"
     }
 
-    private val _uiState = MutableStateFlow(ProfileEditUiState())
+    private val _uiState = MutableStateFlow(
+        ProfileEditUiState(selectedTab = savedStateHandle.get<Int>(KEY_TAB)?.coerceIn(0, 3) ?: 0),
+    )
     val uiState: StateFlow<ProfileEditUiState> = _uiState.asStateFlow()
 
     private var cachedProfile: ProfileDto? = null
@@ -72,17 +79,15 @@ class ProfileEditViewModel @Inject constructor(
         }
     }
 
+    fun selectTab(tab: Int) {
+        val next = tab.coerceIn(0, 3)
+        savedStateHandle[KEY_TAB] = next
+        _uiState.update { it.copy(selectedTab = next) }
+    }
+
     fun load() {
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) {
-                _uiState.value = ProfileEditUiState(
-                    isLoading = false,
-                    guestMode = true,
-                )
-                return@launch
-            }
-
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null, success = null, guestMode = false)
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null, success = null)
 
             val result = getProfileUseCase()
             result.onSuccess { profile ->
@@ -122,7 +127,6 @@ class ProfileEditViewModel @Inject constructor(
                 
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    guestMode = false,
                     error = null,
                     firstName = profile.first_name.orEmpty(),
                     lastName = profile.last_name.orEmpty(),
@@ -170,12 +174,6 @@ class ProfileEditViewModel @Inject constructor(
 
     fun uploadAvatarFromUri(uri: Uri) {
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) {
-                update {
-                    copy(error = "В демо-режиме фото на сервер не загружается. Войди в аккаунт.")
-                }
-                return@launch
-            }
             _uiState.value = _uiState.value.copy(isUploadingAvatar = true, error = null, success = null)
 
             val uploadResult = withContext(Dispatchers.IO) {
@@ -204,10 +202,6 @@ class ProfileEditViewModel @Inject constructor(
 
     fun deleteAvatar() {
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) {
-                update { copy(error = "В демо-режиме изменения на сервере недоступны.") }
-                return@launch
-            }
             _uiState.value = _uiState.value.copy(isUploadingAvatar = true, error = null, success = null)
 
             val result = profileRepository.deleteAvatar()
@@ -233,9 +227,9 @@ class ProfileEditViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isExportingReport = true, error = null) }
             runCatching {
-                val profile = cachedProfile ?: profileRepository.getMyProfile().getOrNull()
-                val text = HealthReportExporter.buildReportText(appContext, profile)
-                HealthReportExporter.shareAsFile(appContext, text)
+                val report = exportApi.getReport(30)
+                val csv = runCatching { exportApi.getCsv(90).bytes() }.getOrNull()
+                HealthReportExporter.shareReport(appContext, report, csv)
             }.onFailure { t ->
                 _uiState.update {
                     it.copy(error = UserFacingMessages.fromThrowable(t, "Не удалось сформировать отчёт"))
@@ -301,13 +295,6 @@ class ProfileEditViewModel @Inject constructor(
     fun save() {
         val state = _uiState.value
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) {
-                _uiState.value = state.copy(
-                    isSaving = false,
-                    error = "В демо-режиме профиль на сервер не сохраняется. Войди в аккаунт.",
-                )
-                return@launch
-            }
             _uiState.value = state.copy(isSaving = true, error = null, success = null)
 
             if (state.firstName.isBlank()) {
@@ -400,10 +387,6 @@ class ProfileEditViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) {
-                _uiState.value = _uiState.value.copy(error = "Смена пароля доступна после входа в аккаунт.")
-                return@launch
-            }
             _uiState.value = state.copy(isChangingPassword = true, error = null, success = null)
 
             val result = authRepository.changePassword(state.currentPassword, state.newPassword)

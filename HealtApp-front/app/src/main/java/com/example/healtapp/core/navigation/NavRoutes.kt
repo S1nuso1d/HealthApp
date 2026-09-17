@@ -11,6 +11,7 @@ sealed class NavRoute(val route: String) {
     data object Profile : NavRoute("profile")
     data object Sleep : NavRoute("sleep")
     data object Nutrition : NavRoute("nutrition")
+    data object NutritionPhoto : NavRoute("nutrition_photo")
     data object Hydration : NavRoute("hydration")
     data object Activity : NavRoute("activity")
     data object Recommendations : NavRoute("recommendations")
@@ -32,6 +33,8 @@ sealed class NavRoute(val route: String) {
     data object FriendProfile : NavRoute("friend_profile/{userId}") {
         fun route(userId: Int) = "friend_profile/$userId"
     }
+    data object WeeklyReview : NavRoute("weekly_review")
+    data object InfluenceFactors : NavRoute("influence_factors")
     data object Cycle : NavRoute("cycle")
     data object Pills : NavRoute("pills")
     data object Fasting : NavRoute("fasting")
@@ -52,6 +55,7 @@ object NavRoutes {
     val Profile = NavRoute.Profile
     val Sleep = NavRoute.Sleep
     val Nutrition = NavRoute.Nutrition
+    val NutritionPhoto = NavRoute.NutritionPhoto
     val Hydration = NavRoute.Hydration
     val Activity = NavRoute.Activity
     val Recommendations = NavRoute.Recommendations
@@ -66,6 +70,8 @@ object NavRoutes {
     val ServerConnection = NavRoute.ServerConnection
     val HealthVitals = NavRoute.HealthVitals
     val Notifications = NavRoute.Notifications
+    val WeeklyReview = NavRoute.WeeklyReview
+    val InfluenceFactors = NavRoute.InfluenceFactors
     val PoliticalRecommendations = NavRoute.PoliticalRecommendations
     val AiAssistant = NavRoute.AiAssistant
     val Achievements = NavRoute.Achievements

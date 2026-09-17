@@ -35,14 +35,6 @@ class SplashViewModel @Inject constructor(
 
     private fun resolve() {
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) {
-                _uiState.value = SplashUiState(
-                    isResolving = false,
-                    nextRoute = NavRoutes.Dashboard.route,
-                )
-                return@launch
-            }
-
             val token = tokenStorage.getToken()
             if (token.isNullOrBlank()) {
                 _uiState.value = SplashUiState(isResolving = false, nextRoute = NavRoutes.Login.route)

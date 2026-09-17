@@ -54,7 +54,6 @@ import com.example.healtapp.features.social.ui.components.CommunityCommentsSheet
 import com.example.healtapp.features.social.ui.components.CommunityComposeSheet
 import com.example.healtapp.features.social.ui.components.CommunityFeedPostCard
 import com.example.healtapp.features.social.ui.components.CommunityPostDeleteOverlay
-import com.example.healtapp.features.social.ui.components.CommunityStoriesRail
 import com.example.healtapp.features.social.ui.components.CommunityStoryComposeSheet
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -87,11 +86,7 @@ fun CommunityFeedScreen(
         ) {
             FeatureHeroBar(
                 title = "Сообщество",
-                subtitle = if (uiState.guestMode) {
-                    "Демо-лента · достижения, рецепты и тренировки"
-                } else {
-                    "Достижения, рецепты и мотивация друзей"
-                },
+                subtitle = "Достижения, рецепты и мотивация друзей",
                 icon = Icons.Filled.Groups,
                 onBack = onBack,
                 actions = {
@@ -148,27 +143,10 @@ fun CommunityFeedScreen(
                             bottom = 88.dp,
                         ),
                     ) {
-                        if (uiState.guestMode) {
-                            item(key = "guest") {
-                                FeatureInlineNotice(
-                                    text = "Демо-режим: лента показана как пример. Войдите, чтобы публиковать и видеть друзей.",
-                                )
-                            }
-                        }
-
                         uiState.message?.let { msg ->
                             item(key = "message") {
                                 FeatureInlineNotice(text = msg)
                             }
-                        }
-
-                        item(key = "stories") {
-                            CommunityStoriesRail(
-                                stories = uiState.stories,
-                                currentUser = currentUser,
-                                onAddStory = { viewModel.setShowStoryComposeSheet(true) },
-                                onOpenStory = viewModel::openStoryViewer,
-                            )
                         }
 
                         uiState.challenges.firstOrNull()?.let { challenge ->
@@ -254,7 +232,8 @@ fun CommunityFeedScreen(
             onClick = { viewModel.setShowComposeSheet(true) },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 20.dp, bottom = 24.dp),
+                .navigationBarsPadding()
+                .padding(end = 20.dp, bottom = 72.dp),
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
             shape = CircleShape,

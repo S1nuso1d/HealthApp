@@ -22,3 +22,4 @@ from app.models.social import Friendship, FeedPost, FeedReaction, UserPrivacySet
 from app.models.health import CycleEntry
 from app.models.health import PillReminder
 from app.models.food_catalog import FoodCatalogItem
+from app.models.habit_experiment import HabitExperiment

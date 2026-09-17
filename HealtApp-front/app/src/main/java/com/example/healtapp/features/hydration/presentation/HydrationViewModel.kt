@@ -30,6 +30,8 @@ class HydrationViewModel @Inject constructor(
     private val pendingSyncFlusher: PendingSyncFlusher,
     private val widgetSnapshotStore: WidgetSnapshotStore,
     private val hydrationPrefs: HydrationPrefs,
+    private val recoveryModePrefs: com.example.healtapp.data.preferences.RecoveryModePrefs,
+    private val workoutWaterBoostPrefs: com.example.healtapp.data.preferences.WorkoutWaterBoostPrefs,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HydrationUiState())
@@ -57,12 +59,14 @@ class HydrationViewModel @Inject constructor(
                 pendingSyncCount = pendingCount,
             )
 
-            val waterTarget = profileRepository.getMyProfile()
-                .getOrNull()
-                ?.target_water_ml
-                ?.toInt()
-                ?.takeIf { it > 0 }
-                ?: 2500
+            val waterTarget = recoveryModePrefs.waterTarget(
+                profileRepository.getMyProfile()
+                    .getOrNull()
+                    ?.target_water_ml
+                    ?.toInt()
+                    ?.takeIf { it > 0 }
+                    ?: 2500,
+            ) + workoutWaterBoostPrefs.extraMlToday()
 
             val result = repository.getTodayHydrationSummary()
 

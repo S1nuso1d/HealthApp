@@ -1,10 +1,13 @@
 package com.example.healtapp.features.hydration.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -16,10 +19,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.healtapp.core.common.UserFacingMessages
 import com.example.healtapp.core.ui.components.AppDialogMessage
@@ -33,8 +39,11 @@ import com.example.healtapp.core.ui.components.GradientFormPanel
 import com.example.healtapp.core.ui.components.PendingSyncBadge
 import com.example.healtapp.core.ui.components.SectionHeader
 import com.example.healtapp.core.ui.components.progressCelebrateEffect
+import com.example.healtapp.core.ui.theme.heroBlockGradient
+import com.example.healtapp.core.ui.theme.heroContentColor
 import com.example.healtapp.data.network.dto.hydration.HydrationDto
 import com.example.healtapp.data.preferences.HydrationPrefs
+import com.example.healtapp.features.dashboard.ui.components.WaterGlassMeter
 import com.example.healtapp.features.hydration.presentation.HydrationViewModel
 import com.example.healtapp.features.hydration.ui.components.HydrationCustomAmountKeypad
 import com.example.healtapp.features.hydration.ui.components.QuickAddWaterButtons
@@ -50,43 +59,68 @@ fun HydrationTabContent() {
     var customMlInput by remember { mutableStateOf("") }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SectionHeader(
-            title = "Вода за сегодня",
-            subtitle = "Быстро добавьте стакан или свой объём",
-        )
-
         PendingSyncBadge(count = uiState.pendingSyncCount)
 
-        AppCard {
-            Column(
-                modifier = Modifier
-                    .padding(4.dp)
-                    .progressCelebrateEffect(uiState.progressCelebrateToken),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(26.dp))
+                .background(Brush.linearGradient(heroBlockGradient()))
+                .padding(20.dp)
+                .progressCelebrateEffect(uiState.progressCelebrateToken),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = "Сегодня: ${uiState.waterToday} мл",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
+                WaterGlassMeter(
+                    progress = if (uiState.target > 0) {
+                        (uiState.waterToday / uiState.target.toFloat()).coerceIn(0f, 1f)
+                    } else {
+                        0f
+                    },
                 )
-                Text(
-                    text = "Цель: ${uiState.target} мл",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                if (uiState.isLoading) {
-                    CircularProgressIndicator()
-                }
-                uiState.error?.let { errorText ->
-                    AppMessageBanner(text = errorText, type = AppMessageType.Error)
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "Вода сегодня",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = heroContentColor().copy(alpha = 0.88f),
+                    )
+                    Text(
+                        text = "${uiState.waterToday} мл",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = heroContentColor(),
+                    )
+                    Text(
+                        text = if (uiState.target > 0 && uiState.waterToday >= uiState.target) {
+                            "Цель на сегодня выполнена"
+                        } else if (java.time.LocalTime.now().hour >= 20 &&
+                            uiState.target > 0 &&
+                            uiState.target - uiState.waterToday >= 700
+                        ) {
+                            "После 20:00 не догоняйте большой объём — это мешает сну"
+                        } else if (uiState.target > 0) {
+                            "ещё ${uiState.target - uiState.waterToday} мл до ${uiState.target} мл"
+                        } else {
+                            "Цель: ${uiState.target} мл"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = heroContentColor().copy(alpha = 0.9f),
+                    )
                 }
             }
         }
 
-        SectionHeader(
-            title = "Быстрое добавление",
-            subtitle = "Стандартные порции и свои кнопки",
-        )
+        if (uiState.isLoading) {
+            CircularProgressIndicator()
+        }
+        uiState.error?.let { errorText ->
+            AppMessageBanner(text = errorText, type = AppMessageType.Error)
+        }
+
+        SectionHeader(title = "Быстро добавить")
         QuickAddWaterButtons(
             defaultAmounts = uiState.defaultQuickAmounts,
             customAmounts = uiState.customQuickAmounts,
@@ -98,7 +132,7 @@ fun HydrationTabContent() {
             modifier = Modifier.fillMaxWidth(),
         )
 
-        SectionHeader(title = "Свой объём", subtitle = "Наберите миллилитры на кейпаде")
+        SectionHeader(title = "Свой объём")
         GradientFormPanel {
             HydrationCustomAmountKeypad(
                 value = customMlInput,

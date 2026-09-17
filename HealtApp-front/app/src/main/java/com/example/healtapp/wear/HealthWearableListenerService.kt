@@ -18,6 +18,9 @@ class HealthWearableListenerService : WearableListenerService() {
     @Inject
     lateinit var hydrationRepository: HydrationRepository
 
+    @Inject
+    lateinit var widgetSnapshotStore: com.example.healtapp.data.preferences.WidgetSnapshotStore
+
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onMessageReceived(messageEvent: MessageEvent) {
@@ -32,6 +35,11 @@ class HealthWearableListenerService : WearableListenerService() {
                     result.fold(
                         onSuccess = {
                             Log.d("WearableListener", "Successfully added 250ml of water via Wear OS")
+                            widgetSnapshotStore.load()?.let { snap ->
+                                val updated = snap.copy(waterMl = snap.waterMl + 250)
+                                widgetSnapshotStore.save(updated)
+                                WearSnapshotSync.push(applicationContext, updated)
+                            }
                         },
                         onFailure = { error ->
                             Log.e("WearableListener", "Failed to add water: ${error.message}", error)

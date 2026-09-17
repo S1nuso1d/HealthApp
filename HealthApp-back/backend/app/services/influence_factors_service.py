@@ -19,10 +19,41 @@ _AFFECTED_METRIC = {
     "late_caffeine_sleep_impact": ("sleep", "Сон"),
     "late_meal_sleep_impact": ("sleep", "Сон"),
     "evening_high_activity_sleep_impact": ("sleep", "Сон"),
+    "late_drink_sleep_impact": ("sleep", "Сон"),
+    "high_daily_caffeine_sleep_impact": ("sleep", "Сон"),
+    "late_meal_and_evening_workout_sleep": ("sleep", "Сон"),
+    "late_caffeine_and_late_meal_sleep": ("sleep", "Сон"),
+    "late_meal_sleep_quality_impact": ("sleep", "Сон"),
+    "evening_walk_sleep_positive": ("sleep", "Сон"),
     "low_hydration_low_energy": ("energy", "Энергия"),
     "short_sleep_low_energy": ("energy", "Энергия"),
     "hydration_activity_energy_positive": ("energy", "Энергия"),
+    "low_steps_low_energy": ("energy", "Энергия"),
+    "high_steps_high_energy": ("energy", "Энергия"),
+    "skipped_meals_low_energy": ("energy", "Энергия"),
+    "good_sleep_high_energy": ("energy", "Энергия"),
+    "low_hydration_high_activity_energy": ("energy", "Энергия"),
+    "recovery_stack_high_energy": ("energy", "Энергия"),
+    "short_sleep_low_mood": ("mood", "Настроение"),
+    "short_sleep_high_stress": ("stress", "Стресс"),
+    "low_hydration_low_focus": ("focus", "Фокус"),
 }
+
+
+def _metric_for(insight_type: str) -> tuple[str, str]:
+    if insight_type in _AFFECTED_METRIC:
+        return _AFFECTED_METRIC[insight_type]
+    if "sleep" in insight_type:
+        return ("sleep", "Сон")
+    if "mood" in insight_type:
+        return ("mood", "Настроение")
+    if "stress" in insight_type:
+        return ("stress", "Стресс")
+    if "focus" in insight_type:
+        return ("focus", "Фокус")
+    if "energy" in insight_type:
+        return ("energy", "Энергия")
+    return ("other", "Самочувствие")
 
 # Единица измерения -> как подписать значение.
 _UNIT_LABELS = {
@@ -67,6 +98,33 @@ def _comparison_from_evidence(evidence: list[dict]) -> dict | None:
     }
 
 
+def _fmt_num(value) -> str:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    if abs(number - round(number)) < 0.05:
+        return str(int(round(number)))
+    return f"{number:.1f}"
+
+
+def _proof_line(comparison: dict, metric_title: str, with_n: int | None, without_n: int | None) -> str | None:
+    with_v = comparison.get("with_factor_value")
+    without_v = comparison.get("without_factor_value")
+    if with_v is None or without_v is None:
+        return None
+    unit = comparison.get("unit_label") or ""
+    with_txt = f"{_fmt_num(with_v)} {unit}".strip()
+    without_txt = f"{_fmt_num(without_v)} {unit}".strip()
+    with_days = f"В {with_n} днях" if with_n else "В дни"
+    without_days = f"в {without_n} днях" if without_n else "в дни"
+    metric = (metric_title or "показатель").lower()
+    return (
+        f"{with_days} с фактором {metric} {with_txt}, "
+        f"{without_days} без него — {without_txt}."
+    )
+
+
 def _strength(confidence: float | None, severity: str | None) -> int:
     """Сила влияния 0–100 для полоски в интерфейсе.
 
@@ -93,7 +151,7 @@ def build_influence_factors(
     factors = []
     for item in raw:
         insight_type = item.get("insight_type", "")
-        metric_key, metric_title = _AFFECTED_METRIC.get(insight_type, ("other", "Самочувствие"))
+        metric_key, metric_title = _metric_for(insight_type)
 
         evidence = item.get("evidence") or []
         if not evidence and item.get("evidence_json"):
@@ -101,6 +159,16 @@ def build_influence_factors(
                 evidence = json.loads(item["evidence_json"])
             except (ValueError, TypeError):
                 evidence = []
+
+        comparison = _comparison_from_evidence(evidence)
+        if comparison:
+            with_n = item.get("sample_with")
+            without_n = item.get("sample_without")
+            comparison["with_days"] = with_n
+            comparison["without_days"] = without_n
+            comparison["proof_line"] = _proof_line(
+                comparison, metric_title, with_n, without_n
+            )
 
         factors.append(
             {
@@ -113,7 +181,12 @@ def build_influence_factors(
                 "strength": _strength(item.get("confidence"), item.get("severity")),
                 "affects_metric": metric_key,
                 "affects_metric_title": metric_title,
-                "comparison": _comparison_from_evidence(evidence),
+                "suggested_action": (
+                    "7 дней без этого фактора — потом сравним сон и энергию."
+                    if item.get("impact") != "positive"
+                    else "Повторите дни, когда этот паттерн уже работал."
+                ),
+                "comparison": comparison,
             }
         )
 

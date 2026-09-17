@@ -9,6 +9,7 @@ import com.example.healtapp.data.network.api.AiApi
 import com.example.healtapp.data.network.api.AnalyticsApi
 import com.example.healtapp.data.network.api.AuthApi
 import com.example.healtapp.data.network.api.DashboardApi
+import com.example.healtapp.data.network.api.ExportApi
 import com.example.healtapp.data.network.api.HealthApi
 import com.example.healtapp.data.network.api.HydrationApi
 import com.example.healtapp.data.network.api.ImportApi
@@ -25,6 +26,7 @@ import com.example.healtapp.data.network.api.CycleApi
 import com.example.healtapp.data.preferences.DashboardCache
 import com.example.healtapp.data.preferences.ProfileCache
 import com.example.healtapp.data.preferences.PendingSyncStore
+import com.example.healtapp.data.preferences.PillDoseLogStore
 import com.example.healtapp.data.preferences.WeightHistoryStore
 import com.example.healtapp.data.preferences.WidgetSnapshotStore
 import com.example.healtapp.data.preferences.FastingPrefs
@@ -276,6 +278,11 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    fun provideExportApi(retrofit: Retrofit): ExportApi =
+        retrofit.create(ExportApi::class.java)
+
+    @Provides
+    @Singleton
     fun provideSmartApi(retrofit: Retrofit): SmartApi =
         retrofit.create(SmartApi::class.java)
 
@@ -336,6 +343,12 @@ object NetworkModule {
     fun providePendingSyncStore(
         @ApplicationContext context: Context,
     ): PendingSyncStore = PendingSyncStore(context)
+
+    @Provides
+    @Singleton
+    fun providePillDoseLogStore(
+        @ApplicationContext context: Context,
+    ): PillDoseLogStore = PillDoseLogStore(context)
 
     @Provides
     @Singleton

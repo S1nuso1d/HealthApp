@@ -7,7 +7,7 @@ import android.content.Intent
 class PillReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val pillId = intent.getIntExtra("PILL_ID", -1)
-        val name = intent.getStringExtra("PILL_NAME") ?: "Pill"
+        val name = intent.getStringExtra("PILL_NAME") ?: "таблетку"
         val dosage = intent.getStringExtra("PILL_DOSAGE") ?: ""
         val timeOfDay = intent.getStringExtra("PILL_TIME")
 

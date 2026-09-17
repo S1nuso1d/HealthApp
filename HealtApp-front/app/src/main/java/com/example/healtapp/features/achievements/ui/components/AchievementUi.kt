@@ -12,9 +12,11 @@ import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.ModeNight
 import androidx.compose.material.icons.filled.MonitorHeart
 import androidx.compose.material.icons.filled.Nightlight
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.WaterDrop
+import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -46,9 +48,11 @@ fun achievementIcon(key: String): ImageVector = when (key) {
     "workout" -> Icons.Filled.FitnessCenter
     "run" -> Icons.AutoMirrored.Filled.DirectionsWalk
     "speed" -> Icons.Filled.Speed
-        "moon" -> Icons.Filled.ModeNight
-        "apple" -> Icons.Filled.EmojiEvents
-        else -> Icons.Filled.Star
+    "moon" -> Icons.Filled.ModeNight
+    "apple" -> Icons.Filled.Restaurant
+    "trophy" -> Icons.Filled.WorkspacePremium
+    "star" -> Icons.Filled.Star
+    else -> Icons.Filled.EmojiEvents
 }
 
 fun formatAchievementProgressValue(value: Float, unit: String?): String = when (unit) {

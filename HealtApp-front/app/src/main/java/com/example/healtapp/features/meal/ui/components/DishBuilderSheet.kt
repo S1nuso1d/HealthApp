@@ -8,20 +8,24 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -34,18 +38,23 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.healtapp.core.ui.components.AppButton
+import com.example.healtapp.core.ui.components.AppCard
 import com.example.healtapp.core.ui.components.AppFormMetrics
 import com.example.healtapp.core.ui.components.AppTextField
+import com.example.healtapp.core.ui.components.SectionHeader
+import com.example.healtapp.core.ui.theme.heroBlockGradient
+import com.example.healtapp.core.ui.theme.heroContentColor
 import com.example.healtapp.data.network.dto.meal.FoodCatalogItemDto
 import com.example.healtapp.features.meal.DishIngredient
 import com.example.healtapp.features.meal.DishIngredientsPayload
@@ -75,8 +84,6 @@ fun DishBuilderSheet(
     if (!visible) return
     val context = LocalContext.current
     var showBarcode by remember { mutableStateOf(false) }
-    var searchRowCount by remember(visible) { mutableIntStateOf(1) }
-    var activeSearchRow by remember(visible) { mutableIntStateOf(0) }
     var replaceIndex by remember(visible) { mutableStateOf<Int?>(null) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -84,13 +91,27 @@ fun DishBuilderSheet(
         ActivityResultContracts.RequestPermission(),
     ) { granted -> if (granted) showBarcode = true }
 
-    LaunchedEffect(uiState.foodSearchQuery, activeSearchRow) {
+    LaunchedEffect(uiState.foodSearchQuery) {
         delay(450)
         onSearchDebounced()
     }
 
     val refTotals = remember(ingredients) {
         DishIngredientsPayload(ingredients.map { it.per100gPreview() }).referencePer100g()
+    }
+
+    fun applyIngredient(template: DishIngredient) {
+        val updated = if (replaceIndex != null) {
+            ingredients.toMutableList().apply {
+                val idx = replaceIndex!!
+                if (idx in indices) set(idx, template)
+            }
+        } else {
+            ingredients + template
+        }
+        onIngredientsChange(updated)
+        replaceIndex = null
+        onQueryChange("")
     }
 
     ModalBottomSheet(
@@ -103,27 +124,44 @@ fun DishBuilderSheet(
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 28.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(Brush.linearGradient(heroBlockGradient()))
+                    .padding(18.dp),
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        if (isEditing) "Изменение блюда" else "Новое блюдо",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text(
-                        "Добавьте один или несколько продуктов из базы",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                IconButton(onClick = onDismiss) {
-                    Icon(Icons.Filled.Close, contentDescription = "Закрыть")
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(androidx.compose.ui.graphics.Color.White.copy(alpha = 0.2f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Filled.Restaurant, null, tint = heroContentColor())
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            if (isEditing) "Изменение блюда" else "Новое блюдо",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = heroContentColor(),
+                        )
+                        Text(
+                            "Соберите состав из каталога — можно добавлять и удалять продукты",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = heroContentColor().copy(alpha = 0.9f),
+                        )
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Filled.Close, "Закрыть", tint = heroContentColor())
+                    }
                 }
             }
 
@@ -133,129 +171,101 @@ fun DishBuilderSheet(
                 label = "Название блюда",
             )
 
-            if (replaceIndex != null) {
-                Text(
-                    text = "Выберите другой продукт в поиске или по штрихкоду — он заменит «${ingredients.getOrNull(replaceIndex!!)?.name ?: ""}»",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                TextButton(onClick = { replaceIndex = null }) {
-                    Text("Отменить замену")
-                }
-            }
-
             if (ingredients.isNotEmpty()) {
-                Text(
-                    "Состав (на 100 г): ${refTotals.calories.toInt()} ккал",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary,
+                SectionHeader(
+                    title = "Состав",
+                    subtitle = "На 100 г: ${refTotals.calories.toInt()} ккал · " +
+                        "Б ${refTotals.protein.toInt()} · Ж ${refTotals.fat.toInt()} · У ${refTotals.carbs.toInt()}",
                 )
-                ingredients.forEachIndexed { index, ing ->
-                    val isReplacing = replaceIndex == index
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                ing.name,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium,
-                                color = if (isReplacing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                            )
-                            Text(
-                                "${ing.caloriesPer100g.toInt()} ккал / 100 г",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            TextButton(
-                                onClick = {
-                                    replaceIndex = index
-                                    activeSearchRow = 0
-                                    onQueryChange("")
-                                },
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ingredients.forEachIndexed { index, ing ->
+                        val isReplacing = replaceIndex == index
+                        AppCard {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(if (isReplacing) "Меняем…" else "Заменить")
-                            }
-                            TextButton(
-                                onClick = {
-                                    onIngredientsChange(ingredients.filterIndexed { i, _ -> i != index })
-                                    if (replaceIndex == index) replaceIndex = null
-                                },
-                            ) {
-                                Icon(
-                                    Icons.Outlined.Delete,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp),
-                                    tint = MaterialTheme.colorScheme.error,
-                                )
-                                Text("Удалить", color = MaterialTheme.colorScheme.error)
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        ing.name,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (isReplacing) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurface
+                                        },
+                                    )
+                                    Text(
+                                        "${ing.caloriesPer100g.toInt()} ккал · Б ${ing.proteinPer100g.toInt()} · " +
+                                            "Ж ${ing.fatPer100g.toInt()} · У ${ing.carbsPer100g.toInt()} / 100 г",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                TextButton(
+                                    onClick = {
+                                        replaceIndex = index
+                                        onQueryChange("")
+                                    },
+                                ) {
+                                    Text(if (isReplacing) "Меняем…" else "Заменить")
+                                }
+                                IconButton(
+                                    onClick = {
+                                        onIngredientsChange(ingredients.filterIndexed { i, _ -> i != index })
+                                        if (replaceIndex == index) replaceIndex = null
+                                    },
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.Delete,
+                                        contentDescription = "Удалить продукт",
+                                        tint = MaterialTheme.colorScheme.error,
+                                    )
+                                }
                             }
                         }
                     }
                 }
+                if (replaceIndex != null) {
+                    TextButton(onClick = { replaceIndex = null }) {
+                        Text("Отменить замену")
+                    }
+                }
             }
 
-            Text(
-                text = if (replaceIndex != null) "Поиск замены" else "Добавить продукт",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            SectionHeader(
+                title = if (replaceIndex != null) "Поиск замены" else "Добавить продукт",
+                subtitle = "Поиск по названию или штрихкоду",
             )
-
-            repeat(searchRowCount) { rowIndex ->
-                val isActive = rowIndex == activeSearchRow
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    AppTextField(
-                        value = if (isActive) uiState.foodSearchQuery else "",
-                        onValueChange = { value ->
-                            activeSearchRow = rowIndex
-                            onQueryChange(value)
-                        },
-                        label = when {
-                            replaceIndex != null -> "Название или штрихкод замены"
-                            rowIndex == 0 -> "Поиск продукта"
-                            else -> "Продукт ${rowIndex + 1}"
-                        },
-                        modifier = Modifier.weight(1f),
-                    )
-                    if (isActive) {
-                        IconButton(
-                            onClick = onSearchNow,
-                            enabled = !uiState.isFoodSearchLoading,
-                            modifier = Modifier.size(AppFormMetrics.ControlHeight),
-                        ) {
-                            Icon(Icons.Filled.Search, contentDescription = "Искать")
-                        }
-                        IconButton(
-                            onClick = {
-                                if (hasCameraPermission(context)) showBarcode = true
-                                else cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-                            },
-                            modifier = Modifier.size(AppFormMetrics.ControlHeight),
-                        ) {
-                            Icon(Icons.Filled.QrCode2, contentDescription = "Штрихкод")
-                        }
-                    }
-                }
-            }
-
-            TextButton(
-                onClick = {
-                    searchRowCount += 1
-                    activeSearchRow = searchRowCount - 1
-                    onQueryChange("")
-                },
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                Text("  Добавить ещё продукт")
+                AppTextField(
+                    value = uiState.foodSearchQuery,
+                    onValueChange = onQueryChange,
+                    label = if (replaceIndex != null) "Замена" else "Продукт",
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(
+                    onClick = onSearchNow,
+                    enabled = !uiState.isFoodSearchLoading,
+                    modifier = Modifier.size(AppFormMetrics.ControlHeight),
+                ) {
+                    Icon(Icons.Filled.Search, contentDescription = "Искать")
+                }
+                IconButton(
+                    onClick = {
+                        if (hasCameraPermission(context)) showBarcode = true
+                        else cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                    },
+                    modifier = Modifier.size(AppFormMetrics.ControlHeight),
+                ) {
+                    Icon(Icons.Filled.QrCode2, contentDescription = "Штрихкод")
+                }
             }
 
             uiState.foodSearchError?.let {
@@ -276,29 +286,33 @@ fun DishBuilderSheet(
                         MealFoodCatalogHitRow(
                             hit = hit,
                             onClick = {
-                                onFetchFood(hit) { template ->
-                                    val updated = if (replaceIndex != null) {
-                                        ingredients.toMutableList().apply {
-                                            if (replaceIndex!! in indices) set(replaceIndex!!, template)
-                                        }
-                                    } else {
-                                        ingredients + template
-                                    }
-                                    onIngredientsChange(updated)
-                                    replaceIndex = null
-                                    onQueryChange("")
-                                    if (replaceIndex == null && activeSearchRow < searchRowCount - 1) {
-                                        activeSearchRow += 1
-                                    }
-                                }
+                                onFetchFood(hit) { template -> applyIngredient(template) }
                             },
                         )
                     }
                 }
             }
 
+            if (ingredients.isEmpty()) {
+                Text(
+                    text = "Добавьте хотя бы один продукт — его можно будет удалить или заменить.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                TextButton(
+                    onClick = {
+                        replaceIndex = null
+                        onQueryChange("")
+                    },
+                ) {
+                    Icon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp))
+                    Text("  Добавить ещё")
+                }
+            }
+
             AppButton(
-                text = "Сохранить блюдо",
+                text = if (isEditing) "Сохранить изменения" else "Сохранить блюдо",
                 onClick = onSave,
                 enabled = dishName.isNotBlank() && ingredients.isNotEmpty() && !uiState.isSaving,
             )
@@ -310,18 +324,7 @@ fun DishBuilderSheet(
         onDismiss = { showBarcode = false },
         onBarcode = { code ->
             showBarcode = false
-            onBarcodeLookup(code) { template ->
-                val updated = if (replaceIndex != null) {
-                    ingredients.toMutableList().apply {
-                        if (replaceIndex!! in indices) set(replaceIndex!!, template)
-                    }
-                } else {
-                    ingredients + template
-                }
-                onIngredientsChange(updated)
-                replaceIndex = null
-                onQueryChange("")
-            }
+            onBarcodeLookup(code) { template -> applyIngredient(template) }
         },
     )
 }

@@ -3,6 +3,7 @@ package com.example.healtapp.health
 import android.app.Activity
 import android.app.AlertDialog
 import android.os.Bundle
+import com.example.healtapp.core.legal.LegalLinks
 
 /**
  * Показывается по ссылке «Политика конфиденциальности» на экране разрешений Health Connect (Android 14+).
@@ -14,11 +15,15 @@ class HealthConnectRationaleActivity : Activity() {
         AlertDialog.Builder(this)
             .setTitle("Доступ к данным здоровья")
             .setMessage(
-                "HealthApp запрашивает чтение сна и шагов через Health Connect, чтобы показать сводку " +
-                    "и при желании импортировать данные в твой аккаунт на сервере. " +
-                    "Мы не продаём эти данные третьим лицам; подробности — в разделе «Данные и конфиденциальность» в приложении.",
+                "HealthApp запрашивает чтение сна, шагов и связанных метрик через Health Connect, " +
+                    "чтобы показать сводку и при желании синхронизировать дневник. " +
+                    "Данные не продаются третьим лицам. Полная политика открывается по кнопке ниже.",
             )
-            .setPositiveButton("Понятно") { _, _ -> finish() }
+            .setPositiveButton("Политика") { _, _ ->
+                LegalLinks.openPrivacyPolicy(this)
+                finish()
+            }
+            .setNegativeButton("Понятно") { _, _ -> finish() }
             .setOnCancelListener { finish() }
             .show()
     }

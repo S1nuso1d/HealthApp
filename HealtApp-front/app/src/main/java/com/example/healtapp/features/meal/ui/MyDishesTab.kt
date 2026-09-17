@@ -5,14 +5,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
@@ -28,9 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -38,8 +35,10 @@ import com.example.healtapp.core.ui.components.AppButton
 import com.example.healtapp.core.ui.components.AppCard
 import com.example.healtapp.core.ui.components.EmptyStateCard
 import com.example.healtapp.core.ui.components.SectionHeader
-import com.example.healtapp.core.ui.theme.cardHeaderGradient
-import com.example.healtapp.core.ui.theme.themedCardMint
+import com.example.healtapp.core.ui.theme.Dimens
+import com.example.healtapp.core.ui.theme.contentPrimaryColor
+import com.example.healtapp.core.ui.theme.heroBlockGradient
+import com.example.healtapp.core.ui.theme.heroContentColor
 import com.example.healtapp.data.network.dto.meal.SavedDishDto
 import com.example.healtapp.features.meal.DishIngredient
 import com.example.healtapp.features.meal.DishIngredientsJson
@@ -82,7 +81,51 @@ fun MyDishesTab(
         }
     }
 
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(Dimens.RadiusXl))
+                .background(Brush.linearGradient(heroBlockGradient()))
+                .padding(20.dp),
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(androidx.compose.ui.graphics.Color.White.copy(alpha = 0.2f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Filled.Restaurant,
+                        contentDescription = null,
+                        tint = heroContentColor(),
+                        modifier = Modifier.size(26.dp),
+                    )
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = if (uiState.savedDishes.isEmpty()) "Свои блюда" else "${uiState.savedDishes.size} блюд",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = heroContentColor(),
+                    )
+                    Text(
+                        text = "Соберите рецепт из каталога и добавляйте в дневник одним тапом",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = heroContentColor().copy(alpha = 0.9f),
+                    )
+                }
+            }
+        }
+
         if (uiState.savedDishes.isEmpty()) {
             EmptyStateCard(
                 title = "Пока нет своих блюд",
@@ -90,10 +133,7 @@ fun MyDishesTab(
                 icon = Icons.Filled.MenuBook,
             )
         } else {
-            SectionHeader(
-                title = "Мои блюда",
-                subtitle = "${uiState.savedDishes.size} блюд · «В дневник» — быстрый приём пищи",
-            )
+            SectionHeader(title = "Библиотека")
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 uiState.savedDishes.forEach { dish ->
                     SavedDishListCard(
@@ -159,7 +199,6 @@ fun MyDishesTab(
             editingDishId = null
         },
     )
-
 }
 
 @Composable
@@ -183,71 +222,63 @@ private fun SavedDishListCard(
     }
 
     AppCard {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.Top,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(Brush.linearGradient(cardHeaderGradient(themedCardMint(), 0.45f))),
-                contentAlignment = Alignment.Center,
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.Top,
             ) {
-                Icon(
-                    Icons.Filled.MenuBook,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-            }
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(dish.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                Text(
-                    text = "${ref.calories.toInt()} ккал · Б ${ref.protein.toInt()} · Ж ${ref.fat.toInt()} · У ${ref.carbs.toInt()}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                ings.take(3).forEach { ing ->
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Brush.linearGradient(heroBlockGradient())),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Filled.MenuBook,
+                        contentDescription = null,
+                        tint = heroContentColor(),
+                    )
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
                     Text(
-                        text = "· ${ing.name}",
-                        style = MaterialTheme.typography.labelMedium,
+                        dish.name,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = contentPrimaryColor(),
+                    )
+                    Text(
+                        text = "${ref.calories.toInt()} ккал · Б ${ref.protein.toInt()} · Ж ${ref.fat.toInt()} · У ${ref.carbs.toInt()}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                }
-                if (ings.size > 3) {
-                    Text("… ещё ${ings.size - 3}", style = MaterialTheme.typography.labelSmall)
-                }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(top = 4.dp),
-                ) {
-                    AppButton(
-                        text = "В дневник",
-                        onClick = onAddToDiary,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(top = 4.dp),
-                ) {
-                    TextButton(onClick = onEdit) {
-                        Text("Изменить")
+                    ings.take(3).forEach { ing ->
+                        Text(
+                            text = "· ${ing.name}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
-                    TextButton(onClick = onDuplicate) {
-                        Text("Копия")
+                    if (ings.size > 3) {
+                        Text("… ещё ${ings.size - 3}", style = MaterialTheme.typography.labelSmall)
                     }
-                    TextButton(onClick = onDelete) {
-                        Text("Удалить", color = MaterialTheme.colorScheme.error)
-                    }
+                }
+            }
+            AppButton(text = "В дневник", onClick = onAddToDiary)
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(onClick = onEdit) { Text("Изменить") }
+                TextButton(onClick = onDuplicate) { Text("Копия") }
+                TextButton(onClick = onDelete) {
+                    Text("Удалить", color = MaterialTheme.colorScheme.error)
                 }
             }
         }

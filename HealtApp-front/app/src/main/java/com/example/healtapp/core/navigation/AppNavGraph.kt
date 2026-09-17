@@ -22,6 +22,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -51,7 +54,6 @@ import com.example.healtapp.features.dashboard.ui.DashboardScreen
 import com.example.healtapp.features.health.ui.HealthVitalsScreen
 import com.example.healtapp.features.hydration.ui.HydrationScreen
 import com.example.healtapp.features.onboarding.ui.OnboardingScreen
-import com.example.healtapp.features.profile.ui.PoliticalRecommendationsScreen
 import com.example.healtapp.features.profile.ui.ProfileScreen
 import com.example.healtapp.features.recommendations.ui.RecommendationsScreen
 import com.example.healtapp.features.settings.ui.DataImportScreen
@@ -73,9 +75,12 @@ import com.example.healtapp.features.social.ui.FriendProfileScreen
 import com.example.healtapp.features.cycle.ui.CycleScreen
 import com.example.healtapp.features.pills.ui.PillsScreen
 import com.example.healtapp.features.fasting.ui.FastingScreen
+import com.example.healtapp.features.insights.ui.InfluenceFactorsScreen
+import com.example.healtapp.features.weekly.ui.WeeklyReviewScreen
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.example.healtapp.core.ui.components.AppBottomNavigation
+import com.example.healtapp.core.ui.components.GlobalLanTunnelBanner
 import com.example.healtapp.core.ui.components.GlobalPendingSyncBanner
 import com.example.healtapp.features.sync.GlobalPendingSyncViewModel
 
@@ -85,6 +90,7 @@ fun AppNavGraph() {
     val syncViewModel: GlobalPendingSyncViewModel = hiltViewModel()
     val pendingSyncCount by syncViewModel.pendingCount.collectAsStateWithLifecycle()
     val isSyncFlushing by syncViewModel.isFlushing.collectAsStateWithLifecycle()
+    val needsTunnel by syncViewModel.needsTunnel.collectAsStateWithLifecycle()
 
     val activity = LocalContext.current as ComponentActivity
     LaunchedEffect(activity.intent) {
@@ -96,7 +102,14 @@ fun AppNavGraph() {
             NavRoutes.Hydration.route,
             NavRoutes.Nutrition.route,
             NavRoutes.Recommendations.route,
-            NavRoutes.Notifications.route -> route
+            NavRoutes.Notifications.route,
+            NavRoutes.WeeklyReview.route,
+            NavRoutes.InfluenceFactors.route,
+            NavRoutes.Pills.route,
+            NavRoutes.Friends.route,
+            NavRoutes.Profile.route,
+            NavRoutes.DataImport.route,
+            NavRoutes.ServerConnection.route -> route
             else -> null
         }
         if (dest != null && navController.currentDestination?.route != dest) {
@@ -121,11 +134,15 @@ fun AppNavGraph() {
     val bottomBarRoutes = AppDestinations.bottomNavItems.map { it.route }
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    var hideBottomBar by remember { mutableStateOf(false) }
+    LaunchedEffect(currentRoute) {
+        if (currentRoute != NavRoutes.Activity.route) hideBottomBar = false
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
     Scaffold(
         bottomBar = {
-            if (currentRoute in bottomBarRoutes) {
+            if (currentRoute in bottomBarRoutes && !hideBottomBar) {
                 AppBottomNavigation(
                     items = AppDestinations.bottomNavItems,
                     currentRoute = currentRoute,
@@ -211,12 +228,6 @@ fun AppNavGraph() {
                             launchSingleTop = true
                         }
                     },
-                    onGuestDemo = {
-                        navController.navigate(NavRoutes.Splash.route) {
-                            popUpTo(navController.graph.id) { inclusive = true }
-                            launchSingleTop = true
-                        }
-                    },
                     onRegisterClick = {
                         navController.navigate(NavRoutes.Register.route)
                     },
@@ -275,11 +286,11 @@ fun AppNavGraph() {
                     onOpenHydration = { navController.navigateFeature(NavRoutes.Hydration.route) },
                     onOpenNutrition = { navController.navigateFeature(NavRoutes.Nutrition.route) },
                     onOpenActivity = { navController.navigateFeature(NavRoutes.Activity.route) },
-                    onOpenRecommendations = { navController.navigateFeature(NavRoutes.Recommendations.route) },
-                    onOpenActionPlan = { navController.navigateFeature(NavRoutes.ActionPlan.route) },
                     onOpenTimeline = { navController.navigateFeature(NavRoutes.Timeline.route) },
                     onOpenAiAssistant = { navController.navigateFeature(NavRoutes.AiAssistant.route) },
                     onOpenHealthVitals = { navController.navigateFeature(NavRoutes.HealthVitals.route) },
+                    onOpenWeeklyReview = { navController.navigateFeature(NavRoutes.WeeklyReview.route) },
+                    onOpenInfluenceFactors = { navController.navigateFeature(NavRoutes.InfluenceFactors.route) },
                 )
             }
             composable(NavRoutes.Profile.route) {
@@ -289,18 +300,15 @@ fun AppNavGraph() {
                     onOpenMiBandBle = { navController.navigateFeature(NavRoutes.MiBandBle.route) },
                     onOpenNotifications = { navController.navigateFeature(NavRoutes.Notifications.route) },
                     onOpenAchievements = { navController.navigateFeature(NavRoutes.Achievements.route) },
+                    onOpenCommunity = { navController.navigateFeature(NavRoutes.Timeline.route) },
                     onOpenFriends = { navController.navigateFeature(NavRoutes.Friends.route) },
                     onOpenClubs = { navController.navigateFeature(NavRoutes.Clubs.route) },
-                    onOpenPoliticalRecommendations = {
-                        navController.navigateFeature(NavRoutes.PoliticalRecommendations.route)
-                    },
                     onOpenPills = { navController.navigateFeature(NavRoutes.Pills.route) },
                     onOpenCycle = { navController.navigateFeature(NavRoutes.Cycle.route) },
+                    onOpenServerConnection = { navController.navigateFeature(NavRoutes.ServerConnection.route) },
+                    onOpenDataImport = { navController.navigateFeature(NavRoutes.DataImport.route) },
                     onLogout = { AppRefreshBus.notifyLogout() },
                 )
-            }
-            composable(NavRoutes.PoliticalRecommendations.route) {
-                PoliticalRecommendationsScreen(onBack = { navController.popBackStack() })
             }
             composable(NavRoutes.ServerConnection.route) {
                 ServerConnectionScreen(onBack = { navController.popBackStack() })
@@ -314,6 +322,7 @@ fun AppNavGraph() {
                             launchSingleTop = true
                         }
                     },
+                    onOpenDataImport = { navController.navigateFeature(NavRoutes.DataImport.route) },
                 )
             }
             composable(NavRoutes.DataImport.route) {
@@ -330,6 +339,12 @@ fun AppNavGraph() {
             }
             composable(NavRoutes.HealthVitals.route) {
                 HealthVitalsScreen(onBack = { navController.popBackStack() })
+            }
+            composable(NavRoutes.WeeklyReview.route) {
+                WeeklyReviewScreen(onBack = { navController.popBackStack() })
+            }
+            composable(NavRoutes.InfluenceFactors.route) {
+                InfluenceFactorsScreen(onBack = { navController.popBackStack() })
             }
             composable(NavRoutes.Notifications.route) {
                 NotificationsScreen(onBack = { navController.popBackStack() })
@@ -349,6 +364,13 @@ fun AppNavGraph() {
                     onOpenPlanner = { navController.navigate(NavRoutes.MealPlanner.route) { launchSingleTop = true } }
                 )
             }
+            composable(NavRoutes.NutritionPhoto.route) {
+                com.example.healtapp.features.nutrition.ui.NutritionHubScreen(
+                    initialTab = 0,
+                    openFoodCamera = true,
+                    onOpenPlanner = { navController.navigate(NavRoutes.MealPlanner.route) { launchSingleTop = true } }
+                )
+            }
             composable(NavRoutes.Activity.route) {
                 ActivityScreen(
                     onOpenProfile = {
@@ -356,6 +378,7 @@ fun AppNavGraph() {
                             launchSingleTop = true
                         }
                     },
+                    onImmersiveChanged = { hideBottomBar = it },
                 )
             }
 
@@ -469,16 +492,24 @@ fun AppNavGraph() {
                 NavRoutes.RegisterSetup.route,
             )
         ) {
-            GlobalPendingSyncBanner(
-                count = pendingSyncCount,
-                isFlushing = isSyncFlushing,
-                onTap = { syncViewModel.flushNow() },
+            Column(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .statusBarsPadding()
                     .padding(horizontal = 16.dp, vertical = 6.dp)
                     .fillMaxWidth(),
-            )
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                GlobalLanTunnelBanner(
+                    visible = needsTunnel,
+                    onTap = { navController.navigate(NavRoutes.ServerConnection.route) { launchSingleTop = true } },
+                )
+                GlobalPendingSyncBanner(
+                    count = pendingSyncCount,
+                    isFlushing = isSyncFlushing,
+                    onTap = { syncViewModel.flushNow() },
+                )
+            }
         }
 
         AchievementUnlockOverlay(currentRoute = currentRoute)

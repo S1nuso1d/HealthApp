@@ -5,10 +5,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 
-val CardBlueDark = Color(0xFF222222)
-val CardMintDark = Color(0xFF1C1C1C)
-val CardLavenderDark = Color(0xFF282828)
-
 @Composable
 fun isAppDarkTheme(): Boolean =
     MaterialTheme.colorScheme.background.luminance() < 0.5f

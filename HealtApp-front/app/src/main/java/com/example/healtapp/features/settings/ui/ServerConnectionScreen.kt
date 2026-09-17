@@ -65,8 +65,9 @@ fun ServerConnectionScreen(
         )
 
         Text(
-            text = "На улице: на ПК запустите backend и туннель (Cloudflare/ngrok), " +
-                "вставьте выданный https://… адрес. Этот экран доступен и до входа в аккаунт.",
+            text = "На улице и в другой сети: вставьте HTTPS-адрес туннеля (Cloudflare / ngrok) к вашему backend. " +
+                "Без этого приложение видит только домашний Wi‑Fi. Офлайн-записи воды, еды, сна, тренировок и вопросы ИИ " +
+                "копятся на телефоне и уходят в базу, как только связь появится.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

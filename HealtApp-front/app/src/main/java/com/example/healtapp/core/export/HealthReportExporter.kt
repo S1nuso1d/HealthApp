@@ -2,107 +2,127 @@ package com.example.healtapp.core.export
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Paint
+import android.graphics.pdf.PdfDocument
 import androidx.core.content.FileProvider
 import com.example.healtapp.BuildConfig
 import com.example.healtapp.core.common.LocaleRu
-import com.example.healtapp.data.network.dto.profile.ProfileDto
-import com.example.healtapp.data.network.dto.wellness.DashboardHomeDto
-import com.example.healtapp.data.preferences.DashboardCache
+import com.example.healtapp.data.network.dto.export.ExportReportDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 object HealthReportExporter {
 
-    suspend fun buildReportText(
-        context: Context,
-        profile: ProfileDto?,
-    ): String = withContext(Dispatchers.IO) {
-        val home = DashboardCache(context).load()
-        buildString {
+    fun buildReportText(report: ExportReportDto): String {
+        val dateFmt = DateTimeFormatter.ofPattern("d MMMM yyyy", LocaleRu)
+        return buildString {
             appendLine("HealthApp — отчёт о здоровье")
-            appendLine("Дата: ${LocalDate.now().format(DateTimeFormatter.ofPattern("d MMMM yyyy", LocaleRu))}")
+            appendLine(
+                "Период: ${report.meta?.startDate.orEmpty()} — ${report.meta?.endDate.orEmpty()} " +
+                    "(${report.meta?.periodDays ?: 30} дн.)",
+            )
+            appendLine("Сформирован: ${LocalDate.now().format(dateFmt)}")
             appendLine()
-            if (profile != null) {
+            report.profile?.let { profile ->
                 appendLine("Профиль")
                 profile.age?.let { appendLine("• Возраст: $it") }
-                profile.height_cm?.let { appendLine("• Рост: ${it.toInt()} см") }
-                profile.weight_kg?.let { appendLine("• Вес: ${"%.1f".format(it)} кг") }
+                profile.heightCm?.let { appendLine("• Рост: ${it.toInt()} см") }
+                profile.weightKg?.let { appendLine("• Вес: ${"%.1f".format(it)} кг") }
                 profile.goal?.let { appendLine("• Цель: $it") }
-                profile.target_steps?.let { appendLine("• Цель шагов: $it") }
-                profile.target_water_ml?.let { appendLine("• Цель воды: ${it.toInt()} мл") }
                 appendLine()
             }
-            if (home != null) {
-                appendSection(home)
-            } else {
-                appendLine("Сводка с сервера недоступна — откройте главную при подключении к сети.")
+            val scores = report.scores.orEmpty()
+            if (scores.isNotEmpty()) {
+                appendLine("Средние баллы за период")
+                scores["health_score"]?.let { appendLine("• Health score: $it") }
+                scores["sleep_score"]?.let { appendLine("• Сон: $it") }
+                scores["hydration_score"]?.let { appendLine("• Вода: $it") }
+                scores["activity_score"]?.let { appendLine("• Активность: $it") }
+                scores["nutrition_score"]?.let { appendLine("• Питание: $it") }
+                scores["state_score"]?.let { appendLine("• Состояние: $it") }
+                appendLine()
+            }
+            if (report.daily.isNotEmpty()) {
+                appendLine("Дни")
+                report.daily.takeLast(31).forEach { day ->
+                    appendLine(
+                        "• ${day.date}: сон ${day.sleepHours ?: 0} ч, вода ${day.waterMl?.toInt() ?: 0} мл, " +
+                            "шаги ${day.steps ?: 0}, ккал ${day.calories?.toInt() ?: 0}",
+                    )
+                }
             }
             appendLine()
             appendLine("Сформировано в HealthApp")
         }
     }
 
-    private fun StringBuilder.appendSection(home: DashboardHomeDto) {
-        val summary = home.analytics.summary
-        appendLine("Индексы (${summary.periodDays} дн.)")
-        appendLine("• Health score: ${summary.healthScore}")
-        appendLine("• Сон: ${summary.sleepScore}")
-        appendLine("• Вода: ${summary.hydrationScore}")
-        appendLine("• Активность: ${summary.activityScore}")
-        appendLine("• Питание: ${summary.nutritionScore}")
-        appendLine("• Состояние: ${summary.stateScore}")
-        appendLine()
-        home.dailyBrief?.let { brief ->
-            appendLine("Дневной бриф")
-            appendLine(brief.title)
-            appendLine(brief.summary)
-            brief.keyPoints.forEach { appendLine("• $it") }
-            appendLine()
-        }
-        if (home.analytics.insights.isNotEmpty()) {
-            appendLine("Инсайты")
-            home.analytics.insights.take(5).forEach {
-                appendLine("• ${it.title}: ${it.description}")
-            }
-            appendLine()
-        }
-        if (home.actionPlan.isNotEmpty()) {
-            appendLine("План действий")
-            home.actionPlan.take(8).forEach {
-                appendLine("• [${it.status}] ${it.title}")
-            }
-        }
-    }
-
-    fun shareText(context: Context, text: String) {
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_SUBJECT, "HealthApp — отчёт")
-            putExtra(Intent.EXTRA_TEXT, text)
-        }
-        context.startActivity(Intent.createChooser(intent, "Поделиться отчётом"))
-    }
-
-    suspend fun shareAsFile(context: Context, text: String) = withContext(Dispatchers.IO) {
+    suspend fun shareReport(
+        context: Context,
+        report: ExportReportDto,
+        csvBytes: ByteArray?,
+    ) = withContext(Dispatchers.IO) {
         val dir = File(context.cacheDir, "reports").apply { mkdirs() }
-        val file = File(dir, "health_report_${System.currentTimeMillis()}.txt")
-        file.writeText(text)
-        val uri = FileProvider.getUriForFile(
-            context,
-            "${BuildConfig.APPLICATION_ID}.fileprovider",
-            file,
-        )
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_STREAM, uri)
+        val stamp = System.currentTimeMillis()
+        val text = buildReportText(report)
+        val txtFile = File(dir, "health_report_$stamp.txt").apply { writeText(text) }
+        val pdfFile = File(dir, "health_report_$stamp.pdf")
+        writePdf(pdfFile, text)
+        val csvFile = csvBytes?.let { bytes ->
+            File(dir, "health_report_$stamp.csv").apply { writeBytes(bytes) }
+        }
+        val uris = buildList {
+            add(fileUri(context, pdfFile))
+            add(fileUri(context, txtFile))
+            csvFile?.let { add(fileUri(context, it)) }
+        }
+        val intent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+            type = "application/pdf"
+            putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
+            putExtra(Intent.EXTRA_SUBJECT, "HealthApp — отчёт")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         withContext(Dispatchers.Main) {
-            context.startActivity(Intent.createChooser(intent, "Экспорт отчёта"))
+            val chooser = Intent.createChooser(intent, "Экспорт отчёта").apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(chooser)
         }
+    }
+
+    private fun fileUri(context: Context, file: File) = FileProvider.getUriForFile(
+        context,
+        "${BuildConfig.APPLICATION_ID}.fileprovider",
+        file,
+    )
+
+    private fun writePdf(file: File, text: String) {
+        val document = PdfDocument()
+        val paint = Paint().apply {
+            textSize = 11f
+            isAntiAlias = true
+        }
+        val lines = text.lines()
+        val pageWidth = 595
+        val pageHeight = 842
+        val margin = 40f
+        val lineHeight = 16f
+        val linesPerPage = ((pageHeight - margin * 2) / lineHeight).toInt()
+        lines.chunked(linesPerPage.coerceAtLeast(1)).forEachIndexed { index, pageLines ->
+            val page = document.startPage(
+                PdfDocument.PageInfo.Builder(pageWidth, pageHeight, index + 1).create(),
+            )
+            var y = margin + 12f
+            pageLines.forEach { line ->
+                page.canvas.drawText(line.take(90), margin, y, paint)
+                y += lineHeight
+            }
+            document.finishPage(page)
+        }
+        file.outputStream().use { document.writeTo(it) }
+        document.close()
     }
 }

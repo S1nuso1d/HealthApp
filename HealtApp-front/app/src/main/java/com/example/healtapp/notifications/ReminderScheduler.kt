@@ -28,11 +28,12 @@ object ReminderScheduler {
         rescheduleRecommendations(context, settings.recommendationReminders)
         rescheduleMissedMealChecks(context, settings.missedMealChecks)
         rescheduleGoalChecks(context, settings.goalAchievementNotifications)
-        rescheduleSleepEvening(context, settings.hydrationReminders)
+        rescheduleSleepEvening(context, settings.hydrationReminders || settings.recommendationReminders)
         rescheduleWeightReminder(context, settings.goalAchievementNotifications)
         rescheduleSmartContext(context, settings.goalAchievementNotifications || settings.hydrationReminders)
         rescheduleHourlyWaterReminder(context, settings.hydrationReminders)
         rescheduleAiCoach(context, true) // Always enabled or bind to a specific setting
+        rescheduleWeeklyReview(context, enabled = true)
     }
 
     private const val AI_COACH_PERIODIC = "ai_coach_periodic"
@@ -51,6 +52,20 @@ object ReminderScheduler {
             ExistingPeriodicWorkPolicy.KEEP,
             request,
         )
+    }
+
+    private const val WEEKLY_REVIEW = "weekly_review"
+
+    fun rescheduleWeeklyReview(context: Context, enabled: Boolean) {
+        val wm = WorkManager.getInstance(context)
+        if (!enabled) {
+            wm.cancelUniqueWork(WEEKLY_REVIEW)
+            return
+        }
+        val request = OneTimeWorkRequestBuilder<WeeklyReviewReminderWorker>()
+            .setInitialDelay(delayUntilNextSundayEvening(), TimeUnit.MILLISECONDS)
+            .build()
+        wm.enqueueUniqueWork(WEEKLY_REVIEW, ExistingWorkPolicy.REPLACE, request)
     }
 
     private fun rescheduleHourlyWaterReminder(context: Context, enabled: Boolean) {
@@ -206,9 +221,17 @@ object ReminderScheduler {
             wm.cancelUniqueWork(SLEEP_EVENING)
             return
         }
-        val delayMs = delayUntilNext(21, 30)
+        val settings = runBlocking { NotificationPrefs(context).current() }
+        val usualHour = settings.usualBedtimeHour
+        val usualMinute = settings.usualBedtimeMinute
+        val (hour, minute) = if (usualHour != null && usualMinute != null) {
+            val wrapped = ((usualHour * 60 + usualMinute - 30) % (24 * 60) + 24 * 60) % (24 * 60)
+            wrapped / 60 to wrapped % 60
+        } else {
+            NotificationPrefs.DEFAULT_BEDTIME_NUDGE_HOUR to NotificationPrefs.DEFAULT_BEDTIME_NUDGE_MINUTE
+        }
         val request = OneTimeWorkRequestBuilder<SleepEveningReminderWorker>()
-            .setInitialDelay(delayMs, TimeUnit.MILLISECONDS)
+            .setInitialDelay(delayUntilNext(hour, minute), TimeUnit.MILLISECONDS)
             .build()
         wm.enqueueUniqueWork(SLEEP_EVENING, ExistingWorkPolicy.REPLACE, request)
     }

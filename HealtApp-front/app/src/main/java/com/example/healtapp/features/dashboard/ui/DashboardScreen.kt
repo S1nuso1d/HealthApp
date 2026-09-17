@@ -12,11 +12,11 @@ fun DashboardScreen(
     onOpenHydration: () -> Unit = {},
     onOpenNutrition: () -> Unit = {},
     onOpenActivity: () -> Unit = {},
-    onOpenRecommendations: () -> Unit = {},
-    onOpenActionPlan: () -> Unit = {},
     onOpenTimeline: () -> Unit = {},
     onOpenAiAssistant: () -> Unit = {},
     onOpenHealthVitals: () -> Unit = {},
+    onOpenWeeklyReview: () -> Unit = {},
+    onOpenInfluenceFactors: () -> Unit = {},
 ) {
     val dashboardViewModel: DashboardViewModel = hiltViewModel()
     val uiState by dashboardViewModel.uiState.collectAsStateWithLifecycle()
@@ -28,10 +28,10 @@ fun DashboardScreen(
         onOpenHydration = onOpenHydration,
         onOpenNutrition = onOpenNutrition,
         onOpenActivity = onOpenActivity,
-        onOpenRecommendations = onOpenRecommendations,
-        onOpenActionPlan = onOpenActionPlan,
         onOpenTimeline = onOpenTimeline,
         onOpenAiAssistant = onOpenAiAssistant,
         onOpenHealthVitals = onOpenHealthVitals,
+        onOpenWeeklyReview = onOpenWeeklyReview,
+        onOpenInfluenceFactors = onOpenInfluenceFactors,
     )
 }

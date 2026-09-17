@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -78,11 +79,7 @@ fun FriendsScreen(
     Box(Modifier.fillMaxSize()) {
         FeatureScreenShell(
             title = "Друзья",
-            subtitle = if (uiState.guestMode) {
-                "Демо-режим · заявки и челлендж"
-            } else {
-                "Заявки, челлендж и поиск"
-            },
+            subtitle = "Заявки, челлендж и поиск",
             icon = Icons.Filled.Group,
             onBack = onBack,
             heroActions = {
@@ -122,10 +119,6 @@ fun FriendsScreen(
                 return@FeatureScreenShell
             }
 
-            if (uiState.guestMode) {
-                FeatureInlineNotice(text = "Демо-режим: список друзей и челлендж — пример. Войдите для реального общения.")
-            }
-
             uiState.message?.let { FeatureInlineNotice(text = it) }
             uiState.error?.let { FeatureInlineNotice(text = it, isError = true) }
 
@@ -140,7 +133,8 @@ fun FriendsScreen(
             onClick = { showSearch = true },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 20.dp, bottom = 24.dp),
+                .navigationBarsPadding()
+                .padding(end = 20.dp, bottom = 72.dp),
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
             shape = CircleShape,

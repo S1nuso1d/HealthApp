@@ -36,5 +36,13 @@ data class ActivityUiState(
 
     val trainingNotes: String = "",
     val perceivedExertion: String = "",
+    val trainingStartTime: String = "",
+    val trainingPhotoUri: String? = null,
     val progressCelebrateToken: Int = 0,
+
+    val usualBedtimeHour: Int? = null,
+    val usualBedtimeMinute: Int? = null,
+    val usualBedtimeLabel: String? = null,
+    val bedtimeWarning: String? = null,
+    val eveningWindowHint: String? = null,
 )

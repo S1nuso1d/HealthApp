@@ -19,6 +19,7 @@ import javax.inject.Inject
 data class CycleUiState(
     val isLoading: Boolean = false,
     val entries: List<CycleEntryDto> = emptyList(),
+    val insights: com.example.healtapp.data.network.dto.cycle.CycleInsightsDto? = null,
     val error: String? = null,
     val isSaving: Boolean = false
 )
@@ -46,6 +47,9 @@ class CycleViewModel @Inject constructor(
                     _uiState.update { it.copy(isLoading = false, error = e.message) }
                 }
             )
+            repository.getInsights().onSuccess { insights ->
+                _uiState.update { it.copy(insights = insights) }
+            }
         }
     }
 

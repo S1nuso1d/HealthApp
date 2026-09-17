@@ -432,3 +432,85 @@ def update_saved_recommendation_status(
     item.status = new_status
     db.commit()
     return {"id": item.id, "status": item.status}
+
+
+@router.get(
+    "/tonight-risk",
+    summary="Риск сна сегодня вечером",
+    description="Один рычаг по записям за сегодня: поздняя еда, кофеин, тренировка, питьё.",
+)
+def get_tonight_risk(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.services.tonight_risk_service import build_tonight_risk
+
+    return build_tonight_risk(db=db, user_id=current_user.id)
+
+
+@router.get(
+    "/circadian",
+    summary="Обычное время сна и связь ужина со сном",
+)
+def get_circadian_profile(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.services.circadian_service import build_circadian
+
+    return build_circadian(db=db, user_id=current_user.id)
+
+
+@router.get(
+    "/experiments",
+    summary="Эксперименты с привычками",
+)
+def list_habit_experiments(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.services.habit_experiment_service import get_active_experiment, list_experiments
+
+    return {
+        "active": get_active_experiment(db, current_user.id),
+        "items": list_experiments(db, current_user.id),
+    }
+
+
+@router.post(
+    "/experiments",
+    summary="Начать 7-дневный эксперимент",
+)
+def start_habit_experiment(
+    factor_id: str = Query(..., description="id фактора, например late_caffeine_sleep_impact"),
+    title: str | None = Query(default=None),
+    action: str | None = Query(default=None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.services.habit_experiment_service import start_experiment
+
+    return start_experiment(
+        db=db,
+        user_id=current_user.id,
+        factor_id=factor_id,
+        title=title,
+        action=action,
+    )
+
+
+@router.post(
+    "/experiments/{experiment_id}/cancel",
+    summary="Остановить эксперимент",
+)
+def cancel_habit_experiment(
+    experiment_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.services.habit_experiment_service import cancel_experiment
+
+    result = cancel_experiment(db, current_user.id, experiment_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Эксперимент не найден")
+    return result

@@ -25,9 +25,9 @@ fun GlobalPendingSyncBanner(
 ) {
     val label = when {
         isFlushing -> "Отправляем записи на сервер…"
-        count == 1 -> "1 запись ждёт синхронизации · нажмите, чтобы отправить"
-        count in 2..4 -> "$count записи ждут синхронизации · нажмите, чтобы отправить"
-        else -> "$count записей ждут синхронизации · нажмите, чтобы отправить"
+        count == 1 -> "1 запись ждёт Wi‑Fi · нажмите, чтобы отправить"
+        count in 2..4 -> "$count записи ждут Wi‑Fi · нажмите, чтобы отправить"
+        else -> "$count записей ждут Wi‑Fi · нажмите, чтобы отправить"
     }
     AppAnimatedVisibility(visible = count > 0, modifier = modifier) {
         Surface(
@@ -54,6 +54,43 @@ fun GlobalPendingSyncBanner(
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun GlobalLanTunnelBanner(
+    visible: Boolean,
+    onTap: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    AppAnimatedVisibility(visible = visible, modifier = modifier) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onTap),
+            shape = RoundedCornerShape(14.dp),
+            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.9f),
+        ) {
+            androidx.compose.foundation.layout.Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.CloudUpload,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = "Вы не в домашней сети — вставьте туннель к серверу",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
                 )
             }
         }

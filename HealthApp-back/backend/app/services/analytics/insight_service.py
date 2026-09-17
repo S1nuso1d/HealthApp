@@ -54,9 +54,15 @@ class InsightService:
         # ------------------------------------------------------------
         if summaries:
             # -------- Инсайт: недосып --------
-            sleep_values = [s.total_sleep_hours for s in summaries if s.total_sleep_hours is not None]
+            # Только дни с реальной записью сна (> 0), пустые сутки в среднее не входят.
+            sleep_values = [
+                float(s.total_sleep_hours)
+                for s in summaries
+                if s.total_sleep_hours is not None and float(s.total_sleep_hours) > 0
+            ]
             if sleep_values:
                 avg_sleep = round(sum(sleep_values) / len(sleep_values), 2)
+                nights_logged = len(sleep_values)
                 if avg_sleep < 7:
                     insight = Insight(
                         user_id=user_id,
@@ -64,7 +70,7 @@ class InsightService:
                         category="sleep",
                         title="Недостаточная длительность сна",
                         description=(
-                            f"За последние {window_days} дней средняя длительность сна "
+                            f"По {nights_logged} ночам с записью средняя длительность сна "
                             f"составила {avg_sleep} ч. Это ниже рекомендуемого уровня."
                         ),
                         confidence=0.82,
@@ -76,7 +82,7 @@ class InsightService:
                                     "average_sleep_hours",
                                     avg_sleep,
                                     "hours",
-                                    f"Среднее значение за {window_days} дней",
+                                    f"Среднее по {nights_logged} ночам с данными",
                                 )
                             ],
                             ensure_ascii=False,
@@ -87,9 +93,14 @@ class InsightService:
                     created_insights.append(insight)
 
             # -------- Инсайт: недобор воды --------
-            water_values = [s.total_water_ml for s in summaries if s.total_water_ml is not None]
+            water_values = [
+                float(s.total_water_ml)
+                for s in summaries
+                if s.total_water_ml is not None and float(s.total_water_ml) > 0
+            ]
             if water_values:
                 avg_water = round(sum(water_values) / len(water_values), 2)
+                days_logged = len(water_values)
                 if avg_water < 2000:
                     insight = Insight(
                         user_id=user_id,
@@ -97,7 +108,7 @@ class InsightService:
                         category="hydration",
                         title="Недостаточное потребление воды",
                         description=(
-                            f"За последние {window_days} дней среднее потребление воды "
+                            f"По {days_logged} дням с записью среднее потребление воды "
                             f"составило {int(avg_water)} мл в день. Это может быть ниже оптимального уровня."
                         ),
                         confidence=0.76,
@@ -109,7 +120,7 @@ class InsightService:
                                     "average_water_ml",
                                     avg_water,
                                     "ml",
-                                    f"Среднее значение за {window_days} дней",
+                                    f"Среднее по {days_logged} дням с данными",
                                 )
                             ],
                             ensure_ascii=False,

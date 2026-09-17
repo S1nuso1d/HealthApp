@@ -21,9 +21,13 @@ class NotificationPrefs(private val context: Context) {
         private val GOAL_ACHIEVEMENTS = booleanPreferencesKey("goal_achievement_notifications")
         private val RECOMMENDATION_HOUR = intPreferencesKey("recommendation_hour")
         private val RECOMMENDATION_MINUTE = intPreferencesKey("recommendation_minute")
+        private val USUAL_BEDTIME_HOUR = intPreferencesKey("usual_bedtime_hour")
+        private val USUAL_BEDTIME_MINUTE = intPreferencesKey("usual_bedtime_minute")
 
         const val DEFAULT_RECOMMENDATION_HOUR = 10
         const val DEFAULT_RECOMMENDATION_MINUTE = 0
+        const val DEFAULT_BEDTIME_NUDGE_HOUR = 21
+        const val DEFAULT_BEDTIME_NUDGE_MINUTE = 30
     }
 
     val settingsFlow: Flow<NotificationSettings> = context.notificationDataStore.data.map { prefs ->
@@ -35,6 +39,8 @@ class NotificationPrefs(private val context: Context) {
             goalAchievementNotifications = prefs[GOAL_ACHIEVEMENTS] ?: true,
             recommendationHour = prefs[RECOMMENDATION_HOUR] ?: DEFAULT_RECOMMENDATION_HOUR,
             recommendationMinute = prefs[RECOMMENDATION_MINUTE] ?: DEFAULT_RECOMMENDATION_MINUTE,
+            usualBedtimeHour = prefs[USUAL_BEDTIME_HOUR],
+            usualBedtimeMinute = prefs[USUAL_BEDTIME_MINUTE],
         )
     }
 
@@ -60,6 +66,13 @@ class NotificationPrefs(private val context: Context) {
         context.notificationDataStore.edit { it[GOAL_ACHIEVEMENTS] = enabled }
     }
 
+    suspend fun setUsualBedtime(hour: Int, minute: Int) {
+        context.notificationDataStore.edit {
+            it[USUAL_BEDTIME_HOUR] = hour.coerceIn(0, 23)
+            it[USUAL_BEDTIME_MINUTE] = minute.coerceIn(0, 59)
+        }
+    }
+
     suspend fun setRecommendationReminderTime(hour: Int, minute: Int) {
         val h = hour.coerceIn(0, 23)
         val m = minute.coerceIn(0, 59)
@@ -78,6 +91,8 @@ data class NotificationSettings(
     val goalAchievementNotifications: Boolean = true,
     val recommendationHour: Int = NotificationPrefs.DEFAULT_RECOMMENDATION_HOUR,
     val recommendationMinute: Int = NotificationPrefs.DEFAULT_RECOMMENDATION_MINUTE,
+    val usualBedtimeHour: Int? = null,
+    val usualBedtimeMinute: Int? = null,
 ) {
     fun recommendationTimeLabel(): String =
         "%02d:%02d".format(recommendationHour, recommendationMinute)

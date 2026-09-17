@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.AutoStories
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandLess
@@ -62,7 +64,7 @@ import com.example.healtapp.core.ui.theme.heroBlockGradient
 import com.example.healtapp.core.ui.theme.heroContentColor
 import com.example.healtapp.core.ui.theme.contentPrimaryColor
 import com.example.healtapp.core.ui.theme.iconTintColor
-import com.example.healtapp.core.ui.theme.isAppDarkTheme
+import com.example.healtapp.core.ui.theme.Dimens
 import com.example.healtapp.core.common.ActionPlanProgressHint
 import com.example.healtapp.features.dashboard.presentation.ActionPlanItemUi
 import com.example.healtapp.features.dashboard.presentation.DailyBriefUi
@@ -81,7 +83,7 @@ fun DashboardDailyBriefCard(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(if (isAppDarkTheme()) 12.dp else 26.dp))
+            .clip(RoundedCornerShape(Dimens.RadiusL))
             .background(Brush.linearGradient(heroBlockGradient()))
             .padding(20.dp),
     ) {
@@ -106,6 +108,7 @@ fun DashboardMoodCheckInCard(
     onMoodChange: (Int) -> Unit,
     onEnergyChange: (Int) -> Unit,
     onStressChange: (Int) -> Unit,
+    onWellbeingChange: (Int) -> Unit = {},
     onSubmit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -172,6 +175,13 @@ fun DashboardMoodCheckInCard(
                     Slider(
                         value = state.stress.toFloat(),
                         onValueChange = { onStressChange(it.toInt()) },
+                        valueRange = 1f..10f,
+                        steps = 8,
+                    )
+                    Text("Самочувствие: ${state.wellbeing}", style = MaterialTheme.typography.labelLarge)
+                    Slider(
+                        value = state.wellbeing.toFloat(),
+                        onValueChange = { onWellbeingChange(it.toInt()) },
                         valueRange = 1f..10f,
                         steps = 8,
                     )
@@ -432,21 +442,30 @@ private fun WeeklyMetricTile(
 @Composable
 fun DashboardQuickLinksRow(
     onOpenAi: () -> Unit,
-    onOpenTimeline: () -> Unit,
+    onOpenWeeklyReview: () -> Unit = {},
+    onOpenInfluenceFactors: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            DashboardQuickLinkCard(
+                title = "ИИ чат",
+                icon = Icons.Filled.AutoAwesome,
+                onClick = onOpenAi,
+                modifier = Modifier.weight(1f),
+            )
+            DashboardQuickLinkCard(
+                title = "Разбор недели",
+                icon = Icons.Filled.AutoStories,
+                onClick = onOpenWeeklyReview,
+                modifier = Modifier.weight(1f),
+            )
+        }
         DashboardQuickLinkCard(
-            title = "ИИ чат",
-            icon = Icons.Filled.AutoAwesome,
-            onClick = onOpenAi,
-            modifier = Modifier.weight(1f),
-        )
-        DashboardQuickLinkCard(
-            title = "Сообщество",
-            icon = Icons.Filled.Groups,
-            onClick = onOpenTimeline,
-            modifier = Modifier.weight(1f),
+            title = "Что влияет",
+            icon = Icons.Filled.Insights,
+            onClick = onOpenInfluenceFactors,
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 }

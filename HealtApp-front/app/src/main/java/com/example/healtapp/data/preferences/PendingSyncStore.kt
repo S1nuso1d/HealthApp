@@ -19,6 +19,8 @@ data class PendingMealOp(
     val proteinG: Float?,
     val fatG: Float?,
     val carbsG: Float?,
+    val caffeineMg: Float? = null,
+    val mealTime: String,
 )
 
 data class PendingSyncQueue(

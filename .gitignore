@@ -2,7 +2,8 @@
 HealthApp-back/backend/uploads/
 HealthApp-back/backend/.env
 HealthApp-back/backend/healthapp.db
-HealthApp-back/**/*.env
+HealthApp-back/.env.compose
+HealthApp-back/.compose-secret.backup.txt
 HealthApp-back/**/__pycache__/
 HealthApp-back/**/*.pyc
 HealthApp-back/.venv/
@@ -19,6 +20,10 @@ HealthApp-back/.mypy_cache/
 HealtApp-front/.gradle/
 HealtApp-front/**/build/
 HealtApp-front/local.properties
+HealtApp-front/keystore.properties
+HealtApp-front/keystore.credentials.backup.txt
+HealtApp-front/*.jks
+HealtApp-front/*.keystore
 
 # Logs / OS
 *.log
@@ -37,3 +42,7 @@ docs/__pycache__/
 
 # Local temp extracts
 tmp_*.txt
+tmp_docs/
+build/
+python-course/
+tools/

@@ -1,0 +1,37 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: healthapp
+      POSTGRES_USER: healthapp
+      POSTGRES_PASSWORD: healthapp
+    ports:
+      - "5432:5432"
+    volumes:
+      - healthapp_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U healthapp -d healthapp"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file:
+      - .env.compose
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql+psycopg2://healthapp:healthapp@db:5432/healthapp
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://s1nuso1d.github.io}
+      LLM_ENABLED: ${LLM_ENABLED:-false}
+    ports:
+      - "8001:8001"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  healthapp_pg:

@@ -32,6 +32,10 @@
 -dontwarn org.bouncycastle.**
 -dontwarn org.openjsse.**
 
+# ---------- Sentry ----------
+-keepattributes *Annotation*
+-dontwarn io.sentry.**
+
 # ---------- Kotlin ----------
 -keepclassmembers class kotlin.Metadata { public <methods>; }
 

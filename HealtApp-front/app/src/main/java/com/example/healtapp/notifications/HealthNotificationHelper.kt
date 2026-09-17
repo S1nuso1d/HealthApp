@@ -29,11 +29,14 @@ object HealthNotificationHelper {
     const val ID_SLEEP_EVENING = 1002
     const val ID_WEIGHT_UPDATE = 1003
     const val ID_SOCIAL_FRIEND_REQUEST = 6001
-    const val ID_PILL_REMINDER_BASE = 7000
+    /** База id для таблеток: 10000 + pillId, чтобы не пересекаться с ИИ/weekly. */
+    const val ID_PILL_REMINDER_BASE = 10_000
 
     const val ID_AI_COACH = 7001
+    const val ID_WEEKLY_REVIEW = 8001
 
     fun canPost(context: Context): Boolean {
+        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return false
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
         return ContextCompat.checkSelfPermission(
             context,
@@ -48,6 +51,7 @@ object HealthNotificationHelper {
         body: String,
         navRoute: String? = null,
         channelId: String = HealthNotificationChannels.REMINDERS,
+        highPriority: Boolean = false,
     ) {
         if (!canPost(context)) return
         val launch = Intent(context, MainActivity::class.java).apply {
@@ -67,7 +71,13 @@ object HealthNotificationHelper {
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setContentIntent(pending)
             .setAutoCancel(true)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setCategory(
+                if (highPriority) NotificationCompat.CATEGORY_REMINDER
+                else NotificationCompat.CATEGORY_STATUS,
+            )
+            .setPriority(
+                if (highPriority) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_DEFAULT,
+            )
             .build()
         NotificationManagerCompat.from(context).notify(notificationId, notification)
     }
@@ -157,12 +167,17 @@ object HealthNotificationHelper {
         )
     }
 
-    fun sleepEveningReminder(context: Context) {
+    fun sleepEveningReminder(context: Context, usualBedtime: String? = null) {
+        val body = if (usualBedtime != null) {
+            "Обычно вы засыпаете около $usualBedtime. Стабильный отбой помогает сну — приглушите свет и уберите экран."
+        } else {
+            "Запишите сон сегодня — так проще видеть восстановление и качество отдыха."
+        }
         show(
             context = context,
             notificationId = ID_SLEEP_EVENING,
-            title = "Время отдыха",
-            body = "Запишите сон сегодня — так проще видеть восстановление и качество отдыха.",
+            title = "Пора к привычному отбою",
+            body = body,
             navRoute = "sleep",
         )
     }
@@ -189,13 +204,20 @@ object HealthNotificationHelper {
     }
 
     fun pillReminder(context: Context, pillId: Int, name: String, dosage: String) {
+        val dose = dosage.trim().takeIf { it.isNotEmpty() }
+        val body = if (dose != null) {
+            "Пора принять: $name ($dose)"
+        } else {
+            "Пора принять: $name"
+        }
         show(
             context = context,
             notificationId = ID_PILL_REMINDER_BASE + pillId,
-            title = "Напоминание о приеме",
-            body = "Time to take $name $dosage",
+            title = "Напоминание о приёме",
+            body = body,
             navRoute = "pills",
-            channelId = HealthNotificationChannels.REMINDERS,
+            channelId = HealthNotificationChannels.PILLS,
+            highPriority = true,
         )
     }
 
@@ -207,6 +229,16 @@ object HealthNotificationHelper {
             body = tip,
             navRoute = "dashboard",
             channelId = HealthNotificationChannels.REMINDERS,
+        )
+    }
+
+    fun weeklyReview(context: Context) {
+        show(
+            context = context,
+            notificationId = ID_WEEKLY_REVIEW,
+            title = "Разбор недели",
+            body = "Итоги за семь дней готовы — откройте, чтобы сравнить с прошлой неделей.",
+            navRoute = "weekly_review",
         )
     }
 }

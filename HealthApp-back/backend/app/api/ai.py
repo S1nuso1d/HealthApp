@@ -607,6 +607,7 @@ def get_meal_plan(
     from app.services.ai.user_health_context import build_meal_plan_context
     from app.llm.meal_plan_diet_filter import apply_dietary_filters
     from app.llm.meal_plan_portions import build_grocery_list_from_days, enrich_meal_plan_days
+    from app.llm.meal_plan_nutrition import apply_catalog_nutrition_to_days
     from app.models.profile import UserProfile
 
     profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
@@ -651,6 +652,7 @@ def get_meal_plan(
                 allergies_text=profile.allergies_text,
             )
         data["days"] = enrich_meal_plan_days(data.get("days", []))
+        data["days"] = apply_catalog_nutrition_to_days(db, data.get("days", []))
         data["grocery_list"] = build_grocery_list_from_days(data.get("days", []))
         return MealPlanResponse(
             generated_at=datetime.now(timezone.utc),
@@ -675,6 +677,7 @@ def get_meal_plan(
                     allergies_text=profile.allergies_text,
                 )
             data["days"] = enrich_meal_plan_days(data.get("days", []))
+            data["days"] = apply_catalog_nutrition_to_days(db, data.get("days", []))
             data["grocery_list"] = build_grocery_list_from_days(data.get("days", []))
             return MealPlanResponse(
                 generated_at=datetime.now(timezone.utc),

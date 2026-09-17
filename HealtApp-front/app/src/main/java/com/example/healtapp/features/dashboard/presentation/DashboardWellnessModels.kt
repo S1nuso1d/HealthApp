@@ -59,6 +59,7 @@ data class MoodCheckInUi(
     val mood: Int = 5,
     val energy: Int = 5,
     val stress: Int = 5,
+    val wellbeing: Int = 5,
     val isSaving: Boolean = false,
     val savedToday: Boolean = false,
 )

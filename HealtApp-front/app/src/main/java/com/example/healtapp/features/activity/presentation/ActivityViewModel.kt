@@ -11,6 +11,8 @@ import com.example.healtapp.data.network.dto.activity.ActivityCreateRequestDto
 import com.example.healtapp.data.network.dto.activity.ActivityDto
 import com.example.healtapp.domain.repository.ActivityRepository
 import com.example.healtapp.domain.repository.ProfileRepository
+import com.example.healtapp.domain.repository.WellnessRepository
+import com.example.healtapp.features.activity.live.LiveWorkoutSession
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,9 +28,12 @@ import java.time.format.DateTimeFormatter
 class ActivityViewModel @Inject constructor(
     private val repository: ActivityRepository,
     private val profileRepository: ProfileRepository,
+    private val wellnessRepository: WellnessRepository,
     private val healthConnectReader: HealthConnectReader,
     private val healthConnectForegroundSync: HealthConnectForegroundSync,
     private val trainingPrefs: TrainingPrefs,
+    val liveSession: LiveWorkoutSession,
+    private val workoutWaterBoostPrefs: com.example.healtapp.data.preferences.WorkoutWaterBoostPrefs,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ActivityUiState())
@@ -163,19 +168,58 @@ class ActivityViewModel @Inject constructor(
                 )
             }
             refreshQuickPicks()
+            refreshCircadianHints()
         }
     }
 
+    private fun refreshCircadianHints() {
+        viewModelScope.launch {
+            val circadian = wellnessRepository.getCircadian().getOrNull() ?: return@launch
+            _uiState.update { state ->
+                val hour = circadian.usualBedtimeHour
+                val minute = circadian.usualBedtimeMinute
+                state.copy(
+                    usualBedtimeHour = hour,
+                    usualBedtimeMinute = minute,
+                    usualBedtimeLabel = circadian.usualBedtime,
+                    eveningWindowHint = CircadianTiming.eveningWindowHint(hour, minute),
+                    bedtimeWarning = CircadianTiming.workoutNearBedtimeWarning(
+                        hour,
+                        minute,
+                        state.intensity,
+                    ),
+                )
+            }
+        }
+    }
+
+    private fun applyBedtimeHints(state: ActivityUiState): ActivityUiState = state.copy(
+        eveningWindowHint = CircadianTiming.eveningWindowHint(
+            state.usualBedtimeHour,
+            state.usualBedtimeMinute,
+        ),
+        bedtimeWarning = CircadianTiming.workoutNearBedtimeWarning(
+            state.usualBedtimeHour,
+            state.usualBedtimeMinute,
+            state.intensity,
+        ),
+    )
+
     fun beginTraining(typeTitleRu: String) {
+        val now = LocalDateTime.now()
         _uiState.update {
-            it.copy(
-                activityType = typeTitleRu,
-                durationMinutes = "",
-                caloriesBurned = "",
-                distanceKm = "",
-                trainingNotes = "",
-                perceivedExertion = "",
-                error = null,
+            applyBedtimeHints(
+                it.copy(
+                    activityType = typeTitleRu,
+                    durationMinutes = "",
+                    caloriesBurned = "",
+                    distanceKm = "",
+                    trainingNotes = "",
+                    perceivedExertion = "",
+                    trainingStartTime = "%02d:%02d".format(now.hour, now.minute),
+                    trainingPhotoUri = null,
+                    error = null,
+                ),
             )
         }
     }
@@ -188,6 +232,8 @@ class ActivityViewModel @Inject constructor(
                 distanceKm = "",
                 trainingNotes = "",
                 perceivedExertion = "",
+                trainingStartTime = "",
+                trainingPhotoUri = null,
                 error = null,
             )
         }
@@ -296,11 +342,20 @@ class ActivityViewModel @Inject constructor(
     }
 
     fun updateIntensity(value: String) {
-        _uiState.update { it.copy(intensity = value) }
+        _uiState.update { applyBedtimeHints(it.copy(intensity = value)) }
     }
 
     fun updateTrainingNotes(value: String) {
         _uiState.update { it.copy(trainingNotes = value) }
+    }
+
+    fun updateTrainingStartTime(value: String) {
+        val cleaned = value.filter { ch -> ch.isDigit() || ch == ':' }.take(5)
+        _uiState.update { it.copy(trainingStartTime = cleaned) }
+    }
+
+    fun updateTrainingPhotoUri(uri: String?) {
+        _uiState.update { it.copy(trainingPhotoUri = uri) }
     }
 
     fun updatePerceivedExertion(value: String) {
@@ -320,6 +375,9 @@ class ActivityViewModel @Inject constructor(
             val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
             val apiType = activityApiSlug(state.activityType.ifBlank { "Бег" })
 
+            val start = parseTrainingStart(state.trainingStartTime, duration, now)
+            val end = start.plusMinutes(duration.toLong())
+
             val fields = trainingFormFieldsFor(state.activityType)
             val rawDist = state.distanceKm.toFloatOrNull()
             val distanceKm = when {
@@ -327,18 +385,27 @@ class ActivityViewModel @Inject constructor(
                 state.activityType == "Плавание" && rawDist != null -> rawDist / 1000f
                 else -> rawDist
             }
+            val calories = state.caloriesBurned.toFloatOrNull()
+                ?: estimateTrainingCalories(state.activityType.ifBlank { "Бег" }, duration, distanceKm)
+            val notes = buildString {
+                append(state.trainingNotes.trim())
+                state.trainingPhotoUri?.let { uri ->
+                    if (isNotEmpty()) append('\n')
+                    append("[photo]$uri")
+                }
+            }.ifBlank { null }
             val request = ActivityCreateRequestDto(
                 activity_type = apiType,
-                start_time = now.minusMinutes(duration.toLong()).format(formatter),
-                end_time = now.format(formatter),
+                start_time = start.format(formatter),
+                end_time = end.format(formatter),
                 duration_minutes = duration,
                 steps = null,
                 distance_km = distanceKm,
-                calories_burned = state.caloriesBurned.toFloatOrNull(),
-                intensity = state.intensity.ifBlank { null },
+                calories_burned = calories,
+                intensity = state.intensity.ifBlank { null }.takeIf { fields.showIntensity },
                 perceived_exertion = state.perceivedExertion.toIntOrNull()?.coerceIn(1, 10)
                     .takeIf { fields.showExertion },
-                notes = state.trainingNotes.trim().takeIf { it.isNotBlank() && fields.showNotes },
+                notes = notes,
                 source = "manual",
             )
 
@@ -346,6 +413,11 @@ class ActivityViewModel @Inject constructor(
             repository.createActivity(request)
                 .onSuccess {
                     trainingPrefs.recordUsage(apiType)
+                    val warning = CircadianTiming.workoutNearBedtimeWarning(
+                        state.usualBedtimeHour,
+                        state.usualBedtimeMinute,
+                        state.intensity,
+                    )
                     _uiState.update {
                         it.copy(
                             isSaving = false,
@@ -354,7 +426,13 @@ class ActivityViewModel @Inject constructor(
                             distanceKm = "",
                             trainingNotes = "",
                             perceivedExertion = "",
-                            snackMessage = "Тренировка сохранена",
+                            trainingStartTime = "",
+                            trainingPhotoUri = null,
+                            snackMessage = if (warning != null) {
+                                "Тренировка сохранена. $warning"
+                            } else {
+                                "Тренировка сохранена"
+                            },
                             progressCelebrateToken = it.progressCelebrateToken + 1,
                         )
                     }
@@ -369,6 +447,21 @@ class ActivityViewModel @Inject constructor(
                         )
                     }
                 }
+        }
+    }
+
+    private fun parseTrainingStart(
+        raw: String,
+        durationMinutes: Int,
+        now: LocalDateTime,
+    ): LocalDateTime {
+        val parts = raw.trim().split(':')
+        val hour = parts.getOrNull(0)?.toIntOrNull()
+        val minute = parts.getOrNull(1)?.toIntOrNull()
+        return if (hour != null && minute != null && hour in 0..23 && minute in 0..59) {
+            now.withHour(hour).withMinute(minute).withSecond(0).withNano(0)
+        } else {
+            now.minusMinutes(durationMinutes.toLong())
         }
     }
 
@@ -431,6 +524,105 @@ class ActivityViewModel @Inject constructor(
                 .onFailure { e ->
                     _uiState.update {
                         it.copy(isSaving = false, error = e.message ?: "Не удалось обновить")
+                    }
+                }
+        }
+    }
+
+    fun updateActivityNotes(activity: ActivityDto, notes: String) {
+        viewModelScope.launch {
+            val request = ActivityCreateRequestDto(
+                activity_type = activity.activity_type,
+                start_time = activity.start_time,
+                end_time = activity.end_time,
+                duration_minutes = activity.duration_minutes,
+                steps = activity.steps,
+                distance_km = activity.distance_km,
+                calories_burned = activity.calories_burned,
+                intensity = activity.intensity,
+                activity_category = activity.activity_category,
+                perceived_exertion = activity.perceived_exertion,
+                avg_heart_rate = activity.avg_heart_rate,
+                minutes_before_sleep = activity.minutes_before_sleep,
+                is_evening_activity = activity.is_evening_activity,
+                notes = notes,
+                source = activity.source,
+                avg_speed_m_s = activity.avg_speed_m_s,
+            )
+            _uiState.update { it.copy(isSaving = true, error = null) }
+            repository.updateActivity(activity.id, request)
+                .onSuccess {
+                    _uiState.update { it.copy(isSaving = false, snackMessage = "Тренировка обновлена") }
+                    loadAll()
+                    AppRefreshBus.notifyDataChanged()
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(isSaving = false, error = e.message ?: "Не удалось обновить")
+                    }
+                }
+        }
+    }
+
+    fun saveLiveWorkout(
+        activityTitleRu: String,
+        startEpochMs: Long,
+        endEpochMs: Long,
+        durationMinutes: Int,
+        distanceKm: Float,
+        calories: Float,
+        avgSpeedMs: Float?,
+        notes: String? = null,
+    ) {
+        viewModelScope.launch {
+            val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
+            val start = java.time.Instant.ofEpochMilli(startEpochMs)
+                .atZone(java.time.ZoneId.systemDefault())
+                .toLocalDateTime()
+            val end = java.time.Instant.ofEpochMilli(endEpochMs)
+                .atZone(java.time.ZoneId.systemDefault())
+                .toLocalDateTime()
+            val apiType = activityApiSlug(activityTitleRu)
+            val request = ActivityCreateRequestDto(
+                activity_type = apiType,
+                start_time = start.format(formatter),
+                end_time = end.format(formatter),
+                duration_minutes = durationMinutes.coerceAtLeast(1),
+                distance_km = distanceKm.takeIf { it > 0f },
+                calories_burned = calories.takeIf { it > 0f },
+                avg_speed_m_s = avgSpeedMs,
+                notes = notes?.takeIf { it.isNotBlank() } ?: "GPS-запись",
+                source = "gps",
+            )
+            _uiState.update { it.copy(isSaving = true, error = null) }
+            repository.createActivity(request)
+                .onSuccess {
+                    trainingPrefs.recordUsage(apiType)
+                    workoutWaterBoostPrefs.setFromDistanceKm(distanceKm)
+                    val extra = workoutWaterBoostPrefs.extraMlToday()
+                    val sleepHint = if (CircadianTiming.hitsTrainingSleepWindow(
+                            _uiState.value.usualBedtimeHour,
+                            _uiState.value.usualBedtimeMinute,
+                        )
+                    ) {
+                        " · к сну без тяжёлого ужина"
+                    } else {
+                        ""
+                    }
+                    val waterHint = if (extra > 0) " · пейте ещё $extra мл" else ""
+                    _uiState.update {
+                        it.copy(
+                            isSaving = false,
+                            snackMessage = "Тренировка сохранена · ${"%.2f".format(distanceKm)} км$waterHint$sleepHint",
+                            progressCelebrateToken = it.progressCelebrateToken + 1,
+                        )
+                    }
+                    loadAll()
+                    AppRefreshBus.notifyDataChanged()
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(isSaving = false, error = e.message ?: "Не удалось сохранить GPS-тренировку")
                     }
                 }
         }

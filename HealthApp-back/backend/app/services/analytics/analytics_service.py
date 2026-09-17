@@ -36,7 +36,7 @@ def avg_or_zero(items: list[Any], attr: str) -> float:
     values = []
     for item in items:
         value = getattr(item, attr, None)
-        if value is not None:
+        if value is not None and float(value) > 0:
             values.append(float(value))
     return safe_mean(values)
 

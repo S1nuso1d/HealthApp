@@ -3,6 +3,7 @@ package com.example.healtapp.features.sleep.ui.components
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -229,6 +233,8 @@ fun WeeklySleepBarChart(
     modifier: Modifier = Modifier,
 ) {
     if (days.isEmpty()) return
+    var selectedIndex by remember { mutableIntStateOf(days.indexOfLast { it.hours > 0 }.coerceAtLeast(0)) }
+    val selected = days.getOrNull(selectedIndex)
     val maxHours = (days.maxOf { it.hours }.coerceAtLeast(goalHours)).coerceAtLeast(0.5f)
     val goalLineColor = chartBarGuideColor()
     val todayBarGradient = cardHeaderGradient(themedCardLavender(), 1f)
@@ -242,7 +248,10 @@ fun WeeklySleepBarChart(
                 fontWeight = FontWeight.Bold,
             )
             Text(
-                text = "Пунктир — цель ${SleepHelper.formatHours(goalHours)} ч",
+                text = selected?.let {
+                    "${it.label}: ${SleepHelper.formatHours(it.hours)} ч" +
+                        if (it.hours <= 0f) " — нет записи" else ""
+                } ?: "Нажмите столбик, чтобы увидеть день",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -298,24 +307,26 @@ fun WeeklySleepBarChart(
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.Bottom,
                     ) {
-                        days.forEach { day ->
+                        days.forEachIndexed { index, day ->
                             val barFraction = day.hours / maxHours
                             val isToday = day.dateKey == java.time.LocalDate.now().toString()
+                            val selectedBar = index == selectedIndex
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .fillMaxSize(),
+                                    .fillMaxSize()
+                                    .clickable { selectedIndex = index },
                                 contentAlignment = Alignment.BottomCenter,
                             ) {
                                 Box(
                                     modifier = Modifier
                                         .padding(horizontal = 3.dp)
-                                        .fillMaxWidth(0.65f)
+                                        .fillMaxWidth(if (selectedBar) 0.8f else 0.65f)
                                         .height((barAreaHeight * barFraction.coerceIn(0.04f, 1f)).coerceAtLeast(4.dp))
                                         .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
                                         .background(
                                             Brush.verticalGradient(
-                                                if (isToday) todayBarGradient else defaultBarGradient,
+                                                if (isToday || selectedBar) todayBarGradient else defaultBarGradient,
                                             ),
                                         ),
                                 )

@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.healtapp.core.ui.theme.Dimens
 import com.example.healtapp.core.ui.theme.screenBackgroundGradient
 
 @Composable
@@ -33,7 +34,7 @@ fun AppScreen(
     onNavigateBack: (() -> Unit)? = null,
     scrollable: Boolean = true,
     scrollStateKey: String? = null,
-    contentPadding: PaddingValues = PaddingValues(20.dp),
+    contentPadding: PaddingValues = PaddingValues(Dimens.ScreenPadding),
     /** Доп. отступ в конце прокручиваемого контента (например под FAB). */
     extraBottomPadding: Dp = 0.dp,
     content: @Composable ColumnScope.() -> Unit,
@@ -60,7 +61,7 @@ fun AppScreen(
                     },
                 )
                 .padding(contentPadding),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(Dimens.SpaceL),
         ) {
             if (title != null) {
                 ScreenHeader(

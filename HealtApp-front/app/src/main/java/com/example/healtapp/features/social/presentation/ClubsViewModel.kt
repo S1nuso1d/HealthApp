@@ -14,7 +14,6 @@ import com.example.healtapp.data.network.dto.social.ClubPollVoteDto
 import com.example.healtapp.data.network.dto.social.ClubResponseDto
 import com.example.healtapp.data.network.dto.social.ClubPostResponseDto
 import com.example.healtapp.data.network.dto.social.ClubUpdateDto
-import com.example.healtapp.data.preferences.TokenStorage
 import com.example.healtapp.domain.repository.SocialRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -35,7 +34,6 @@ data class ClubsUiState(
     val clubs: List<ClubResponseDto> = emptyList(),
     val message: String? = null,
     val error: String? = null,
-    val guestMode: Boolean = false,
 )
 
 data class ClubDetailUiState(
@@ -52,7 +50,6 @@ data class ClubDetailUiState(
 @HiltViewModel
 class ClubsViewModel @Inject constructor(
     private val repository: SocialRepository,
-    private val tokenStorage: TokenStorage,
     private val apiServerConfig: ApiServerConfig,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
@@ -73,12 +70,8 @@ class ClubsViewModel @Inject constructor(
     fun refreshClubs() {
         viewModelScope.launch {
             _clubsState.update { it.copy(isLoading = true, error = null) }
-            if (tokenStorage.isGuestMode()) {
-                _clubsState.update { it.copy(isLoading = false, guestMode = true, clubs = emptyList()) }
-                return@launch
-            }
             repository.getClubs()
-                .onSuccess { clubs -> _clubsState.update { it.copy(isLoading = false, clubs = clubs, guestMode = false) } }
+                .onSuccess { clubs -> _clubsState.update { it.copy(isLoading = false, clubs = clubs) } }
                 .onFailure { e -> _clubsState.update { it.copy(isLoading = false, error = e.message) } }
         }
     }
@@ -90,10 +83,6 @@ class ClubsViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            if (tokenStorage.isGuestMode()) {
-                _clubsState.update { it.copy(message = "Войдите в аккаунт для создания клуба") }
-                return@launch
-            }
             _clubsState.update { it.copy(isLoading = true, error = null) }
 
             val avatarUrl = avatarUri?.let { uri ->
