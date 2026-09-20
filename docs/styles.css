@@ -350,15 +350,33 @@ a {
 
 .scheme-card {
   margin: 0;
+  text-align: center;
 }
 
 .scheme-card figcaption {
-  margin: 0 0 12px;
+  margin: 0 0 16px;
+  text-align: center;
 }
 
+.scheme-wide,
 .flow-card,
 .devices-card {
   margin-top: 24px;
+}
+
+.scheme-wide {
+  width: min(1240px, calc(100vw - 24px));
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 24px;
+  padding: 32px 28px 36px;
+}
+
+.scheme-wide img {
+  width: min(100%, 1080px);
+  max-height: none;
+  margin-inline: auto;
 }
 
 .gallery-sub {
@@ -374,14 +392,30 @@ a {
   object-position: top center;
 }
 
-.demo-lead {
-  margin-top: 0;
+.demo-card {
+  margin-top: 36px;
+}
+
+.demo-card .demo-lead {
+  margin: 0 0 16px;
   color: var(--muted);
 }
 
-.demo-gallery {
-  margin-top: 8px;
-  grid-template-columns: 1fr;
+.demo-canvas {
+  background: #eaf6f4;
+  border-radius: 28px;
+  padding: 36px 16px 40px;
+  display: grid;
+  place-items: center;
+}
+
+.demo-canvas .phone-stage {
+  padding: 12px 0 0;
+}
+
+.demo-card .demo-controls {
+  margin-top: 20px;
+  justify-content: center;
 }
 
 .contact-grid {
@@ -540,7 +574,7 @@ a {
 }
 
 .phone.hero-phone {
-  transform: perspective(1400px) rotateY(-8deg) rotateX(4deg);
+  transform: none;
 }
 
 .phone-screen {
@@ -768,6 +802,13 @@ a {
   .gallery,
   .shot-grid {
     grid-template-columns: 1fr;
+  }
+
+  .scheme-wide {
+    width: 100%;
+    left: auto;
+    transform: none;
+    padding: 20px 12px 24px;
   }
 
   .phone.hero-phone {

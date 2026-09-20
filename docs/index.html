@@ -225,7 +225,7 @@
       <div class="wrap">
         <p class="section-kicker">Разработка</p>
         <h2>Технические характеристики</h2>
-        <div class="grid-2 tech-grid">
+        <div class="tech-grid">
           <div class="card">
             <table class="tech-table">
               <tr><th>Платформа</th><td>Android 8.0 и новее (API 26+)</td></tr>
@@ -238,11 +238,11 @@
               <tr><th>Идентификатор</th><td>com.healthapp.android</td></tr>
             </table>
           </div>
-          <figure class="card scheme-card">
-            <figcaption>Схема архитектуры прототипа</figcaption>
-            <img src="assets/architecture.svg" alt="Схема: Android-приложение подключается к API FastAPI, данные хранятся в PostgreSQL, снаружи — ИИ, каталоги продуктов, карты" width="1100" height="560" />
-          </figure>
         </div>
+        <figure class="card scheme-card scheme-wide">
+          <figcaption>Схема архитектуры прототипа</figcaption>
+          <img src="assets/architecture.svg" alt="Схема: Android-приложение подключается к API FastAPI, данные хранятся в PostgreSQL, снаружи — ИИ, каталоги продуктов, карты" width="1100" height="560" />
+        </figure>
         <figure class="card scheme-card flow-card">
           <figcaption>Схема потока данных</figcaption>
           <img src="assets/data-flow.svg" alt="Поток данных: ввод на устройстве, очередь на телефоне, API, PostgreSQL и персональный ответ" width="1100" height="420" />
@@ -254,7 +254,7 @@
       <div class="wrap">
         <p class="section-kicker">Изображения и демонстрация</p>
         <h2>Прототип на экране</h2>
-        <p class="muted">Сначала макеты в палитре мята/небо, затем снимки тех же разделов на реальном Android — как это собрано в прототипе 1.1.0.</p>
+        <p class="muted">Сначала макеты в палитре мята/небо, затем интерактивная демонстрация и снимки тех же разделов на реальном Android.</p>
 
         <figure class="card scheme-card devices-card">
           <figcaption>Смартфон со сводкой дня</figcaption>
@@ -289,38 +289,10 @@
           </figure>
         </div>
 
-        <h3 class="gallery-sub">Как это реализовано</h3>
-        <p class="muted">Снимки с устройства. Те же экраны, что на макетах: сводка дня, сон, питание, активность, профиль и ИИ-помощник.</p>
-        <div class="shot-grid">
-          <figure class="card shot shot-device">
-            <img src="assets/device-home.png" alt="Главный экран HealthApp на Android: индекс дня 75, сон 8 ч, вода 2600 мл, ИИ-чат и разбор" width="460" height="1024" />
-            <figcaption>Главная на устройстве</figcaption>
-          </figure>
-          <figure class="card shot shot-device">
-            <img src="assets/device-sleep.png" alt="Экран сна на Android: 8 часов, цель из профиля, качество 90 и график недели" width="460" height="1024" />
-            <figcaption>Сон на устройстве</figcaption>
-          </figure>
-          <figure class="card shot shot-device">
-            <img src="assets/device-nutrition.png" alt="Экран питания на Android: цель 2705 ккал, КБЖУ, ИИ-план и дневник по дням" width="460" height="1024" />
-            <figcaption>Питание на устройстве</figcaption>
-          </figure>
-          <figure class="card shot shot-device">
-            <img src="assets/device-activity.png" alt="Экран активности на Android: 65 шагов из Health Connect, калории и цель 10 000" width="460" height="1024" />
-            <figcaption>Активность на устройстве</figcaption>
-          </figure>
-          <figure class="card shot shot-device">
-            <img src="assets/device-profile.png" alt="Профиль HealthApp на Android: цели по сну, воде и шагам, показатели тела" width="460" height="1024" />
-            <figcaption>Профиль на устройстве</figcaption>
-          </figure>
-          <figure class="card shot shot-device">
-            <img src="assets/device-ai.png" alt="ИИ-помощник на Android: разбор сна, питания, активности, гидратации и связей" width="460" height="1024" />
-            <figcaption>ИИ-помощник на устройстве</figcaption>
-          </figure>
-        </div>
-
-        <div class="gallery demo-gallery">
-          <div class="card">
-            <p class="demo-lead">Демонстрация работы прототипа. Нажимайте разделы — экраны также переключаются сами.</p>
+        <figure class="card scheme-card devices-card demo-card">
+          <figcaption>Демонстрация работы прототипа</figcaption>
+          <p class="muted demo-lead">Нажимайте разделы — экраны также переключаются сами.</p>
+          <div class="demo-canvas">
             <div class="phone-stage">
               <div class="phone" id="demo-phone">
                 <div class="phone-screen">
@@ -372,14 +344,43 @@
                 </div>
               </div>
             </div>
-            <div class="demo-controls">
-              <button class="chip is-on" type="button" data-demo="home">Главная</button>
-              <button class="chip" type="button" data-demo="sleep">Сон</button>
-              <button class="chip" type="button" data-demo="food">Питание</button>
-              <button class="chip" type="button" data-demo="move">Активность</button>
-              <button class="chip" type="button" data-demo="ai">ИИ-чат</button>
-            </div>
           </div>
+          <div class="demo-controls">
+            <button class="chip is-on" type="button" data-demo="home">Главная</button>
+            <button class="chip" type="button" data-demo="sleep">Сон</button>
+            <button class="chip" type="button" data-demo="food">Питание</button>
+            <button class="chip" type="button" data-demo="move">Активность</button>
+            <button class="chip" type="button" data-demo="ai">ИИ-чат</button>
+          </div>
+        </figure>
+
+        <h3 class="gallery-sub">Как это реализовано</h3>
+        <p class="muted">Снимки с устройства. Те же экраны, что на макетах: сводка дня, сон, питание, активность, профиль и ИИ-помощник.</p>
+        <div class="shot-grid">
+          <figure class="card shot shot-device">
+            <img src="assets/device-home.png" alt="Главный экран HealthApp на Android: индекс дня 75, сон 8 ч, вода 2600 мл, ИИ-чат и разбор" width="460" height="1024" />
+            <figcaption>Главная на устройстве</figcaption>
+          </figure>
+          <figure class="card shot shot-device">
+            <img src="assets/device-sleep.png" alt="Экран сна на Android: 8 часов, цель из профиля, качество 90 и график недели" width="460" height="1024" />
+            <figcaption>Сон на устройстве</figcaption>
+          </figure>
+          <figure class="card shot shot-device">
+            <img src="assets/device-nutrition.png" alt="Экран питания на Android: цель 2705 ккал, КБЖУ, ИИ-план и дневник по дням" width="460" height="1024" />
+            <figcaption>Питание на устройстве</figcaption>
+          </figure>
+          <figure class="card shot shot-device">
+            <img src="assets/device-activity.png" alt="Экран активности на Android: 65 шагов из Health Connect, калории и цель 10 000" width="460" height="1024" />
+            <figcaption>Активность на устройстве</figcaption>
+          </figure>
+          <figure class="card shot shot-device">
+            <img src="assets/device-profile.png" alt="Профиль HealthApp на Android: цели по сну, воде и шагам, показатели тела" width="460" height="1024" />
+            <figcaption>Профиль на устройстве</figcaption>
+          </figure>
+          <figure class="card shot shot-device">
+            <img src="assets/device-ai.png" alt="ИИ-помощник на Android: разбор сна, питания, активности, гидратации и связей" width="460" height="1024" />
+            <figcaption>ИИ-помощник на устройстве</figcaption>
+          </figure>
         </div>
       </div>
     </section>
