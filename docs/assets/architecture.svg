@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="560" viewBox="0 0 1100 560">
+  <title>Схема прототипа HealthApp</title>
+  <defs>
+    <linearGradient id="gMintSky" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1DD1A1"/>
+      <stop offset="100%" stop-color="#54A0FF"/>
+    </linearGradient>
+    <linearGradient id="gSky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#54A0FF"/>
+      <stop offset="100%" stop-color="#2E86DE"/>
+    </linearGradient>
+  </defs>
+  <rect width="1100" height="560" rx="28" fill="#F7FBFA"/>
+  <rect x="1" y="1" width="1098" height="558" rx="27" fill="none" stroke="#1DD1A1" stroke-opacity="0.18"/>
+  <text x="48" y="48" font-family="Inter, Segoe UI, sans-serif" font-size="20" font-weight="700" fill="#1C1C1E">Схема прототипа</text>
+  <text x="48" y="74" font-family="Inter, Segoe UI, sans-serif" font-size="13" fill="#6B7280">Клиент → сервер → внешние источники данных</text>
+  <rect x="48" y="110" width="300" height="168" rx="22" fill="#fff" stroke="#000" stroke-opacity="0.06"/>
+  <rect x="48" y="110" width="8" height="168" rx="4" fill="url(#gMintSky)"/>
+  <text x="76" y="148" font-family="Inter, Segoe UI, sans-serif" font-size="15" font-weight="700" fill="#1C1C1E">Android-приложение</text>
+  <text x="76" y="172" font-family="Inter, Segoe UI, sans-serif" font-size="13" fill="#4B5563">Kotlin, Jetpack Compose</text>
+  <text x="76" y="194" font-family="Inter, Segoe UI, sans-serif" font-size="13" fill="#4B5563">офлайн-очередь, виджеты</text>
+  <text x="76" y="216" font-family="Inter, Segoe UI, sans-serif" font-size="13" fill="#4B5563">уведомления, живые тренировки</text>
+  <text x="76" y="248" font-family="Inter, Segoe UI, sans-serif" font-size="12" fill="#10AC84">minSdk 26 - Android 8.0+</text>
+  <rect x="48" y="302" width="300" height="112" rx="22" fill="#fff" stroke="#000" stroke-opacity="0.06"/>
+  <rect x="48" y="302" width="8" height="112" rx="4" fill="url(#gSky)"/>
+  <text x="76" y="340" font-family="Inter, Segoe UI, sans-serif" font-size="15" font-weight="700" fill="#1C1C1E">Виджеты</text>
+  <text x="76" y="364" font-family="Inter, Segoe UI, sans-serif" font-size="13" fill="#4B5563">сводка на рабочем столе</text>
+  <text x="76" y="386" font-family="Inter, Segoe UI, sans-serif" font-size="13" fill="#4B5563">напоминания и цели</text>
+  <rect x="48" y="438" width="300" height="86" rx="22" fill="#fff" stroke="#000" stroke-opacity="0.06"/>
+  <text x="76" y="474" font-family="Inter, Segoe UI, sans-serif" font-size="15" font-weight="700" fill="#1C1C1E">GPS и карты</text>
+  <text x="76" y="498" font-family="Inter, Segoe UI, sans-serif" font-size="13" fill="#4B5563">маршрут живой тренировки</text>
+  <path d="M348 194 H430" stroke="#54A0FF" stroke-width="2.5" fill="none"/>
+  <polygon points="430,188 444,194 430,200" fill="#54A0FF"/>
+  <rect x="460" y="150" width="250" height="260" rx="24" fill="#fff" stroke="#000" stroke-opacity="0.06"/>
+  <rect x="460" y="150" width="250" height="64" rx="24" fill="url(#gMintSky)"/>
+  <rect x="460" y="190" width="250" height="24" fill="url(#gMintSky)"/>
+  <text x="585" y="190" text-anchor="middle" font-family="Inter, Segoe UI, sans-serif" font-size="16" font-weight="700" fill="#fff">HealthApp API</text>
+  <text x="585" y="248" text-anchor="middle" font-family="Inter, Segoe UI, sans-serif" font-size="13" fill="#4B5563">FastAPI - REST + WebSocket</text>
+  <text x="585" y="274" text-anchor="middle" font-family="Inter, Segoe UI, sans-serif" font-size="13" fill="#4B5563">JWT, синхронизация дневника</text>
+  <text x="585" y="300" text-anchor="middle" font-family="Inter, Segoe UI, sans-serif" font-size="13" fill="#4B5563">ИИ-помощник, аналитика</text>
+  <text x="585" y="326" text-anchor="middle" font-family="Inter, Segoe UI, sans-serif" font-size="13" fill="#4B5563">питание, сон, активность</text>
+  <text x="585" y="368" text-anchor="middle" font-family="Inter, Segoe UI, sans-serif" font-size="12" fill="#2E86DE">версия API 1.1.0</text>
+  <path d="M585 410 V448" stroke="#1DD1A1" stroke-width="2.5" fill="none"/>
+  <polygon points="579,448 585,462 591,448" fill="#1DD1A1"/>
+  <rect x="500" y="468" width="170" height="56" rx="16" fill="#fff" stroke="#000" stroke-opacity="0.06"/>
+  <text x="585" y="502" text-anchor="middle" font-family="Inter, Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#1C1C1E">PostgreSQL</text>
+  <rect x="780" y="120" width="272" height="78" rx="20" fill="#fff" stroke="#000" stroke-opacity="0.06"/>
+  <text x="916" y="152" text-anchor="middle" font-family="Inter, Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#1C1C1E">Языковая модель</text>
+  <text x="916" y="176" text-anchor="middle" font-family="Inter, Segoe UI, sans-serif" font-size="12" fill="#6B7280">персональные разборы дневника</text>
+  <rect x="780" y="220" width="272" height="78" rx="20" fill="#fff" stroke="#000" stroke-opacity="0.06"/>
+  <text x="916" y="252" text-anchor="middle" font-family="Inter, Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#1C1C1E">Каталоги продуктов</text>
+  <text x="916" y="276" text-anchor="middle" font-family="Inter, Segoe UI, sans-serif" font-size="12" fill="#6B7280">Open Food Facts - FatSecret</text>
+  <rect x="780" y="320" width="272" height="78" rx="20" fill="#fff" stroke="#000" stroke-opacity="0.06"/>
+  <text x="916" y="352" text-anchor="middle" font-family="Inter, Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#1C1C1E">Карты и погода</text>
+  <text x="916" y="376" text-anchor="middle" font-family="Inter, Segoe UI, sans-serif" font-size="12" fill="#6B7280">маршрут живой тренировки</text>
+  <path d="M710 210 H780" stroke="#54A0FF" stroke-width="2" fill="none"/>
+  <polygon points="780,204 794,210 780,216" fill="#54A0FF"/>
+  <path d="M710 260 H780" stroke="#54A0FF" stroke-width="2" fill="none"/>
+  <polygon points="780,254 794,260 780,266" fill="#54A0FF"/>
+  <path d="M710 310 H744 V360 H780" stroke="#54A0FF" stroke-width="2" fill="none"/>
+  <polygon points="780,354 794,360 780,366" fill="#54A0FF"/>
+</svg>

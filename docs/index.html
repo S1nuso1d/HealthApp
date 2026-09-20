@@ -3,18 +3,462 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>HealthApp — документы</title>
-  <style>
-    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 3rem auto; padding: 0 1rem; line-height: 1.5; }
-    a { color: #0a7a6a; }
-  </style>
+  <title>HealthApp — прототип персонального дневника здоровья</title>
+  <meta name="description" content="HealthApp — прототип Android-приложения для учёта сна, питания, воды и активности с ИИ-помощником. Проект ООО «Код Арт» при поддержке Фонда содействия инновациям." />
+  <link rel="icon" href="assets/logo-healthapp.png" />
+  <link rel="apple-touch-icon" href="assets/logo-healthapp.png" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="canonical" href="https://s1nuso1d.github.io/HealthApp/" />
+  <meta property="og:title" content="HealthApp — прототип дневника здоровья" />
+  <meta property="og:description" content="Android-приложение, ИИ-помощник и синхронизация дневника. Проект студенческого стартапа ООО «Код Арт»." />
+  <meta property="og:url" content="https://s1nuso1d.github.io/HealthApp/" />
+  <meta property="og:image" content="https://s1nuso1d.github.io/HealthApp/assets/logo-healthapp.png" />
+  <meta property="og:locale" content="ru_RU" />
+  <meta name="theme-color" content="#10AC84" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "HealthApp",
+    "applicationCategory": "HealthApplication",
+    "operatingSystem": "Android 8.0+",
+    "softwareVersion": "1.1.0",
+    "description": "Прототип персонального дневника здоровья: сон, питание, вода, активность и ИИ-помощник.",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "RUB" },
+    "author": {
+      "@type": "Organization",
+      "name": "ООО «Код Арт»",
+      "email": "tatarintsev_dan1l@mail.ru",
+      "telephone": "+79158789868",
+      "sameAs": [
+        "https://t.me/HealthSyncc",
+        "https://vk.ru/club235669586"
+      ],
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "мкр. Северный, д. 30, кв. 19",
+        "addressLocality": "п. Строитель",
+        "addressRegion": "Тамбовская область",
+        "postalCode": "392525",
+        "addressCountry": "RU"
+      }
+    }
+  }
+  </script>
 </head>
 <body>
-  <h1>HealthApp</h1>
-  <p>Юридические документы приложения:</p>
-  <ul>
-    <li><a href="legal/privacy.html">Политика конфиденциальности</a></li>
-    <li><a href="legal/terms.html">Условия использования</a></li>
-  </ul>
+  <a class="skip" href="#about">К содержанию</a>
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="#top">
+        <img class="brand-logo" src="assets/logo-healthapp.png?v=2" alt="" width="40" height="40" />
+        HealthApp
+      </a>
+      <button class="menu-btn" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Открыть меню">☰</button>
+      <nav id="site-nav" class="nav" aria-label="Разделы сайта">
+        <a href="#about">О проекте</a>
+        <a href="#product">Продукт</a>
+        <a href="#tech">Разработка</a>
+        <a href="#gallery">Прототип</a>
+        <a href="#news">Новости</a>
+        <a href="#contacts" class="nav-cta">Контакты</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="wrap hero-grid">
+        <div>
+          <p class="eyebrow">Прототип · студенческий стартап · Android</p>
+          <h1>HealthApp — дневник здоровья, который собирает день в одну картину</h1>
+          <p class="lead">
+            Приложение помогает вести сон, воду, питание и активность
+            и отвечает на вопросы по вашему дневнику. Это работающий прототип, а не медицинское изделие.
+          </p>
+          <div class="hero-actions">
+            <a class="btn btn-light" href="#gallery">Смотреть прототип</a>
+            <a class="btn btn-ghost" href="#about">О проекте и поддержке Фонда</a>
+          </div>
+          <div class="hero-stats">
+            <div><strong>4 опоры</strong><span>сон, вода, еда, движение</span></div>
+            <div><strong>1.1.0</strong><span>версия прототипа</span></div>
+            <div><strong>ИИ-чат</strong><span>разбор по дневнику</span></div>
+          </div>
+        </div>
+        <div class="phone-stage" aria-hidden="true">
+          <div class="phone hero-phone">
+            <div class="phone-screen">
+              <div class="screen is-on">
+                <div class="app-hero">
+                  <small>20 сентября</small>
+                  <h3>Добрый день</h3>
+                  <div class="hero-score">
+                    <span>Индекс дня</span>
+                    <b>82</b>
+                  </div>
+                </div>
+                <div class="metric-row">
+                  <div class="metric"><small>Сон</small><b>7,4 ч</b></div>
+                  <div class="metric"><small>Вода</small><b>1 450 мл</b></div>
+                  <div class="metric"><small>Питание</small><b>1 820 ккал</b></div>
+                  <div class="metric"><small>Шаги</small><b>8 420</b></div>
+                </div>
+                <div class="pill"><small>Фокус на сегодня</small><b>Допить воду и лечь до 23:30</b></div>
+                <div class="nav-bar">
+                  <span class="is-active"><span class="dot"></span>Главная</span>
+                  <span><span class="dot"></span>Сон</span>
+                  <span><span class="dot"></span>Питание</span>
+                  <span><span class="dot"></span>Активность</span>
+                  <span><span class="dot"></span>Профиль</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="about">
+      <div class="wrap">
+        <p class="section-kicker">О проекте</p>
+        <h2>Краткое описание</h2>
+        <div class="grid-2 about-grid">
+          <article class="card">
+            <p>
+              HealthApp — мобильный прототип персонального дневника здоровья. Пользователь фиксирует
+              сон, питание, воду, тренировки и самочувствие, а приложение собирает из этого сводку дня,
+              цели и персональные подсказки.
+            </p>
+            <p>
+              Данные можно вводить вручную или получать с телефона.
+              ИИ-помощник отвечает только на основе записей дневника и не ставит диагнозы.
+            </p>
+            <p class="legal-note">
+              Приложение носит информационный характер и не заменяет консультацию врача.
+            </p>
+          </article>
+          <aside class="card">
+            <h3>Что уже есть в прототипе</h3>
+            <ul class="checklist">
+              <li>Главная со сводкой дня и индексом</li>
+              <li>Дневники сна, питания, воды и активности</li>
+              <li>Живые тренировки с картой маршрута</li>
+              <li>ИИ-чат по данным пользователя</li>
+              <li>Сообщество, цели, напоминания, виджет</li>
+              <li>Синхронизация с сервером и работа без сети</li>
+            </ul>
+          </aside>
+        </div>
+
+        <div class="support" id="fasie">
+          <img src="assets/fasie-logo.svg" alt="Логотип Фонда содействия инновациям" width="220" height="114" />
+          <p>
+            Проект создан при поддержке Федерального государственного бюджетного учреждения "Фонд содействия развитию малых форм предприятий в научно-технической сфере" в рамках программы "Студенческий стартап" федерального проекта "Платформа университетского технологического предпринимательства".
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="product">
+      <div class="wrap">
+        <p class="section-kicker">Возможности</p>
+        <h2>Как устроен продукт</h2>
+        <p class="muted">Четыре опоры дня плюс помощник и интеграции — в одном Android-приложении.</p>
+        <div class="feature-grid">
+          <article class="card">
+            <div class="icon-box" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10ac84" stroke-width="2"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+            </div>
+            <h3>Сон</h3>
+            <p>Ручной ввод ночи, качество, график недели, запись звуков и текстовая сводка.</p>
+          </article>
+          <article class="card">
+            <div class="icon-box" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2e86de" stroke-width="2"><path d="M4 11h16M7 11c0 6 5 9 5 9s5-3 5-9M8 7h.01M16 7h.01M12 5v2"/></svg>
+            </div>
+            <h3>Питание</h3>
+            <p>Дневник КБЖУ, сканер штрихкода, свои блюда, каталоги продуктов и таймер интервального голодания.</p>
+          </article>
+          <article class="card">
+            <div class="icon-box" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#54a0ff" stroke-width="2"><path d="M12 3s6 6.2 6 10.5A6 6 0 1 1 6 13.5C6 9.2 12 3 12 3z"/></svg>
+            </div>
+            <h3>Вода</h3>
+            <p>Быстрые добавления, цель дня, кольцо прогресса, напоминания и учёт из виджета на рабочем столе.</p>
+          </article>
+          <article class="card">
+            <div class="icon-box" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10ac84" stroke-width="2"><path d="M13 5l2 3-4 3 3 4"/><circle cx="7" cy="19" r="1"/><circle cx="17" cy="19" r="1"/></svg>
+            </div>
+            <h3>Активность</h3>
+            <p>Шаги, калории, живая тренировка с GPS-маршрутом и ручные тренировки.</p>
+          </article>
+          <article class="card">
+            <div class="icon-box" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2e86de" stroke-width="2"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/><path d="M19 15l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2z"/></svg>
+            </div>
+            <h3>ИИ-помощник</h3>
+            <p>Разбор сна, еды, нагрузки и воды по истории дневника. Без диагнозов и назначений.</p>
+          </article>
+          <article class="card">
+            <div class="icon-box" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10ac84" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <h3>Сообщество</h3>
+            <p>Друзья, клубы и достижения — если хотите делиться прогрессом и держать цели вместе.</p>
+          </article>
+        </div>
+        <div class="steps">
+          <article class="card"><span>01</span><h3>Запись дня</h3><p>Сон, вода, еда и движение вносятся вручную в дневник.</p></article>
+          <article class="card"><span>02</span><h3>Сводка</h3><p>Главный экран показывает индекс дня, прогресс целей и один фокус.</p></article>
+          <article class="card"><span>03</span><h3>Разбор</h3><p>ИИ отвечает на вопросы только по вашим записям и трендам.</p></article>
+          <article class="card"><span>04</span><h3>Синхронизация</h3><p>Без сети данные копятся на телефоне и уходят на сервер позже.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="tech">
+      <div class="wrap">
+        <p class="section-kicker">Разработка</p>
+        <h2>Технические характеристики</h2>
+        <div class="grid-2 tech-grid">
+          <div class="card">
+            <table class="tech-table">
+              <tr><th>Платформа</th><td>Android 8.0 и новее (API 26+)</td></tr>
+              <tr><th>Клиент</th><td>Kotlin, Jetpack Compose, Hilt, Room/DataStore, виджеты и уведомления</td></tr>
+              <tr><th>Сервер</th><td>FastAPI, PostgreSQL, JWT, REST и WebSocket, версия API 1.1.0</td></tr>
+              <tr><th>Синхронизация</th><td>Офлайн-очередь на телефоне, отправка записей при появлении сети</td></tr>
+              <tr><th>Интеграции</th><td>Open Food Facts, FatSecret, карты и погода</td></tr>
+              <tr><th>ИИ</th><td>Персональные ответы только по данным дневника пользователя</td></tr>
+              <tr><th>Безопасность</th><td>Хеш пароля, политика конфиденциальности, удаление аккаунта</td></tr>
+              <tr><th>Идентификатор</th><td>com.healthapp.android</td></tr>
+            </table>
+          </div>
+          <figure class="card scheme-card">
+            <figcaption>Схема архитектуры прототипа</figcaption>
+            <img src="assets/architecture.svg" alt="Схема: Android-приложение подключается к API FastAPI, данные хранятся в PostgreSQL, снаружи — ИИ, каталоги продуктов, карты" width="1100" height="560" />
+          </figure>
+        </div>
+        <figure class="card scheme-card flow-card">
+          <figcaption>Схема потока данных</figcaption>
+          <img src="assets/data-flow.svg" alt="Поток данных: ввод на устройстве, очередь на телефоне, API, PostgreSQL и персональный ответ" width="1100" height="420" />
+        </figure>
+      </div>
+    </section>
+
+    <section class="section" id="gallery">
+      <div class="wrap">
+        <p class="section-kicker">Изображения и демонстрация</p>
+        <h2>Прототип на экране</h2>
+        <p class="muted">Сначала макеты в палитре мята/небо, затем снимки тех же разделов на реальном Android — как это собрано в прототипе 1.1.0.</p>
+
+        <figure class="card scheme-card devices-card">
+          <figcaption>Смартфон со сводкой дня</figcaption>
+          <img src="assets/devices.svg" alt="Схема прототипа: смартфон HealthApp со сводкой дня, сном, водой, питанием и шагами" width="920" height="560" />
+        </figure>
+
+        <h3 class="gallery-sub">Макеты разделов</h3>
+        <div class="shot-grid">
+          <figure class="card shot">
+            <img src="assets/screen-home.svg" alt="Главный экран прототипа: приветствие, индекс дня 82, сон, вода, питание и шаги" width="390" height="800" />
+            <figcaption>Главная — сводка дня</figcaption>
+          </figure>
+          <figure class="card shot">
+            <img src="assets/screen-sleep.svg" alt="Экран сна: последняя ночь 7 часов 40 минут, график недели и запись звуков" width="390" height="800" />
+            <figcaption>Сон — ночь и график</figcaption>
+          </figure>
+          <figure class="card shot">
+            <img src="assets/screen-nutrition.svg" alt="Экран питания: 1820 ккал, КБЖУ, записи завтрака и обеда, сканер штрихкода" width="390" height="800" />
+            <figcaption>Питание — дневник КБЖУ</figcaption>
+          </figure>
+          <figure class="card shot">
+            <img src="assets/screen-activity.svg" alt="Экран активности: 8420 шагов и карта живой тренировки с GPS-маршрутом" width="390" height="800" />
+            <figcaption>Активность — шаги и карта</figcaption>
+          </figure>
+          <figure class="card shot">
+            <img src="assets/screen-ai.svg" alt="Чат ИИ-помощника: разбор сна за 14 дней по записям дневника" width="390" height="800" />
+            <figcaption>ИИ-помощник</figcaption>
+          </figure>
+          <figure class="card shot shot-logo">
+            <img src="assets/logo-healthapp.png" alt="Логотип приложения HealthApp: медицинский крест и сердце" width="320" height="320" />
+            <figcaption>Логотип продукта</figcaption>
+          </figure>
+        </div>
+
+        <h3 class="gallery-sub">Как это реализовано</h3>
+        <p class="muted">Снимки с устройства. Те же экраны, что на макетах: сводка дня, сон, питание, активность, профиль и ИИ-помощник.</p>
+        <div class="shot-grid">
+          <figure class="card shot shot-device">
+            <img src="assets/device-home.png" alt="Главный экран HealthApp на Android: индекс дня 75, сон 8 ч, вода 2600 мл, ИИ-чат и разбор" width="460" height="1024" />
+            <figcaption>Главная на устройстве</figcaption>
+          </figure>
+          <figure class="card shot shot-device">
+            <img src="assets/device-sleep.png" alt="Экран сна на Android: 8 часов, цель из профиля, качество 90 и график недели" width="460" height="1024" />
+            <figcaption>Сон на устройстве</figcaption>
+          </figure>
+          <figure class="card shot shot-device">
+            <img src="assets/device-nutrition.png" alt="Экран питания на Android: цель 2705 ккал, КБЖУ, ИИ-план и дневник по дням" width="460" height="1024" />
+            <figcaption>Питание на устройстве</figcaption>
+          </figure>
+          <figure class="card shot shot-device">
+            <img src="assets/device-activity.png" alt="Экран активности на Android: 65 шагов из Health Connect, калории и цель 10 000" width="460" height="1024" />
+            <figcaption>Активность на устройстве</figcaption>
+          </figure>
+          <figure class="card shot shot-device">
+            <img src="assets/device-profile.png" alt="Профиль HealthApp на Android: цели по сну, воде и шагам, показатели тела" width="460" height="1024" />
+            <figcaption>Профиль на устройстве</figcaption>
+          </figure>
+          <figure class="card shot shot-device">
+            <img src="assets/device-ai.png" alt="ИИ-помощник на Android: разбор сна, питания, активности, гидратации и связей" width="460" height="1024" />
+            <figcaption>ИИ-помощник на устройстве</figcaption>
+          </figure>
+        </div>
+
+        <div class="gallery demo-gallery">
+          <div class="card">
+            <p class="demo-lead">Демонстрация работы прототипа. Нажимайте разделы — экраны также переключаются сами.</p>
+            <div class="phone-stage">
+              <div class="phone" id="demo-phone">
+                <div class="phone-screen">
+                  <div class="screen is-on" data-screen="home">
+                    <div class="app-hero">
+                      <small>Главная</small>
+                      <h3>Сводка дня</h3>
+                      <b class="score">Индекс 82</b>
+                    </div>
+                    <div class="metric-row">
+                      <div class="metric"><small>Сон</small><b>7:40</b></div>
+                      <div class="metric"><small>Вода</small><b>72%</b></div>
+                      <div class="metric"><small>Еда</small><b>1820</b></div>
+                      <div class="metric"><small>Шаги</small><b>8420</b></div>
+                    </div>
+                    <div class="pill">Фокус: вода и отход ко сну</div>
+                  </div>
+                  <div class="screen" data-screen="sleep">
+                    <div class="app-hero"><small>Сон</small><h3>Последняя ночь</h3><b>7 ч 40 мин · качество 86</b></div>
+                    <div class="pill">Цель: 8 часов</div>
+                    <div class="progress"><span></span></div>
+                    <div class="pill">ИИ-сводка по звукам ночи доступна после записи</div>
+                  </div>
+                  <div class="screen" data-screen="food">
+                    <div class="app-hero"><small>Питание</small><h3>1 820 ккал</h3><span>Б 96 · Ж 58 · У 210</span></div>
+                    <div class="pill"><b>Завтрак</b> Овсянка на молоке · 420 ккал</div>
+                    <div class="pill"><b>Обед</b> Курица и рис · 680 ккал</div>
+                    <div class="pill">Сканер штрихкода и свои блюда</div>
+                  </div>
+                  <div class="screen" data-screen="move">
+                    <div class="app-hero"><small>Активность</small><h3>8 420 шагов</h3><span>цель 10 000</span></div>
+                    <div class="progress"><span class="wide"></span></div>
+                    <div class="pill"><b>Живая тренировка</b> GPS-маршрут, темп, погода</div>
+                    <div class="pill">GPS-маршрут и ручные тренировки</div>
+                  </div>
+                  <div class="screen" data-screen="ai">
+                    <div class="app-hero"><small>ИИ-помощник</small><h3>Разбор по дневнику</h3></div>
+                    <div class="chat">Здравствуйте. Вижу недосып в среду и мало воды вчера. С чего начнём?</div>
+                    <div class="chat me">Разбери сон за 14 дней</div>
+                    <div class="chat">Средняя длительность 7,1 ч, цель 8 ч. Самый короткий сон — в ночь после позднего ужина.</div>
+                  </div>
+                  <div class="nav-bar">
+                    <button type="button" class="is-active" data-demo="home"><span class="dot"></span>Главная</button>
+                    <button type="button" data-demo="sleep"><span class="dot"></span>Сон</button>
+                    <button type="button" data-demo="food"><span class="dot"></span>Еда</button>
+                    <button type="button" data-demo="move"><span class="dot"></span>Шаги</button>
+                    <button type="button" data-demo="ai"><span class="dot"></span>ИИ</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="demo-controls">
+              <button class="chip is-on" type="button" data-demo="home">Главная</button>
+              <button class="chip" type="button" data-demo="sleep">Сон</button>
+              <button class="chip" type="button" data-demo="food">Питание</button>
+              <button class="chip" type="button" data-demo="move">Активность</button>
+              <button class="chip" type="button" data-demo="ai">ИИ-чат</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="news">
+      <div class="wrap">
+        <p class="section-kicker">Новости</p>
+        <h2>Обновления проекта</h2>
+        <div class="news-grid">
+          <article class="card">
+            <time datetime="2026-09">сентябрь 2026</time>
+            <h3>Опубликован сайт проекта</h3>
+            <p>Открыта публичная страница прототипа HealthApp с описанием, схемами, демонстрацией и контактами предприятия.</p>
+          </article>
+          <article class="card">
+            <time datetime="2026-09-15">сентябрь 2026</time>
+            <h3>Прототип 1.1.0</h3>
+            <p>Сводка дня, дневники, ИИ-помощник, синхронизация с сервером и подготовка витрины Google Play.</p>
+          </article>
+          <article class="card">
+            <time datetime="2025-10-31">31 октября 2025</time>
+            <h3>Зарегистрировано предприятие</h3>
+            <p>ООО «Код Арт» создано для разработки программного обеспечения и ведения проекта HealthApp.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="contacts">
+      <div class="wrap">
+        <p class="section-kicker">Контакты</p>
+        <h2>Реквизиты предприятия</h2>
+        <div class="contact-grid">
+          <address class="card">
+            <p><strong>ООО «Код Арт»</strong></p>
+            <p>Юр. адрес: 392525, Тамбовская область, п. Строитель, мкр. Северный, д. 30, кв. 19</p>
+            <p>ИНН 6800016843 · КПП 680001001 · ОГРН 1256800003910</p>
+            <p>Генеральный директор: Татаринцев Даниил Олегович</p>
+            <p>Email: <a href="mailto:tatarintsev_dan1l@mail.ru">tatarintsev_dan1l@mail.ru</a></p>
+            <p>Телефон: <a href="tel:+79158789868">+7 (915) 878-98-68</a></p>
+          </address>
+          <div class="card">
+            <h3>Связь</h3>
+            <div class="socials">
+              <a class="social" href="tel:+79158789868" aria-label="Телефон +7 915 878-98-68">
+                <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1.1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.2.2 2.4.6 3.6.1.4 0 .8-.3 1.1z"/></svg>
+              </a>
+              <a class="social" href="https://t.me/HealthSyncc" rel="noopener noreferrer" target="_blank" aria-label="Telegram">
+                <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M21.6 3.2 2.8 10.6c-1.3.5-1.3 1.2-.2 1.5l4.8 1.5 1.9 5.7c.2.7.4.9 1.1.9.3 0 .6-.1.8-.4l2.6-3.2 5.1 3.7c.9.5 1.6.2 1.8-.9l2.8-14.5c.3-1.2-.4-1.7-1.1-1.2zM8.8 13.2l9.8-6.6c.4-.3.8 0 .4.3l-7.9 7.6-.3 3.4-2-4.7z"/></svg>
+              </a>
+              <a class="social" href="https://vk.ru/club235669586" rel="noopener noreferrer" target="_blank" aria-label="ВКонтакте">
+                <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12.8 18.2h1.5s.4 0 .7-.3c.2-.3.2-.8.2-.8s0-2.5 1.1-2.9c1.1-.3 2.5 2.4 4 3.5.5.4.9.5.9.5h3.2s1.7 0 .8-1.4c-.1-.1-.5-1.1-2.7-3.1-2.3-2.1-2-1.8.8-5.4 1.7-2.2 2.3-3.5 2.1-4.1-.2-.5-1.4-.4-1.4-.4h-3.2s-.2 0-.4.1c-.2.1-.3.4-.3.4s-1.6 4.2-3.4 4.8c-1.2.4-1.7-.3-1.9-1.1-.2-.7-.2-2.4-.2-3.7 0-1.3-.2-1.8-.6-2.1-.3-.3-.8-.4-1.5-.4h-2.1c-.9 0-1.9.3-2.2 1.1-.2.5 0 .8.2.9.3.2.7.2.9.4.3.4.3 1.3.3 1.3s.2 4.1-.4 4.6c-.4.4-1 .1-2.2-1.2C5.4 9.8 4.1 6.5 4.1 6.5s-.1-.3-.3-.5c-.2-.2-.5-.3-.5-.3H.4s-.7 0-.9.3c-.2.3 0 .8 0 .8s3.3 7.7 7 11.6c3.5 3.6 6.8 3.4 6.8 3.4z"/></svg>
+              </a>
+              <a class="social" href="https://github.com/S1nuso1d/HealthApp" rel="noopener noreferrer" target="_blank" aria-label="GitHub">
+                <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 2C6.5 2 2 6.6 2 12.2c0 4.5 2.9 8.3 6.9 9.6.5.1.7-.2.7-.5v-1.8c-2.8.6-3.4-1.4-3.4-1.4-.4-1.1-1.1-1.4-1.1-1.4-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.5 2.3 1.1 2.9.8.1-.7.3-1.1.6-1.3-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.8 1 .8-.2 1.6-.3 2.4-.3s1.6.1 2.4.3c1.9-1.3 2.7-1 2.7-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.3 4.7-4.6 5 .4.3.7.9.7 1.9v2.8c0 .3.2.6.7.5 4-1.3 6.9-5.1 6.9-9.6C22 6.6 17.5 2 12 2z"/></svg>
+              </a>
+            </div>
+            <p class="muted docs-links"><a href="legal/privacy.html">Политика конфиденциальности</a> · <a href="legal/terms.html">Условия использования</a></p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <div class="footer-bottom">
+        <span>© 2026 ООО «Код Арт» · HealthApp</span>
+        <span class="socials socials-footer">
+          <a class="social" href="https://t.me/HealthSyncc" rel="noopener noreferrer" target="_blank" aria-label="Telegram">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M21.6 3.2 2.8 10.6c-1.3.5-1.3 1.2-.2 1.5l4.8 1.5 1.9 5.7c.2.7.4.9 1.1.9.3 0 .6-.1.8-.4l2.6-3.2 5.1 3.7c.9.5 1.6.2 1.8-.9l2.8-14.5c.3-1.2-.4-1.7-1.1-1.2zM8.8 13.2l9.8-6.6c.4-.3.8 0 .4.3l-7.9 7.6-.3 3.4-2-4.7z"/></svg>
+          </a>
+          <a class="social" href="https://vk.ru/club235669586" rel="noopener noreferrer" target="_blank" aria-label="ВКонтакте">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12.8 18.2h1.5s.4 0 .7-.3c.2-.3.2-.8.2-.8s0-2.5 1.1-2.9c1.1-.3 2.5 2.4 4 3.5.5.4.9.5.9.5h3.2s1.7 0 .8-1.4c-.1-.1-.5-1.1-2.7-3.1-2.3-2.1-2-1.8.8-5.4 1.7-2.2 2.3-3.5 2.1-4.1-.2-.5-1.4-.4-1.4-.4h-3.2s-.2 0-.4.1c-.2.1-.3.4-.3.4s-1.6 4.2-3.4 4.8c-1.2.4-1.7-.3-1.9-1.1-.2-.7-.2-2.4-.2-3.7 0-1.3-.2-1.8-.6-2.1-.3-.3-.8-.4-1.5-.4h-2.1c-.9 0-1.9.3-2.2 1.1-.2.5 0 .8.2.9.3.2.7.2.9.4.3.4.3 1.3.3 1.3s.2 4.1-.4 4.6c-.4.4-1 .1-2.2-1.2C5.4 9.8 4.1 6.5 4.1 6.5s-.1-.3-.3-.5c-.2-.2-.5-.3-.5-.3H.4s-.7 0-.9.3c-.2.3 0 .8 0 .8s3.3 7.7 7 11.6c3.5 3.6 6.8 3.4 6.8 3.4z"/></svg>
+          </a>
+        </span>
+      </div>
+    </div>
+  </footer>
+  <script src="app.js" defer></script>
 </body>
 </html>

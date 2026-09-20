@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://s1nuso1d.github.io/HealthApp/sitemap.xml

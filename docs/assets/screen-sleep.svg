@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="800" viewBox="0 0 390 800">
+  <title>HealthApp sleep</title>
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#10AC84"/><stop offset="100%" stop-color="#2E86DE"/></linearGradient></defs>
+  <rect width="390" height="800" rx="40" fill="#0B1C20"/>
+  <rect x="12" y="12" width="366" height="776" rx="32" fill="#F2F2F7"/>
+  
+  <rect x="24" y="56" width="48" height="48" rx="14" fill="url(#g)"/>
+  <text x="88" y="76" font-family="Inter, Segoe UI, sans-serif" font-size="20" font-weight="800" fill="#1C1C1E">Сон</text>
+  <text x="88" y="98" font-family="Inter, Segoe UI, sans-serif" font-size="12" fill="#8E8E93">Последняя ночь и график недели</text>
+  <rect x="24" y="128" width="342" height="128" rx="26" fill="url(#g)"/>
+  <text x="44" y="164" font-family="Inter, Segoe UI, sans-serif" font-size="13" fill="#fff" opacity="0.9">Последняя ночь</text>
+  <text x="44" y="198" font-family="Inter, Segoe UI, sans-serif" font-size="28" font-weight="800" fill="#fff">7 ч 40 мин</text>
+  <text x="44" y="226" font-family="Inter, Segoe UI, sans-serif" font-size="14" fill="#fff">качество 86 - цель 8 ч</text>
+  <rect x="24" y="276" width="342" height="160" rx="22" fill="#fff"/>
+  <text x="40" y="306" font-family="Inter, Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#1C1C1E">Неделя</text>
+  <rect x="48" y="380" width="28" height="36" rx="8" fill="#D2E9FF"/>
+  <rect x="92" y="352" width="28" height="64" rx="8" fill="#54A0FF"/>
+  <rect x="136" y="364" width="28" height="52" rx="8" fill="#D2E9FF"/>
+  <rect x="180" y="340" width="28" height="76" rx="8" fill="url(#g)"/>
+  <rect x="224" y="356" width="28" height="60" rx="8" fill="#54A0FF"/>
+  <rect x="268" y="372" width="28" height="44" rx="8" fill="#D2E9FF"/>
+  <rect x="312" y="348" width="28" height="68" rx="8" fill="#10AC84"/>
+  <line x1="40" y1="336" x2="350" y2="336" stroke="#2E86DE" stroke-dasharray="4 4" opacity="0.35"/>
+  <rect x="24" y="452" width="342" height="88" rx="22" fill="#fff"/>
+  <text x="40" y="486" font-family="Inter, Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#1C1C1E">Запись звуков ночи</text>
+  <text x="40" y="512" font-family="Inter, Segoe UI, sans-serif" font-size="13" fill="#8E8E93">ИИ-сводка по храпу и разговорам</text>
+  <rect x="24" y="556" width="342" height="72" rx="22" fill="#fff"/>
+  <text x="40" y="586" font-family="Inter, Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#1C1C1E">Добавить ночь вручную</text>
+  <text x="40" y="608" font-family="Inter, Segoe UI, sans-serif" font-size="13" fill="#8E8E93">из дневника</text>
+
+  <rect x="12" y="688" width="366" height="100" rx="28" fill="#fff"/>
+  <rect x="118" y="706" width="52" height="36" rx="14" fill="url(#g)"/><text x="72" y="760" text-anchor="middle" font-family="Inter, Segoe UI, sans-serif" font-size="10" fill="#8E8E93">Главная</text><text x="144" y="760" text-anchor="middle" font-family="Inter, Segoe UI, sans-serif" font-size="10" font-weight="700" fill="#2E86DE">Сон</text><text x="196" y="760" text-anchor="middle" font-family="Inter, Segoe UI, sans-serif" font-size="10" fill="#8E8E93">Питание</text><text x="262" y="760" text-anchor="middle" font-family="Inter, Segoe UI, sans-serif" font-size="10" fill="#8E8E93">Активность</text><text x="328" y="760" text-anchor="middle" font-family="Inter, Segoe UI, sans-serif" font-size="10" fill="#8E8E93">Профиль</text>
+</svg>
