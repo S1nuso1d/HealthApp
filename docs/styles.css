@@ -364,21 +364,6 @@ a {
   margin-top: 24px;
 }
 
-.scheme-wide {
-  width: min(1240px, calc(100vw - 24px));
-  position: relative;
-  left: 50%;
-  transform: translateX(-50%);
-  margin-top: 24px;
-  padding: 32px 28px 36px;
-}
-
-.scheme-wide img {
-  width: min(100%, 1080px);
-  max-height: none;
-  margin-inline: auto;
-}
-
 .gallery-sub {
   margin: 36px 0 8px;
   font-size: clamp(1.25rem, 2.4vw, 1.6rem);
@@ -802,13 +787,6 @@ a {
   .gallery,
   .shot-grid {
     grid-template-columns: 1fr;
-  }
-
-  .scheme-wide {
-    width: 100%;
-    left: auto;
-    transform: none;
-    padding: 20px 12px 24px;
   }
 
   .phone.hero-phone {
