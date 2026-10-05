@@ -898,7 +898,6 @@ def _monthly_progress(db: Session, user_id: int, profile: UserProfile | None) ->
     meal_days = buckets["meal_days"]
     acts_by_day = buckets["acts_by_day"]
     activity_rows = buckets["activity_rows"]
-    water_target = buckets["water_target"]
     steps_target = buckets["steps_target"]
 
     water_days = sum(1 for v in water_by_day.values() if v > 0)
@@ -909,7 +908,7 @@ def _monthly_progress(db: Session, user_id: int, profile: UserProfile | None) ->
     ]
     steps_goal_days = 0
     full_days = 0
-    for day, acts in acts_by_day.items():
+    for _day, acts in acts_by_day.items():
         if _steps_on_day(acts) >= steps_target:
             steps_goal_days += 1
     all_days = set(water_by_day) | sleep_days | meal_days | set(acts_by_day)

@@ -50,6 +50,7 @@ from app.api.cycle import router as cycle_router
 
 
 logger = logging.getLogger(__name__)
+_ALEMBIC_INI = Path(__file__).resolve().parent.parent / "alembic.ini"
 
 
 @asynccontextmanager
@@ -68,7 +69,7 @@ async def lifespan(app: FastAPI):
         from alembic import command
         from alembic.config import Config
 
-        alembic_cfg = Config(str(Path(__file__).resolve().parent.parent / "alembic.ini"))
+        alembic_cfg = Config(str(_ALEMBIC_INI))
         alembic_cfg.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
         command.upgrade(alembic_cfg, "head")
     else:
