@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 180" role="img" aria-labelledby="title desc">
+  <title id="title">Фонд содействия инновациям</title>
+  <desc id="desc">Логотип Фонда содействия инновациям</desc>
+  <rect width="520" height="180" fill="#ffffff"/>
+  <g transform="translate(18 18)">
+    <circle cx="70" cy="70" r="62" fill="#0879b9"/>
+    <path d="M42 92V48h18v28h28v16z" fill="#ffffff"/>
+    <circle cx="88" cy="49" r="10" fill="#ffffff"/>
+    <path d="M34 110h72" stroke="#e83d48" stroke-width="8" stroke-linecap="square"/>
+  </g>
+  <g fill="#55565b" font-family="Arial, Helvetica, sans-serif" font-weight="700">
+    <text x="168" y="64" font-size="25">ФОНД СОДЕЙСТВИЯ</text>
+    <text x="168" y="96" font-size="25">ИННОВАЦИЯМ</text>
+    <text x="168" y="126" font-size="15" font-weight="400">Поддержка технологического</text>
+    <text x="168" y="147" font-size="15" font-weight="400">предпринимательства</text>
+  </g>
+</svg>
