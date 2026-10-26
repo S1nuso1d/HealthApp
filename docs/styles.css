@@ -928,14 +928,19 @@ a {
   line-height: 1.65;
 }
 
+.support-text-link,
+.support-text-link:visited,
+.support-text-link:hover,
+.support-text-link:focus-visible {
+  color: #000;
+}
+
 .support-text-link {
-  color: inherit;
   text-decoration: none;
 }
 
 .support-text-link:hover,
 .support-text-link:focus-visible {
-  color: var(--text);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
