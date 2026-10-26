@@ -919,6 +919,16 @@ a {
   width: min(260px, 42vw);
 }
 
+.support-logo-fasie img {
+  display: block;
+  width: min(220px, 38vw);
+  height: 114px;
+  max-width: min(220px, 38vw);
+  max-height: 114px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
 .support-footer .support-attribution {
   max-width: 980px;
   margin: 0 auto;
@@ -943,6 +953,13 @@ a {
   .support-logo img,
   .support-logo-tech img {
     max-width: min(240px, 76vw);
+    max-height: 90px;
+  }
+
+  .support-logo-fasie img {
+    width: min(220px, 76vw);
+    max-width: min(220px, 76vw);
+    height: 90px;
     max-height: 90px;
   }
 }
