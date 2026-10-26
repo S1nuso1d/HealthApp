@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 228" role="img" aria-labelledby="title desc">
+  <title id="title">Федеральный проект «Технологии»</title>
+  <desc id="desc">Графический знак и надпись федерального проекта «Технологии».</desc>
+  <rect width="520" height="228" rx="16" fill="#ffffff"/>
+  <g transform="translate(24 30)">
+    <path d="M0 0h112v26H26v26H86v26H52v26H26v26H0z" fill="#164f91"/>
+    <path d="M0 0h112v26H26v26H86v26H52v26H26v26H0z" fill="none" stroke="#164f91" stroke-width="2"/>
+    <rect x="0" y="142" width="112" height="12" fill="#e34c4c"/>
+  </g>
+  <g fill="#164f91" font-family="Arial, Helvetica, sans-serif" font-weight="700">
+    <text x="158" y="78" font-size="27">ФЕДЕРАЛЬНЫЙ</text>
+    <text x="158" y="112" font-size="27">ПРОЕКТ</text>
+    <text x="158" y="160" font-size="42">ТЕХНОЛОГИИ</text>
+  </g>
+  <rect x="158" y="176" width="310" height="5" rx="2.5" fill="#e34c4c"/>
+</svg>
