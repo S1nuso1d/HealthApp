@@ -919,6 +919,19 @@ a {
   width: min(260px, 42vw);
 }
 
+.support-logo-platform {
+  width: min(240px, 28vw);
+}
+
+.support-logo-platform img {
+  display: block;
+  width: min(240px, 28vw);
+  max-width: min(240px, 28vw);
+  max-height: 114px;
+  height: auto;
+  object-fit: contain;
+}
+
 .support-logo-fasie img {
   display: block;
   width: min(220px, 38vw);
@@ -953,6 +966,16 @@ a {
   .support-logo img,
   .support-logo-tech img {
     max-width: min(240px, 76vw);
+    max-height: 90px;
+  }
+
+  .support-logo-platform {
+    width: min(220px, 76vw);
+  }
+
+  .support-logo-platform img {
+    width: min(220px, 76vw);
+    max-width: min(220px, 76vw);
     max-height: 90px;
   }
 
