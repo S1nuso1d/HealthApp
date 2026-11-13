@@ -963,3 +963,25 @@ a {
     max-height: 90px;
   }
 }
+
+
+.support-footer .support-link,
+.support-footer .support-link:visited,
+.support-footer .support-link:hover,
+.support-footer .support-link:focus-visible {
+  color: #000;
+}
+
+.support-footer .support-link {
+  display: inline-block;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.support-footer .support-link:focus-visible {
+  outline: 2px solid var(--sky-dark);
+  outline-offset: 4px;
+  border-radius: 2px;
+}
